@@ -76,11 +76,19 @@ Google Cloud console, in the project you intend to use.
 `supabase/migrations/*.sql` is the schema. `supabase/proposed-library.sql` is a
 draft and is not applied.
 
-Fastest for now: open the SQL editor in the dashboard and run each migration
-file in order, once. Longer term the Supabase CLI applies them
-(`supabase link --project-ref <ref>` then `supabase db push`), and the same CLI
-runs the local Docker stack that the ownership tests will use. That local
-stack is still to be set up.
+Files are named `<YYYYMMDDHHMMSS>_<name>.sql`, the Supabase CLI convention, and
+run in filename order.
+
+Fastest for now: open the project's SQL editor
+(`https://supabase.com/dashboard/project/<project-ref>/sql/new`), paste one
+migration file, run it, and repeat for any later file, in order, once each.
+
+Longer term the Supabase CLI applies them (`supabase link --project-ref <ref>`
+then `supabase db push`), and the same CLI runs the local Docker stack the
+ownership tests will use. When we switch to the CLI, any migration already
+applied by hand is recorded with
+`supabase migration repair --status applied <version>` so `db push` does not
+try to run it again.
 
 ## What the app does with all this
 
@@ -90,6 +98,6 @@ stack is still to be set up.
   request and verify, Google redirect, sign out, display-name update.
 - `src/app/auth/callback/route.ts` finishes Google sign-in by exchanging the
   code for a session.
-- `supabase/migrations/0001_profiles.sql` creates a profile for every new user
+- `supabase/migrations/20261010000000_profiles.sql` creates a profile for every new user
   (name and avatar from Google when available, otherwise the email's local
   part) and enforces unique, editable display names.

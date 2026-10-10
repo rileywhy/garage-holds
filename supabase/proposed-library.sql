@@ -1,5 +1,5 @@
 -- PROPOSAL ONLY. Not a migration and not applied by `supabase db push`.
--- Profiles now live in migrations/0001_profiles.sql. Each remaining table moves
+-- Profiles now live in migrations/20261010000000_profiles.sql. Each remaining table moves
 -- into a numbered migration as its feature is built, after review: publication
 -- must require confirmed files, and design_files is written only by trusted
 -- server code. See docs/next-milestone.md.

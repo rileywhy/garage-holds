@@ -65,7 +65,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 
 ## Accounts
 
-Sign-in uses Supabase Auth with email one-time codes and Google. `src/features/auth` holds the server functions, forms, and the header menu; `src/lib/supabase` holds the request-bound clients; `src/proxy.ts` refreshes sessions on each navigation. Every user gets one profile (`supabase/migrations/0001_profiles.sql`) keyed by their immutable user id, with a unique, editable display name managed at `/account`. Accounts do not yet gate uploads, reviews, or saves, which remain browser-local until the hosted library lands.
+Sign-in uses Supabase Auth with email one-time codes and Google. `src/features/auth` holds the server functions, forms, and the header menu; `src/lib/supabase` holds the request-bound clients; `src/proxy.ts` refreshes sessions on each navigation. Every user gets one profile (`supabase/migrations/20261010000000_profiles.sql`) keyed by their immutable user id, with a unique, editable display name managed at `/account`. Accounts do not yet gate uploads, reviews, or saves, which remain browser-local until the hosted library lands.
 
 ## Hosted integration next
 
