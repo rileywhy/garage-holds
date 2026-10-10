@@ -14,10 +14,13 @@ npm run dev
 Open http://127.0.0.1:3000. No credentials are needed for the prototype.
 
 ```sh
+npm run format:check
 npm run typecheck
 npm test
 npm run build
 ```
+
+GitHub Actions runs the same four commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`). `.nvmrc` pins the Node major version CI uses.
 
 ## What works
 
