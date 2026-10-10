@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { safeNextPath, signInPath } from "@/features/auth/redirects";
+import {
+  postSignInPath,
+  safeNextPath,
+  signInPath,
+} from "@/features/auth/redirects";
+import { loadCurrentUser } from "@/features/auth/current-user";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { requestOrigin } from "@/lib/request-origin";
 
@@ -15,7 +20,12 @@ export async function GET(request: NextRequest) {
   if (code && isSupabaseConfigured()) {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) {
+      const user = await loadCurrentUser(supabase);
+      return NextResponse.redirect(
+        new URL(postSignInPath(user?.onboarded ?? true, next), origin),
+      );
+    }
   }
   return NextResponse.redirect(
     new URL(

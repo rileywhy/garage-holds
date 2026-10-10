@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { DisplayNameForm } from "@/features/auth/account-form";
+import { ProfileForm } from "@/features/auth/profile-form";
 import { getCurrentUser } from "@/features/auth/current-user";
-import { signInPath } from "@/features/auth/redirects";
+import { signInPath, welcomePath } from "@/features/auth/redirects";
 import { signOut } from "@/features/auth/actions";
 
 export const metadata: Metadata = {
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect(signInPath("/account"));
+  if (!user.onboarded) redirect(welcomePath("/account"));
   return (
     <main className="main-container form-page account-page">
       <Link href="/" className="back-link">
@@ -26,7 +27,7 @@ export default async function AccountPage() {
         <p>Signed in as {user.email}.</p>
       </div>
       <section className="form-section">
-        <DisplayNameForm displayName={user.displayName} />
+        <ProfileForm displayName={user.displayName} bio={user.bio} />
       </section>
       <form action={signOut} className="account-sign-out">
         <button type="submit" className="button button-outline">

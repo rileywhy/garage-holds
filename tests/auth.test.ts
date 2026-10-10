@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { safeNextPath, signInPath } from "../src/features/auth/redirects";
 import {
+  postSignInPath,
+  safeNextPath,
+  signInPath,
+  welcomePath,
+} from "../src/features/auth/redirects";
+import {
+  normalizeBio,
   normalizeDisplayName,
+  validateBio,
   validateDisplayName,
 } from "../src/features/profiles/validation";
 
@@ -36,4 +43,22 @@ test("display names accept everyday names and reject the rest", () => {
   assert.equal(validateDisplayName("-leading").length, 1);
   assert.equal(validateDisplayName("riley@home").length, 1);
   assert.equal(validateDisplayName("<script>").length, 1);
+});
+
+test("new users go to profile setup first, then their destination", () => {
+  assert.equal(postSignInPath(true, "/upload"), "/upload");
+  assert.equal(postSignInPath(false, "/upload"), "/welcome?next=%2Fupload");
+  assert.equal(postSignInPath(false, null), "/welcome");
+  assert.equal(welcomePath("/account"), "/welcome?next=%2Faccount");
+  // The welcome page itself is never a destination, so it cannot loop.
+  assert.equal(safeNextPath("/welcome"), "/");
+  assert.equal(safeNextPath("/welcome?next=%2Fupload"), "/");
+});
+
+test("bios are optional, short, and printable", () => {
+  assert.deepEqual(validateBio(""), []);
+  assert.deepEqual(validateBio("  Home wall at 40°, PETG-CF fan.\n"), []);
+  assert.equal(validateBio("x".repeat(281)).length, 1);
+  assert.equal(validateBio("tab\there").length, 1);
+  assert.equal(normalizeBio("a\r\nb "), "a\nb");
 });

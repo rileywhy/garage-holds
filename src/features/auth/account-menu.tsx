@@ -18,7 +18,7 @@ export async function AccountMenu() {
   return (
     <div className="account-menu">
       <Link
-        href="/account"
+        href={user.onboarded ? "/account" : "/welcome"}
         className="account-link"
         aria-label={`Account for ${user.displayName}`}
       >

@@ -44,7 +44,8 @@ Dashboard → Authentication.
      If you didn't request this, you can ignore this email.
      ```
 
-   - Default OTP length is 6 digits and expiry is 1 hour. Both are fine.
+   - Set **Email OTP Expiration** to `600` seconds (10 minutes). The default
+     6-digit length is fine.
    - The built-in mailer allows only a few emails per hour, enough for a
      two-account test. Before sharing more widely, add custom SMTP under
      **Emails → SMTP Settings** (Resend's free tier works).
@@ -101,3 +102,6 @@ try to run it again.
 - `supabase/migrations/20261010000000_profiles.sql` creates a profile for every new user
   (name and avatar from Google when available, otherwise the email's local
   part) and enforces unique, editable display names.
+- `supabase/migrations/20261011000000_profile_onboarding.sql` adds the bio and
+  the `onboarded_at` stamp. A user's first sign-in lands on `/welcome` to
+  confirm their display name; `/account` edits the same fields later.

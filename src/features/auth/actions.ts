@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requestOrigin } from "@/lib/request-origin";
 import {
+  normalizeBio,
   normalizeDisplayName,
+  validateBio,
   validateDisplayName,
 } from "@/features/profiles/validation";
-import { safeNextPath, signInPath } from "./redirects";
+import { loadCurrentUser } from "./current-user";
+import { postSignInPath, safeNextPath, signInPath } from "./redirects";
 
 export interface EmailSignInState {
   step: "email" | "code";
@@ -69,7 +72,10 @@ export async function signInWithEmail(
           "That code didn't work. Check it or request a new one.",
         ),
       };
-    redirect(safeNextPath(String(formData.get("next") ?? "")));
+    const user = await loadCurrentUser(supabase);
+    redirect(
+      postSignInPath(user?.onboarded ?? true, String(formData.get("next"))),
+    );
   }
 
   return previous;
@@ -96,42 +102,55 @@ export async function signOut() {
   redirect("/");
 }
 
-export interface DisplayNameState {
+export interface ProfileFormState {
   displayName: string;
+  bio: string;
   errors: string[];
   saved: boolean;
 }
 
-export async function updateDisplayName(
-  _previous: DisplayNameState,
+// Serves both the first-run welcome page and later edits on /account. The
+// first successful save marks the profile as set up; a welcome submission
+// then continues to the user's original destination.
+export async function saveProfile(
+  _previous: ProfileFormState,
   formData: FormData,
-): Promise<DisplayNameState> {
+): Promise<ProfileFormState> {
   const displayName = normalizeDisplayName(
     String(formData.get("displayName") ?? ""),
   );
-  const errors = validateDisplayName(displayName);
-  if (errors.length) return { displayName, errors, saved: false };
+  const bio = normalizeBio(String(formData.get("bio") ?? ""));
+  const errors = [...validateDisplayName(displayName), ...validateBio(bio)];
+  if (errors.length) return { displayName, bio, errors, saved: false };
+
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) redirect(signInPath("/account"));
+  const user = await loadCurrentUser(supabase);
+  if (!user) redirect(signInPath("/account"));
   // Row-level security limits the update to the caller's own row; the filter
   // keeps the intent explicit and avoids a silent no-op.
   const { error } = await supabase
     .from("profiles")
-    .update({ display_name: displayName })
-    .eq("id", data.claims.sub);
+    .update({
+      display_name: displayName,
+      bio,
+      ...(user.onboarded ? {} : { onboarded_at: new Date().toISOString() }),
+    })
+    .eq("id", user.id);
   if (error)
     return {
       displayName,
+      bio,
       errors: [
         error.code === "23505"
           ? "That display name is taken. Try another."
-          : "Your display name could not be saved. Try again.",
+          : "Your profile could not be saved. Try again.",
       ],
       saved: false,
     };
   revalidatePath("/", "layout");
-  return { displayName, errors: [], saved: true };
+  const next = formData.get("next");
+  if (typeof next === "string") redirect(safeNextPath(next));
+  return { displayName, bio, errors: [], saved: true };
 }
 
 function friendlyAuthError(message: string, fallback: string) {
