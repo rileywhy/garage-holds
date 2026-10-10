@@ -29,6 +29,13 @@ export interface ModelFile {
   name: string;
   bytes: number;
   extension: string;
+  // Short-lived signed download URL; empty when storage is unavailable.
+  url: string;
+}
+
+export interface Photo {
+  id: string;
+  url: string;
 }
 
 export interface PrintRecipe {
@@ -39,10 +46,10 @@ export interface PrintRecipe {
   postProcessing: string;
 }
 
-export interface Hold {
-  id: string;
+// What a creator supplies when uploading or editing. Everything else on a
+// Hold is derived by the server.
+export interface DesignInput {
   title: string;
-  creator: string;
   description: string;
   type: HoldType;
   size: HoldSize;
@@ -51,9 +58,16 @@ export interface Hold {
   recipes: PrintRecipe[];
   tags: string[];
   license: License;
+}
+
+export interface Hold extends DesignInput {
+  id: string;
+  ownerId: string | null;
+  creator: string;
+  status: "draft" | "published";
   color: string;
   illustration: Illustration;
-  photoIds: string[];
+  photos: Photo[];
   files: ModelFile[];
   createdAt: string;
   isSample: boolean;
@@ -62,6 +76,7 @@ export interface Hold {
 export interface Review {
   id: string;
   holdId: string;
+  authorId: string;
   author: string;
   rating: number;
   text: string;

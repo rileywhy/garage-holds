@@ -10,12 +10,16 @@ import {
   FlaskConical,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useLibrary } from "./library-provider";
 import { ThemeToggle } from "./theme-toggle";
 
-export function SiteHeader({ account }: { account?: ReactNode }) {
+export function SiteHeader({
+  account,
+  savedCount = 0,
+}: {
+  account?: ReactNode;
+  savedCount?: number;
+}) {
   const pathname = usePathname();
-  const { savedIds } = useLibrary();
   return (
     <>
       <header className="site-header">
@@ -37,9 +41,7 @@ export function SiteHeader({ account }: { account?: ReactNode }) {
             className={`nav-link ${pathname === "/saved" ? "active" : ""}`}
           >
             <Bookmark size={15} /> Saved
-            {savedIds.length > 0 && (
-              <span className="nav-count">{savedIds.length}</span>
-            )}
+            {savedCount > 0 && <span className="nav-count">{savedCount}</span>}
           </Link>
         </nav>
         <div className="header-actions">
@@ -52,10 +54,7 @@ export function SiteHeader({ account }: { account?: ReactNode }) {
       </header>
       <div className="prototype-bar">
         <FlaskConical size={13} />
-        <span>
-          Local prototype · uploads, reviews, and saved holds stay in this
-          browser.
-        </span>
+        <span>Early access · things may change while we test with makers.</span>
       </div>
     </>
   );

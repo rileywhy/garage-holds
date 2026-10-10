@@ -6,14 +6,15 @@ import { getStlThumbnail } from "./stl-thumbnail";
 import { STL_VIEWS, type StlView } from "./stl-views";
 
 export function StlPreview({
-  fileId,
+  file,
   title,
   showAngles = false,
 }: {
-  fileId: string;
+  file: { id: string; url: string };
   title: string;
   showAngles?: boolean;
 }) {
+  const { id: fileId, url } = file;
   const container = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<StlView>("side");
   // The render result is tagged with the file and view it was made for, so a
@@ -23,7 +24,7 @@ export function StlPreview({
   useEffect(() => {
     let active = true;
     const load = () => {
-      getStlThumbnail(fileId, view)
+      getStlThumbnail({ id: fileId, url }, view)
         .then((image) => {
           if (active) setRendered({ key, image, failed: false });
         })
@@ -45,7 +46,7 @@ export function StlPreview({
       active = false;
       observer.disconnect();
     };
-  }, [fileId, view, key]);
+  }, [fileId, url, view, key]);
   const { image, failed } =
     rendered.key === key ? rendered : { image: "", failed: false };
   const label = STL_VIEWS.find((option) => option.id === view)!.label;

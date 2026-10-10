@@ -1,72 +1,29 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import {
-  ArrowLeft,
-  Download,
-  FileBox,
-  ArrowUpRight,
-  Info,
-  LoaderCircle,
-} from "lucide-react";
-import { useLibrary } from "@/components/library-provider";
-import { HoldVisual, StoredPhoto } from "@/components/hold-art";
+import { ArrowLeft, Download, FileBox, ArrowUpRight, Info } from "lucide-react";
+import { HoldVisual } from "@/components/hold-art";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
-import { getAsset } from "@/lib/local-repository";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "./grades";
 import { formatBytes } from "./catalog";
 import { ReviewSection } from "@/features/reviews/review-section";
-import type { ModelFile } from "./types";
+import type { Hold, Review } from "./types";
 
-export function HoldDetail({ id }: { id: string }) {
-  const { holds, ready, storageError } = useLibrary();
-  const hold = holds.find((hold) => hold.id === id);
-  const [downloadError, setDownloadError] = useState("");
-  const [downloading, setDownloading] = useState("");
-  async function download(file: ModelFile) {
-    setDownloading(file.id);
-    setDownloadError("");
-    try {
-      const blob = await getAsset(file.id);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      setDownloadError(
-        error instanceof Error
-          ? error.message
-          : "Could not download this file.",
-      );
-    } finally {
-      setDownloading("");
-    }
-  }
-  if (!hold)
-    return (
-      <main className="main-container empty-state">
-        {!ready ? (
-          <p>Loading your design…</p>
-        ) : (
-          <>
-            <h1>This design isn’t in your library.</h1>
-            <p>
-              {storageError ||
-                "Local uploads are available only in the browser where they were added."}
-            </p>
-            <Link href="/" className="button button-dark">
-              Back to the library
-            </Link>
-          </>
-        )}
-      </main>
-    );
+export function HoldDetail({
+  hold,
+  reviews,
+  saved,
+  signedIn,
+  viewerId,
+}: {
+  hold: Hold;
+  reviews: Review[];
+  saved: boolean;
+  signedIn: boolean;
+  viewerId: string | null;
+}) {
+  const ownReview =
+    reviews.find((review) => review.authorId === viewerId) ?? null;
+  const isOwner = viewerId !== null && hold.ownerId === viewerId;
   return (
     <main className="main-container detail-page">
       <Link href="/" className="back-link">
@@ -82,13 +39,13 @@ export function HoldDetail({ id }: { id: string }) {
               </span>
             )}
           </div>
-          {hold.photoIds.length > 1 && (
+          {hold.photos.length > 1 && (
             <div className="detail-extra-photos">
-              {hold.photoIds.slice(1).map((photo, index) => (
-                <StoredPhoto
-                  id={photo}
+              {hold.photos.slice(1).map((photo, index) => (
+                <img
+                  src={photo.url}
                   alt={`${hold.title}, additional photo ${index + 1}`}
-                  key={photo}
+                  key={photo.id}
                 />
               ))}
             </div>
@@ -97,8 +54,8 @@ export function HoldDetail({ id }: { id: string }) {
             <span>
               {hold.isSample
                 ? "Illustrative concept · no model files"
-                : hold.photoIds.length
-                  ? `${hold.photoIds.length} ${hold.photoIds.length === 1 ? "photo" : "photos"} · original model files`
+                : hold.photos.length
+                  ? `${hold.photos.length} ${hold.photos.length === 1 ? "photo" : "photos"} · original model files`
                   : "No photos · original model files"}
             </span>
             <span>{hold.license}</span>
@@ -106,11 +63,16 @@ export function HoldDetail({ id }: { id: string }) {
         </div>
         <div className="detail-summary">
           <p className="eyebrow">
-            {hold.isSample ? "SAMPLE DESIGN" : "FREE DESIGN · LOCAL UPLOAD"}
+            {hold.isSample
+              ? "SAMPLE DESIGN"
+              : hold.status === "draft"
+                ? "DRAFT · ONLY YOU CAN SEE THIS"
+                : "FREE DESIGN"}
           </p>
           <h1>{hold.title}</h1>
           <p className="detail-creator">
             by <strong>{hold.creator}</strong>
+            {isOwner && " (you)"}
           </p>
           <div className="card-tags">
             <span>{hold.type}</span>
@@ -119,7 +81,15 @@ export function HoldDetail({ id }: { id: string }) {
           </div>
           <p className="detail-description">{hold.description}</p>
           <div className="detail-actions">
-            <SaveButton id={hold.id} title={hold.title} labeled />
+            {!hold.isSample && (
+              <SaveButton
+                id={hold.id}
+                title={hold.title}
+                saved={saved}
+                signedIn={signedIn}
+                labeled
+              />
+            )}
             <a href="#files" className="button button-dark">
               View files <ArrowUpRight size={16} />
             </a>
@@ -190,7 +160,13 @@ export function HoldDetail({ id }: { id: string }) {
               </span>
             </p>
           </section>
-          <ReviewSection holdId={hold.id} isSample={hold.isSample} />
+          <ReviewSection
+            holdId={hold.id}
+            isSample={hold.isSample}
+            reviews={reviews}
+            signedIn={signedIn}
+            ownReview={ownReview}
+          />
         </div>
         <aside>
           <section className="files-panel" id="files">
@@ -198,11 +174,6 @@ export function HoldDetail({ id }: { id: string }) {
               <FileBox size={19} /> Model files{" "}
               <span className="result-count">{hold.files.length}</span>
             </h2>
-            {downloadError && (
-              <p role="alert" className="error-box">
-                {downloadError}
-              </p>
-            )}
             {hold.files.length ? (
               <ul className="download-list">
                 {hold.files.map((file) => (
@@ -214,19 +185,20 @@ export function HoldDetail({ id }: { id: string }) {
                       <strong title={file.name}>{file.name}</strong>
                       <small>{formatBytes(file.bytes)} · Original file</small>
                     </div>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Download ${file.name}`}
-                      disabled={!!downloading}
-                      onClick={() => download(file)}
-                    >
-                      {downloading === file.id ? (
-                        <LoaderCircle size={18} className="spin" />
-                      ) : (
+                    {file.url ? (
+                      <a
+                        href={file.url}
+                        className="icon-button"
+                        aria-label={`Download ${file.name}`}
+                        download={file.name}
+                      >
                         <Download size={18} />
-                      )}
-                    </button>
+                      </a>
+                    ) : (
+                      <span className="icon-button" aria-hidden="true">
+                        <Download size={18} />
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -240,7 +212,7 @@ export function HoldDetail({ id }: { id: string }) {
             )}
             <p className="field-hint">
               {hold.files.length
-                ? "Files are stored on this device. Designs without photos show a simple STL preview when available."
+                ? "Download links are valid for an hour; reload the page for fresh ones."
                 : "Sample entries demonstrate browsing and filtering."}
             </p>
           </section>

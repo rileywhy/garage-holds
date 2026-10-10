@@ -1,4 +1,3 @@
-import { getAsset } from "@/lib/local-repository";
 import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
 import type { StlView } from "./stl-views";
 
@@ -7,22 +6,26 @@ const pending = new Map<string, Promise<string>>();
 let queue: Promise<void> = Promise.resolve();
 const MAX_CACHED_THUMBNAILS = 32;
 
+// Fetches the STL from its signed URL; thumbnails are cached by file id, so a
+// refreshed URL for the same file never renders twice.
 export function getStlThumbnail(
-  id: string,
+  file: { id: string; url: string },
   view: StlView = "side",
 ): Promise<string> {
-  const key = `${id}:${view}`;
+  const key = `${file.id}:${view}`;
   const cached = thumbnails.get(key);
   if (cached) return Promise.resolve(cached);
   const existing = pending.get(key);
   if (existing) return existing;
   // One job at a time keeps geometry parsing and GPU use bounded while scrolling.
   const task = queue.then(async () => {
-    const file = await getAsset(id);
-    if (file.size > MAX_STL_PREVIEW_BYTES)
+    const response = await fetch(file.url);
+    if (!response.ok) throw new Error("Could not load this STL.");
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > MAX_STL_PREVIEW_BYTES)
       throw new Error("This STL is too large for a browsing preview.");
     const { renderStlThumbnail } = await import("./stl-renderer");
-    const thumbnail = renderStlThumbnail(await file.arrayBuffer(), view);
+    const thumbnail = renderStlThumbnail(bytes, view);
     thumbnails.set(key, thumbnail);
     if (thumbnails.size > MAX_CACHED_THUMBNAILS)
       thumbnails.delete(thumbnails.keys().next().value!);

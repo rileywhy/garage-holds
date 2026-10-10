@@ -5,7 +5,7 @@ import {
   HOLD_TYPES,
   MOUNT_TYPES,
   SPECIAL_PROCESSES,
-  type Hold,
+  type DesignInput,
   type Review,
 } from "./types";
 
@@ -65,12 +65,10 @@ export function validateFiles(
   return errors;
 }
 
-export function validateHold(hold: Hold): string[] {
+export function validateDesign(hold: DesignInput): string[] {
   const errors: string[] = [];
   if (hold.title.trim().length < 3 || hold.title.trim().length > 80)
     errors.push("Give your design a title between 3 and 80 characters.");
-  if (hold.creator.trim().length < 2 || hold.creator.trim().length > 50)
-    errors.push("Creator name must be between 2 and 50 characters.");
   if (hold.description.trim().length < 20 || hold.description.length > 5000)
     errors.push("Add a description between 20 and 5,000 characters.");
   if (
@@ -107,13 +105,13 @@ export function validateHold(hold: Hold): string[] {
 // Upload forms use explicit validation so errors can stay beside the submit button.
 // This includes the permission checkbox even when native browser validation is disabled.
 export function validateUpload(
-  hold: Hold,
+  hold: DesignInput,
   models: UploadFile[],
   photos: UploadFile[],
   sharingPermission: boolean,
 ): string[] {
   return [
-    ...validateHold(hold),
+    ...validateDesign(hold),
     ...validateFiles(models, photos),
     ...(!sharingPermission
       ? [
@@ -123,10 +121,18 @@ export function validateUpload(
   ];
 }
 
-export function validateReview(review: Review): string[] {
+type ReviewInput = Pick<
+  Review,
+  | "rating"
+  | "text"
+  | "material"
+  | "printSettings"
+  | "postProcessing"
+  | "problemGrade"
+>;
+
+export function validateReview(review: ReviewInput): string[] {
   const errors: string[] = [];
-  if (review.author.trim().length < 2 || review.author.trim().length > 50)
-    errors.push("Enter a name between 2 and 50 characters.");
   if (!Number.isInteger(review.rating) || !bounded(review.rating, 1, 5))
     errors.push("Choose a rating from 1 to 5.");
   if (review.text.trim().length < 10 || review.text.length > 2000)

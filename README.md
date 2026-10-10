@@ -27,11 +27,11 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 
 - Search and combined filters for hold type, size, mounting, material, optional special process, and an optional suggested problem grade at 40°. Grades use V0–V1, V2, V3, … V17.
 - Model pages with size, mounting, grade suggestions at 40°, printing recipes, optional fuzzy skin / texture notes, and licensing. Normal prints leave special process blank; unusual steps use plain-language labels.
-- Upload model files with optional photos, then download the original files. Skipping photos asks for one friendly confirmation.
+- Upload model files with optional photos and publish them for anyone to download. Skipping photos asks for one friendly confirmation.
 - Browse multiple photos using arrows on library cards before opening a design's detail page.
 - Photo-free designs show an automatically generated STL thumbnail in the library and on detail pages. Photos take priority when provided.
 - STL covers start with a low side angle to show the lip and incut. Detail pages offer Side, Other side, End, Other end, and Overview angles. A broad flat outer face is used as a likely mounting surface; irregular meshes fall back to Z-up. Orientation is a best-effort guess, and alternate views help when it guesses incorrectly.
-- Save designs and leave reviews with printing settings, material, post-processing, and a suggested problem grade at 40°.
+- Save designs to your account and leave one editable review per design with printing settings, material, post-processing, and a suggested problem grade at 40°.
 - Responsive layouts and keyboard-accessible forms.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
 - Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure.
@@ -39,33 +39,31 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 
 Eight sample entries use SVG illustrations and fictional metadata. They contain no printable files or fabricated community reviews.
 
-## Local storage boundary
+## Shared library
 
-Uploads, photo blobs, original model files, reviews, and bookmarks persist in IndexedDB on this browser and origin. They do not sync to another browser, computer, or port. Clearing site data removes them. Browser quota and eviction policies still apply; keep the original files elsewhere. Display names are unverified, and there is no public publishing or account system yet.
+Designs, reviews, and saved holds live in Supabase Postgres; model files and photos live in a private Cloudflare R2 bucket. Browsing and downloads are open to everyone; uploading, reviewing, and saving need an account. Uploads go from the browser straight to R2 with signed URLs, and a design is published only after the server has confirmed every file exists with its declared size. Download and photo links are signed and expire after an hour.
 
-The original `crux-library` database name and `crux-theme` preference key are retained so the Garage Holds rename preserves existing uploads, bookmarks, reviews, and theme choices.
+Ownership is enforced in the database with row-level security keyed on the immutable user id. Drafts are visible only to their owner. Each person can leave one review per design and edit it. The `crux-theme` preference key is retained so existing theme choices survive.
 
-Saving a design and its assets happens in one IndexedDB transaction. The UI updates only after a successful transaction. Reload to see changes made in a different tab.
-
-Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, BLEND, SCAD, and ZIP. Up to 10 files, 100 MB per file; optionally up to 6 JPG/PNG/WebP photos, 10 MB per photo; 200 MB total. Files are stored and downloaded unchanged. ASCII and binary STLs up to 25 MB and 500,000 triangles can produce static previews, using the first STL when a design has several files. Other formats, invalid STLs, and unavailable browser graphics show a placeholder while downloads remain available. Previews load near the viewport and additional angles render only when selected. Jobs run one at a time and cache up to 32 images by file and angle. Cameras fit each visible silhouette; choosing an orientation never changes the geometry or the original file. Geometry and graphics resources are released after each render.
+Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, BLEND, SCAD, and ZIP. Up to 10 files, 100 MB per file; optionally up to 6 JPG/PNG/WebP photos, 10 MB per photo; 200 MB total. Files are stored and downloaded unchanged, always as attachments with the creator's filename. ASCII and binary STLs up to 25 MB and 500,000 triangles can produce static previews, using the first STL when a design has several files. Other formats, invalid STLs, and unavailable browser graphics show a placeholder while downloads remain available. Previews load near the viewport and additional angles render only when selected. Jobs run one at a time and cache up to 32 images by file and angle. Cameras fit each visible silhouette; choosing an orientation never changes the geometry or the original file. Geometry and graphics resources are released after each render.
 
 ## Code map
 
 - `src/app`: thin Next.js routes, page metadata, global styles.
-- `src/features/holds`: domain types, sample data, filtering, validation, catalog and detail UI.
-- `src/features/uploads`: upload form and file picker.
+- `src/features/holds`: domain types, sample data, filtering, validation, row mapping, the server-side repository, catalog and detail UI.
+- `src/features/uploads`: upload form, file picker, and the three-step upload pipeline (draft → signed PUT to R2 → verify and publish).
 - `src/features/reviews`: review UI.
 - `src/features/auth`: sign-in, sign-out, account menu, and display-name editing.
 - `src/features/profiles`: display-name rules shared by the form and the server.
 - `src/components`: shared UI and library state.
-- `src/lib/local-repository.ts`: browser persistence; no storage details in the page components.
-- `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy.
+- `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.
+- `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy, plus the server-only admin client used to record verified files.
 - `tests`: domain behavior tests.
 - `supabase/migrations`: the hosted schema, applied in order. `supabase/proposed-library.sql` is an unapplied draft of the remaining tables.
 
 ## Accounts
 
-Sign-in uses Supabase Auth with email one-time codes and Google. `src/features/auth` holds the server functions, forms, and the header menu; `src/lib/supabase` holds the request-bound clients; `src/proxy.ts` refreshes sessions on each navigation. Every user gets one profile (`supabase/migrations/`) keyed by their immutable user id, with a unique display name and optional bio. The first sign-in lands on `/welcome` to confirm the name; `/account` edits it later. Accounts do not yet gate uploads, reviews, or saves, which remain browser-local until the hosted library lands.
+Sign-in uses Supabase Auth with email one-time codes and Google. `src/features/auth` holds the server functions, forms, and the header menu; `src/lib/supabase` holds the request-bound clients; `src/proxy.ts` refreshes sessions on each navigation. Every user gets one profile (`supabase/migrations/`) keyed by their immutable user id, with a unique display name and optional bio. The first sign-in lands on `/welcome` to confirm the name; `/account` edits it later. Uploading, reviewing, and saving require a signed-in account with a finished profile.
 
 ## Hosted integration next
 
@@ -73,14 +71,14 @@ The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2.
 
 See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests, and [docs/hosted-setup.md](docs/hosted-setup.md) for the external configuration.
 
-1. ~~Review the upload fields and hosted schema, then create Supabase and R2 projects.~~ Supabase project exists; R2 pending.
-2. ~~Add verified authentication~~; move shared records to Supabase with tested row-level security.
-3. Add server-issued signed R2 upload/download URLs. Validate size, type, ownership, and upload completion server-side; do not trust browser validation or declared MIME types. Reconcile abandoned uploads and deleted records with object storage.
-4. Add ownership-based edit/delete controls, file revisions, moderation/reporting, and pagination before public launch.
+1. Integration tests for row-level security against a local Supabase stack (Docker) in CI: two users, one cannot read the other's drafts or change their designs.
+2. "My designs" page with metadata editing; delete and file replacement later.
+3. Reconcile abandoned drafts and failed uploads with object storage; sweep orphaned R2 objects.
+4. Moderation/reporting, pagination, and search in the database before public launch.
 5. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
 6. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.
 
-The hosted migration is a starting point, not a production security audit. Accounts, public sharing, edits/deletion, revisions, paid downloads, subscriptions, and interactive 3D viewing are not implemented. The local prototype should not be presented as a multi-user upload service.
+The schema has not had a production security audit. Edits, deletion, revisions, paid downloads, subscriptions, and interactive 3D viewing are not implemented.
 
 Recipes and grades are creator/community reports. They are not certifications of hold strength; sample recommendations are illustrative.
 

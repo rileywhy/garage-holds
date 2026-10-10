@@ -9,9 +9,19 @@ import { formatProblemGrade, GRADE_BOARD_ANGLE } from "./grades";
 import { HoldVisual } from "@/components/hold-art";
 import { SaveButton } from "@/components/save-button";
 
-export function HoldCard({ hold, reviews }: { hold: Hold; reviews: Review[] }) {
+export function HoldCard({
+  hold,
+  reviews,
+  saved,
+  signedIn,
+}: {
+  hold: Hold;
+  reviews: Review[];
+  saved: boolean;
+  signedIn: boolean;
+}) {
   const [selectedPhoto, setSelectedPhoto] = useState(0);
-  const photoCount = hold.photoIds.length;
+  const photoCount = hold.photos.length;
   const photoIndex = photoCount ? selectedPhoto % photoCount : 0;
   const summary = reviewSummary(reviews, hold.id);
   return (
@@ -56,7 +66,14 @@ export function HoldCard({ hold, reviews }: { hold: Hold; reviews: Review[] }) {
           </>
         )}
         <span className="card-label">{hold.isSample ? "SAMPLE" : "FREE"}</span>
-        <SaveButton id={hold.id} title={hold.title} />
+        {!hold.isSample && (
+          <SaveButton
+            id={hold.id}
+            title={hold.title}
+            saved={saved}
+            signedIn={signedIn}
+          />
+        )}
         {hold.isSample && (
           <span className="illustration-label">Design illustration</span>
         )}

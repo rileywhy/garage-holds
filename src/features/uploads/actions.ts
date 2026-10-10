@@ -1,0 +1,193 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase/admin";
+import { deleteObject, headObject, isR2Configured, signUpload } from "@/lib/r2";
+import { getUserId } from "@/features/holds/repository";
+import {
+  fileExtension,
+  objectKey,
+  photoContentType,
+} from "@/features/holds/rows";
+import { validateUpload } from "@/features/holds/validation";
+import type { DesignInput } from "@/features/holds/types";
+
+export interface UploadFileDescriptor {
+  kind: "model" | "photo";
+  name: string;
+  bytes: number;
+  type: string;
+}
+
+export interface PendingUpload {
+  fileId: string;
+  name: string;
+  url: string;
+}
+
+export type CreateDraftResult =
+  { designId: string; uploads: PendingUpload[] } | { errors: string[] };
+
+export type FinalizeResult = { designId: string } | { errors: string[] };
+
+// Step 1 of 3: validate, create the draft, reserve object keys, and hand the
+// browser one signed PUT URL per file. Nothing is public yet.
+export async function createDraft(
+  input: DesignInput,
+  files: UploadFileDescriptor[],
+  sharingPermission: boolean,
+): Promise<CreateDraftResult> {
+  if (!isR2Configured() || !isSupabaseAdminConfigured())
+    return { errors: ["Uploads aren't configured in this environment yet."] };
+  const models = files.filter((file) => file.kind === "model");
+  const photos = files.filter((file) => file.kind === "photo");
+  const errors = validateUpload(
+    input,
+    models.map(asUploadFile),
+    photos.map(asUploadFile),
+    sharingPermission,
+  );
+  // Photos are served by extension, so the extension must be an image type
+  // regardless of what the browser claimed.
+  for (const photo of photos)
+    if (!photoContentType(fileExtension(photo.name)))
+      errors.push(`${photo.name}: photos must be .jpg, .png, or .webp files.`);
+  if (errors.length) return { errors };
+
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { errors: ["Sign in to upload a design."] };
+
+  const recipe = input.recipes[0];
+  const { data: design, error } = await supabase
+    .from("designs")
+    .insert({
+      owner_id: userId,
+      title: input.title,
+      description: input.description,
+      hold_type: input.type,
+      size: input.size,
+      mounting: input.mount,
+      problem_grade: input.problemGrade,
+      tags: input.tags,
+      license: input.license,
+      material: recipe.material,
+      special_process: recipe.specialProcess,
+      print_notes: recipe.notes,
+      texture_notes: recipe.textureNotes,
+      post_processing: recipe.postProcessing,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !design) {
+    console.error("draft insert failed", { userId, error });
+    return { errors: ["Your design could not be saved. Try again."] };
+  }
+
+  const rows = files.map((file, index) => {
+    const id = crypto.randomUUID();
+    const extension = fileExtension(file.name);
+    return {
+      id,
+      design_id: design.id,
+      kind: file.kind,
+      object_key: objectKey(design.id, id, extension),
+      name: file.name,
+      extension,
+      bytes: file.bytes,
+      position: index,
+      status: "pending" as const,
+    };
+  });
+  const admin = createSupabaseAdminClient();
+  const { error: fileError } = await admin.from("design_files").insert(rows);
+  if (fileError) {
+    console.error("file rows insert failed", {
+      designId: design.id,
+      fileError,
+    });
+    await supabase.from("designs").delete().eq("id", design.id);
+    return { errors: ["Your files could not be registered. Try again."] };
+  }
+  const uploads = await Promise.all(
+    rows.map(async (row) => ({
+      fileId: row.id,
+      name: row.name,
+      url: await signUpload(row.object_key),
+    })),
+  );
+  return { designId: design.id, uploads };
+}
+
+// Step 3 of 3: confirm every object landed in R2 with the declared size, mark
+// the files ready, and publish. The database refuses to publish without a
+// verified model file, so this is the only path to a public design.
+export async function finalizeDesign(
+  designId: string,
+): Promise<FinalizeResult> {
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { errors: ["Sign in to publish a design."] };
+  const { data: design } = await supabase
+    .from("designs")
+    .select("id, owner_id, status")
+    .eq("id", designId)
+    .maybeSingle<{ id: string; owner_id: string; status: string }>();
+  if (!design || design.owner_id !== userId)
+    return { errors: ["This draft could not be found."] };
+
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("design_files")
+    .select("id, object_key, name, bytes, kind, status")
+    .eq("design_id", designId);
+  const files = (data ?? []) as {
+    id: string;
+    object_key: string;
+    name: string;
+    bytes: number;
+    kind: "model" | "photo";
+    status: "pending" | "ready";
+  }[];
+  const errors: string[] = [];
+  for (const file of files) {
+    if (file.status === "ready") continue;
+    const object = await headObject(file.object_key);
+    if (!object.exists) {
+      errors.push(`${file.name} did not finish uploading.`);
+      continue;
+    }
+    if (object.bytes !== file.bytes) {
+      errors.push(`${file.name} arrived with an unexpected size.`);
+      await deleteObject(file.object_key);
+      await admin.from("design_files").delete().eq("id", file.id);
+      continue;
+    }
+    await admin
+      .from("design_files")
+      .update({ status: "ready" })
+      .eq("id", file.id);
+  }
+  if (errors.length) return { errors };
+
+  const { error } = await supabase
+    .from("designs")
+    .update({ status: "published" })
+    .eq("id", designId);
+  if (error) {
+    console.error("publish failed", { designId, error });
+    return {
+      errors: ["Your files were saved but publishing failed. Try again."],
+    };
+  }
+  revalidatePath("/");
+  return { designId };
+}
+
+function asUploadFile(file: UploadFileDescriptor) {
+  return { name: file.name, size: file.bytes, type: file.type };
+}

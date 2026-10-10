@@ -135,6 +135,8 @@ const designs: {
 
 export const SAMPLE_HOLDS: Hold[] = designs.map((design, index) => ({
   id: design.id,
+  ownerId: null,
+  status: "published",
   title: design.title,
   creator: design.creator,
   description: design.description,
@@ -161,7 +163,7 @@ export const SAMPLE_HOLDS: Hold[] = designs.map((design, index) => ({
   license: "CC BY-NC 4.0",
   color: design.color,
   illustration: design.illustration,
-  photoIds: [],
+  photos: [],
   files: [],
   createdAt: `2026-10-${String(9 - index).padStart(2, "0")}T12:00:00.000Z`,
   isSample: true,

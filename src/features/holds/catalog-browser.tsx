@@ -12,7 +12,6 @@ import {
   MoveUpRight,
   Plus,
 } from "lucide-react";
-import { useLibrary } from "@/components/library-provider";
 import { filterHolds, activeFilterCount } from "./catalog";
 import {
   DEFAULT_FILTERS,
@@ -21,7 +20,9 @@ import {
   MOUNT_TYPES,
   MATERIALS,
   SPECIAL_PROCESSES,
+  type Hold,
   type HoldFilters,
+  type Review,
 } from "./types";
 import {
   GRADE_BOARD_ANGLE,
@@ -30,19 +31,28 @@ import {
 } from "./grades";
 import { HoldCard } from "./hold-card";
 
-export function CatalogBrowser({ savedOnly = false }: { savedOnly?: boolean }) {
-  const { holds, reviews, savedIds, ready, storageError } = useLibrary();
+export function CatalogBrowser({
+  holds,
+  reviews,
+  savedIds,
+  signedIn,
+  savedOnly = false,
+}: {
+  holds: Hold[];
+  reviews: Review[];
+  savedIds: string[];
+  signedIn: boolean;
+  savedOnly?: boolean;
+}) {
   const [filters, setFilters] = useState<HoldFilters>({ ...DEFAULT_FILTERS });
   const [mobileFilters, setMobileFilters] = useState(false);
-  const candidates = useMemo(
-    () =>
-      savedOnly ? holds.filter((hold) => savedIds.includes(hold.id)) : holds,
-    [holds, savedIds, savedOnly],
-  );
+  const candidates = holds;
   const filtered = useMemo(
     () => filterHolds(candidates, filters),
     [candidates, filters],
   );
+  const sampleCount = holds.filter((hold) => hold.isSample).length;
+  const realCount = holds.length - sampleCount;
   const count = activeFilterCount(filters);
   function toggle<
     K extends "types" | "sizes" | "mounts" | "materials" | "specialProcesses",
@@ -90,7 +100,7 @@ export function CatalogBrowser({ savedOnly = false }: { savedOnly?: boolean }) {
           </h1>
           <p className="hero-description">
             {savedOnly
-              ? "Keep the designs you want to come back to. Your saved library lives in this browser."
+              ? "Keep the designs you want to come back to. Saved designs follow your account to any device."
               : "Discover 3D printable climbing holds, share your designs, and find the right grip for your home wall or training board."}
           </p>
           <a href="#library" className="hero-text-link">
@@ -126,11 +136,6 @@ export function CatalogBrowser({ savedOnly = false }: { savedOnly?: boolean }) {
           </div>
         )}
       </section>
-      {storageError && (
-        <p className="error-box" role="alert">
-          {storageError}
-        </p>
-      )}
       <section
         id="library"
         className="library-section"
@@ -150,8 +155,8 @@ export function CatalogBrowser({ savedOnly = false }: { savedOnly?: boolean }) {
           </div>
           <span className="sample-note">
             {savedOnly
-              ? "Stored on this device"
-              : "8 sample designs · add yours to get started"}
+              ? "Saved to your account"
+              : `${realCount} ${realCount === 1 ? "design" : "designs"}${sampleCount ? ` · ${sampleCount} samples` : ""} · add yours to get started`}
           </span>
         </div>
         <div className="catalog-layout">
@@ -321,12 +326,16 @@ export function CatalogBrowser({ savedOnly = false }: { savedOnly?: boolean }) {
                 )}
               </div>
             )}
-            {savedOnly && !ready ? (
-              <p className="empty-state">Loading your saved library…</p>
-            ) : filtered.length ? (
+            {filtered.length ? (
               <div className="hold-grid">
                 {filtered.map((hold) => (
-                  <HoldCard hold={hold} reviews={reviews} key={hold.id} />
+                  <HoldCard
+                    hold={hold}
+                    reviews={reviews}
+                    saved={savedIds.includes(hold.id)}
+                    signedIn={signedIn}
+                    key={hold.id}
+                  />
                 ))}
               </div>
             ) : (

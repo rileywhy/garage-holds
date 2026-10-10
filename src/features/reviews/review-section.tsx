@@ -1,70 +1,46 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useActionState, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Star, Plus, LoaderCircle } from "lucide-react";
 import { ProblemGradeField } from "@/components/problem-grade-field";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "@/features/holds/grades";
 import { Field, FieldErrors } from "@/components/form-fields";
-import { optionalNumber } from "@/lib/form-data";
-import { useLibrary } from "@/components/library-provider";
 import { reviewSummary } from "@/features/holds/catalog";
 import type { Review } from "@/features/holds/types";
-import { validateReview } from "@/features/holds/validation";
+import { signInPath } from "@/features/auth/redirects";
+import { submitReview, type ReviewFormState } from "./actions";
 
 export function ReviewSection({
   holdId,
   isSample,
+  reviews,
+  signedIn,
+  ownReview,
 }: {
   holdId: string;
   isSample: boolean;
+  reviews: Review[];
+  signedIn: boolean;
+  ownReview: Review | null;
 }) {
-  const { reviews, addReview, ready, storageError } = useLibrary();
-  const matching = reviews.filter((review) => review.holdId === holdId);
+  const router = useRouter();
+  const pathname = usePathname();
   const summary = reviewSummary(reviews, holdId);
   const [open, setOpen] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [success, setSuccess] = useState(false);
   const errorRegion = useRef<HTMLDivElement>(null);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const text = (key: string) => String(form.get(key) ?? "").trim();
-    const review: Review = {
-      id: crypto.randomUUID(),
-      holdId,
-      author: text("author"),
-      rating: Number(text("rating")),
-      text: text("text"),
-      material: text("material"),
-      printSettings: text("printSettings"),
-      postProcessing: text("postProcessing"),
-      problemGrade: optionalNumber(form.get("problemGrade")),
-      createdAt: new Date().toISOString(),
-    };
-    const issues = validateReview(review);
-    if (issues.length) {
-      setErrors(issues);
-      requestAnimationFrame(() => errorRegion.current?.focus());
-      return;
-    }
-    setBusy(true);
-    setErrors([]);
-    try {
-      await addReview(review);
-      formElement.reset();
-      setOpen(false);
-      setSuccess(true);
-    } catch (error) {
-      setErrors([
-        error instanceof Error ? error.message : "Could not save your review.",
-      ]);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const [state, action, pending] = useActionState(
+    async (previous: ReviewFormState, formData: FormData) => {
+      const result = await submitReview(previous, formData);
+      if (result.saved) {
+        setOpen(false);
+        router.refresh();
+      } else requestAnimationFrame(() => errorRegion.current?.focus());
+      return result;
+    },
+    { errors: [], saved: false },
+  );
 
   return (
     <section className="reviews-section" id="reviews">
@@ -78,59 +54,58 @@ export function ReviewSection({
             iteration.
           </p>
         </div>
-        <button
-          className="button button-outline"
-          onClick={() => {
-            setOpen((value) => !value);
-            setSuccess(false);
-          }}
-          aria-expanded={open}
-          aria-controls="review-form"
-        >
-          <Plus size={15} /> {open ? "Close form" : "Leave a review"}
-        </button>
+        {isSample ? null : signedIn ? (
+          <button
+            className="button button-outline"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls="review-form"
+          >
+            <Plus size={15} />{" "}
+            {open
+              ? "Close form"
+              : ownReview
+                ? "Edit your review"
+                : "Leave a review"}
+          </button>
+        ) : (
+          <Link href={signInPath(pathname)} className="button button-outline">
+            Sign in to review
+          </Link>
+        )}
       </div>
-      {success && (
+      {state.saved && !open && (
         <p className="success-box" role="status">
-          Your review is saved in this browser.
+          Your review is published.
         </p>
       )}
       {isSample && (
         <p className="field-hint">
-          This is a sample design. Any reviews added here are local prototype
-          feedback.
+          This is a sample design, so it can&apos;t be reviewed. Upload a real
+          design to collect feedback.
         </p>
       )}
       {open && (
         <form
           id="review-form"
           className="review-form"
-          onSubmit={submit}
-          aria-label="Leave a review"
+          action={action}
+          aria-label={ownReview ? "Edit your review" : "Leave a review"}
+          aria-busy={pending}
         >
+          <input type="hidden" name="designId" value={holdId} />
           <div ref={errorRegion} tabIndex={-1}>
-            <FieldErrors errors={errors} />
+            <FieldErrors errors={state.errors} />
           </div>
-          <div className="form-grid">
-            <Field label="Display name *">
-              <input
-                name="author"
-                required
-                minLength={2}
-                maxLength={50}
-                placeholder="Your name"
-              />
-            </Field>
-            <Field label="Rating *">
-              <select name="rating" defaultValue="5">
-                {[5, 4, 3, 2, 1].map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating} {rating === 1 ? "star" : "stars"}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <Field label="Rating *">
+            <select name="rating" defaultValue={ownReview?.rating ?? 5}>
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <option key={rating} value={rating}>
+                  {rating} {rating === 1 ? "star" : "stars"}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Your review *">
             <textarea
               name="text"
@@ -138,16 +113,23 @@ export function ReviewSection({
               minLength={10}
               maxLength={2000}
               rows={3}
+              defaultValue={ownReview?.text}
               placeholder="How did it print? How did it feel on your board?"
             />
           </Field>
           <Field label="Material">
-            <input name="material" maxLength={80} placeholder="e.g. PETG-CF" />
+            <input
+              name="material"
+              maxLength={80}
+              defaultValue={ownReview?.material}
+              placeholder="e.g. PETG-CF"
+            />
           </Field>
           <Field label="Print settings">
             <input
               name="printSettings"
               maxLength={500}
+              defaultValue={ownReview?.printSettings}
               placeholder="Printer, orientation, walls, infill, layer height…"
             />
           </Field>
@@ -155,25 +137,26 @@ export function ReviewSection({
             <input
               name="postProcessing"
               maxLength={200}
+              defaultValue={ownReview?.postProcessing}
               placeholder="e.g. none, sanding, annealing"
             />
           </Field>
-          <ProblemGradeField />
+          <ProblemGradeField defaultValue={ownReview?.problemGrade ?? null} />
           <p className="field-hint">
-            Grade suggestions refer to a 40° board. Display names are unverified
-            in this prototype.
+            Grade suggestions refer to a 40° board. Reviews are posted under
+            your display name.
           </p>
           <button
             type="submit"
             className="button button-dark"
-            disabled={busy || !ready || !!storageError}
+            disabled={pending}
           >
-            {busy && <LoaderCircle size={15} className="spin" />}
-            {busy ? "Saving…" : "Save local review"}
+            {pending && <LoaderCircle size={15} className="spin" />}
+            {pending ? "Saving…" : ownReview ? "Update review" : "Post review"}
           </button>
         </form>
       )}
-      {!matching.length && !open && (
+      {!reviews.length && !open && (
         <div className="review-empty">
           <Star size={24} strokeWidth={1.2} />
           <div>
@@ -183,7 +166,7 @@ export function ReviewSection({
         </div>
       )}
       <div className="review-list">
-        {matching.map((review) => (
+        {reviews.map((review) => (
           <article className="review-card" key={review.id}>
             <div className="review-card-heading">
               <div className="avatar">{review.author[0]?.toUpperCase()}</div>
@@ -194,8 +177,8 @@ export function ReviewSection({
                     month: "short",
                     day: "numeric",
                     year: "numeric",
-                  })}{" "}
-                  · Local review
+                  })}
+                  {review.id === ownReview?.id && " · Your review"}
                 </span>
               </div>
               <span

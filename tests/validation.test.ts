@@ -9,7 +9,7 @@ import {
 import {
   MAX_MODEL_BYTES,
   validateFiles,
-  validateHold,
+  validateDesign,
   validateReview,
   validateUpload,
 } from "../src/features/holds/validation";
@@ -19,6 +19,7 @@ const model = { name: "hold.STL", type: "", size: 4000 };
 const review: Review = {
   id: "review",
   holdId: "mesa-edge",
+  authorId: "user",
   author: "Maker",
   rating: 4,
   text: "A useful printing experience.",
@@ -43,7 +44,7 @@ test("upload validation collects actionable errors and requires sharing permissi
 
 test("all sample entries satisfy domain constraints", () => {
   for (const hold of SAMPLE_HOLDS)
-    assert.deepEqual(validateHold(hold), [], hold.id);
+    assert.deepEqual(validateDesign(hold), [], hold.id);
 });
 
 test("normal recipes need no special process or texture notes; texture notes have a limit", () => {
@@ -56,7 +57,7 @@ test("normal recipes need no special process or texture notes; texture notes hav
   };
   for (const specialProcess of [null, ...SPECIAL_PROCESSES]) {
     assert.deepEqual(
-      validateHold({
+      validateDesign({
         ...SAMPLE_HOLDS[0],
         recipes: [{ ...recipe, specialProcess }],
       }),
@@ -64,7 +65,7 @@ test("normal recipes need no special process or texture notes; texture notes hav
     );
   }
   assert.deepEqual(
-    validateHold({
+    validateDesign({
       ...SAMPLE_HOLDS[0],
       recipes: [
         { ...recipe, textureNotes: "My fuzzy skin settings and notes." },
@@ -73,14 +74,14 @@ test("normal recipes need no special process or texture notes; texture notes hav
     [],
   );
   assert.match(
-    validateHold({
+    validateDesign({
       ...SAMPLE_HOLDS[0],
       recipes: [{ ...recipe, textureNotes: "x".repeat(2001) }],
     }).join(" "),
     /texture notes/,
   );
   assert.match(
-    validateHold({
+    validateDesign({
       ...SAMPLE_HOLDS[0],
       recipes: [
         { ...recipe, specialProcess: "FDM" as PrintRecipe["specialProcess"] },
@@ -117,12 +118,12 @@ test("rejects executables, zero-byte files, oversized models and SVG photos", ()
 });
 test("grades are optional and use V0–V1 followed by V2 through V17", () => {
   for (const problemGrade of [null, 0, 2, 5, 17]) {
-    assert.deepEqual(validateHold({ ...SAMPLE_HOLDS[0], problemGrade }), []);
+    assert.deepEqual(validateDesign({ ...SAMPLE_HOLDS[0], problemGrade }), []);
     assert.deepEqual(validateReview({ ...review, problemGrade }), []);
   }
   for (const problemGrade of [-1, 1, 18, NaN, 2.5]) {
     assert.match(
-      validateHold({ ...SAMPLE_HOLDS[0], problemGrade }).join(" "),
+      validateDesign({ ...SAMPLE_HOLDS[0], problemGrade }).join(" "),
       /grade/,
     );
     assert.match(

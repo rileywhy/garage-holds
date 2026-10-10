@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId } from "react";
 import type { Hold, Illustration } from "@/features/holds/types";
-import { getAsset } from "@/lib/local-repository";
 import { FileBox } from "lucide-react";
 import { StlPreview } from "@/features/holds/stl-preview";
 
@@ -182,52 +181,6 @@ export function HoldIllustration({
   );
 }
 
-export function StoredPhoto({
-  id,
-  alt,
-  className = "",
-}: {
-  id: string;
-  alt: string;
-  className?: string;
-}) {
-  // State is tagged with the id it belongs to, so a changed id reads as "loading"
-  // without resetting state inside the effect.
-  const [loaded, setLoaded] = useState({ id, url: "", failed: false });
-  useEffect(() => {
-    let active = true;
-    let objectUrl = "";
-    getAsset(id)
-      .then((file) => {
-        if (!active) return;
-        objectUrl = URL.createObjectURL(file);
-        setLoaded({ id, url: objectUrl, failed: false });
-      })
-      .catch(() => {
-        if (active) setLoaded({ id, url: "", failed: true });
-      });
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [id]);
-  const { url, failed } =
-    loaded.id === id ? loaded : { url: "", failed: false };
-  const setFailed = (failed: boolean) => setLoaded({ id, url, failed });
-  return url && !failed ? (
-    <img
-      src={url}
-      alt={alt}
-      className={className}
-      onError={() => setFailed(true)}
-    />
-  ) : (
-    <div className="image-placeholder">
-      {failed ? "Photo unavailable" : "Loading photo…"}
-    </div>
-  );
-}
-
 export function HoldVisual({
   hold,
   large = false,
@@ -238,17 +191,18 @@ export function HoldVisual({
   photoIndex?: number;
 }) {
   const stl = hold.files.find((file) => file.extension.toLowerCase() === "stl");
-  return hold.photoIds.length ? (
-    <StoredPhoto
-      key={hold.photoIds[photoIndex]}
-      id={hold.photoIds[photoIndex]}
-      alt={`${hold.title}, photo ${photoIndex + 1} of ${hold.photoIds.length}`}
+  const photo = hold.photos[photoIndex];
+  return photo ? (
+    <img
+      key={photo.id}
+      src={photo.url}
+      alt={`${hold.title}, photo ${photoIndex + 1} of ${hold.photos.length}`}
       className="hold-photo"
     />
   ) : hold.isSample ? (
     <HoldIllustration hold={hold} large={large} />
-  ) : stl ? (
-    <StlPreview fileId={stl.id} title={hold.title} showAngles={large} />
+  ) : stl && stl.url ? (
+    <StlPreview file={stl} title={hold.title} showAngles={large} />
   ) : (
     <div className="image-placeholder no-photo-visual">
       <FileBox size={32} aria-hidden="true" />

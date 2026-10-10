@@ -13,44 +13,80 @@ import {
 import { ProblemGradeField } from "@/components/problem-grade-field";
 import { Field, FieldErrors } from "@/components/form-fields";
 import { optionalNumber } from "@/lib/form-data";
-import { useLibrary } from "@/components/library-provider";
 import {
   HOLD_TYPES,
   HOLD_SIZES,
   MOUNT_TYPES,
   MATERIALS,
   SPECIAL_PROCESSES,
-  type Hold,
+  type DesignInput,
 } from "@/features/holds/types";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
 import { FilePicker } from "./file-picker";
 import { LicenseField } from "./license-field";
+import { createDraft, finalizeDesign } from "./actions";
 
-export function UploadForm() {
+const PARALLEL_UPLOADS = 3;
+
+// Browser-to-R2 PUTs, a few at a time, so one large file never blocks photos.
+async function uploadAll(jobs: { url: string; file: File }[]) {
+  const queue = [...jobs];
+  const failed: string[] = [];
+  await Promise.all(
+    Array.from({ length: PARALLEL_UPLOADS }, async () => {
+      for (let job = queue.shift(); job; job = queue.shift()) {
+        try {
+          const response = await fetch(job.url, {
+            method: "PUT",
+            body: job.file,
+            headers: {
+              "Content-Type": job.file.type || "application/octet-stream",
+            },
+          });
+          if (!response.ok) failed.push(job.file.name);
+        } catch {
+          failed.push(job.file.name);
+        }
+      }
+    }),
+  );
+  return failed;
+}
+
+export function UploadForm({ creator }: { creator: string }) {
   const [formVersion, setFormVersion] = useState(0);
   return (
     <UploadDesignForm
       key={formVersion}
+      creator={creator}
       focusTitle={formVersion > 0}
       onStartAnother={() => setFormVersion((version) => version + 1)}
     />
   );
 }
 
+type Progress = "" | "Saving design…" | "Uploading files…" | "Publishing…";
+
 function UploadDesignForm({
+  creator,
   onStartAnother,
   focusTitle,
 }: {
+  creator: string;
   onStartAnother: () => void;
   focusTitle: boolean;
 }) {
-  const { addHold, ready, storageError } = useLibrary();
   const [photos, setPhotos] = useState<File[]>([]);
   const [models, setModels] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<Progress>("");
+  const busy = progress !== "";
   const [photoReminder, setPhotoReminder] = useState(false);
-  const [savedHold, setSavedHold] = useState<Hold | null>(null);
+  const [savedHold, setSavedHold] = useState<{
+    id: string;
+    title: string;
+    fileCount: number;
+  } | null>(null);
   const saving = useRef(false);
   const completionRegion = useRef<HTMLDivElement>(null);
   const errorRegion = useRef<HTMLDivElement>(null);
@@ -72,28 +108,18 @@ function UploadDesignForm({
     if (saving.current || savedHold) return;
     const form = new FormData(event.currentTarget);
     const text = (key: string) => String(form.get(key) ?? "").trim();
-    const id = crypto.randomUUID();
-    const photoIds = photos.map(() => crypto.randomUUID());
-    const files = models.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      bytes: file.size,
-      extension: file.name.split(".").pop()?.toLowerCase() ?? "",
-    }));
-    const hold: Hold = {
-      id,
+    const input: DesignInput = {
       title: text("title"),
-      creator: text("creator"),
       description: text("description"),
-      type: text("type") as Hold["type"],
-      size: text("size") as Hold["size"],
-      mount: text("mount") as Hold["mount"],
+      type: text("type") as DesignInput["type"],
+      size: text("size") as DesignInput["size"],
+      mount: text("mount") as DesignInput["mount"],
       problemGrade: optionalNumber(form.get("problemGrade")),
       recipes: [
         {
           material: text("material"),
           specialProcess: (text("specialProcess") ||
-            null) as Hold["recipes"][number]["specialProcess"],
+            null) as DesignInput["recipes"][number]["specialProcess"],
           notes: text("printNotes"),
           textureNotes: text("textureNotes"),
           postProcessing: text("postProcessing"),
@@ -107,20 +133,10 @@ function UploadDesignForm({
             .filter(Boolean),
         ),
       ].slice(0, 12),
-      license: text("license") as Hold["license"],
-      color: "#a2b5a6",
-      illustration: "ripple",
-      photoIds,
-      files,
-      createdAt: new Date().toISOString(),
-      isSample: false,
+      license: text("license") as DesignInput["license"],
     };
-    const issues = validateUpload(
-      hold,
-      models,
-      photos,
-      form.get("ownership") === "on",
-    );
+    const sharingPermission = form.get("ownership") === "on";
+    const issues = validateUpload(input, models, photos, sharingPermission);
     if (issues.length) {
       showErrors(issues);
       return;
@@ -139,14 +155,48 @@ function UploadDesignForm({
       return;
     }
     saving.current = true;
-    setBusy(true);
     setErrors([]);
     try {
-      await addHold(hold, [
-        ...photos.map((file, index) => ({ id: photoIds[index], file })),
-        ...models.map((file, index) => ({ id: files[index].id, file })),
-      ]);
-      setSavedHold(hold);
+      setProgress("Saving design…");
+      const allFiles = [...photos, ...models];
+      const draft = await createDraft(
+        input,
+        allFiles.map((file, index) => ({
+          kind: index < photos.length ? "photo" : "model",
+          name: file.name,
+          bytes: file.size,
+          type: file.type,
+        })),
+        sharingPermission,
+      );
+      if ("errors" in draft) {
+        showErrors(draft.errors);
+        return;
+      }
+      setProgress("Uploading files…");
+      const failed = await uploadAll(
+        draft.uploads.map((upload, index) => ({
+          url: upload.url,
+          file: allFiles[index],
+        })),
+      );
+      if (failed.length) {
+        showErrors([
+          `${failed.join(", ")} did not upload. Check your connection and try again.`,
+        ]);
+        return;
+      }
+      setProgress("Publishing…");
+      const published = await finalizeDesign(draft.designId);
+      if ("errors" in published) {
+        showErrors(published.errors);
+        return;
+      }
+      setSavedHold({
+        id: draft.designId,
+        title: input.title,
+        fileCount: models.length,
+      });
       setPhotoReminder(false);
       requestAnimationFrame(() => {
         completionRegion.current?.focus({ preventScroll: true });
@@ -163,7 +213,7 @@ function UploadDesignForm({
       ]);
     } finally {
       saving.current = false;
-      setBusy(false);
+      setProgress("");
     }
   }
 
@@ -189,11 +239,6 @@ function UploadDesignForm({
           noValidate
         >
           <fieldset className="upload-fields" disabled={busy || !!savedHold}>
-            {storageError && (
-              <p className="error-box" role="alert">
-                {storageError}
-              </p>
-            )}
             <section className="form-section">
               <div className="section-heading">
                 <span>01</span>
@@ -212,19 +257,10 @@ function UploadDesignForm({
                   placeholder="e.g. Mesa edge"
                 />
               </Field>
-              <Field
-                label="Creator name *"
-                hint="This is a display name for the local prototype, not a verified account."
-              >
-                <input
-                  name="creator"
-                  required
-                  minLength={2}
-                  maxLength={50}
-                  placeholder="Your name or studio"
-                  autoComplete="nickname"
-                />
-              </Field>
+              <p className="field-hint">
+                Published as <strong>{creator}</strong>. Change your display
+                name from <Link href="/account">your account</Link>.
+              </p>
               <Field
                 label="Description *"
                 hint="At least 20 characters. A sentence about the grip or intended use is enough."
@@ -428,14 +464,14 @@ function UploadDesignForm({
                 <CircleCheck size={28} strokeWidth={1.5} />
               </div>
               <div role="status">
-                <p className="eyebrow">READY FOR YOUR LIBRARY</p>
-                <h2 id="upload-complete-heading">Design added.</h2>
+                <p className="eyebrow">PUBLISHED</p>
+                <h2 id="upload-complete-heading">Design published.</h2>
                 <p>
                   <strong>{savedHold.title}</strong> and{" "}
-                  {savedHold.files.length === 1
+                  {savedHold.fileCount === 1
                     ? "its original file are"
                     : "its original files are"}{" "}
-                  saved in this browser. Your design is ready to view.
+                  live in the library for everyone to download.
                 </p>
               </div>
               <div className="completion-actions">
@@ -460,13 +496,13 @@ function UploadDesignForm({
           ) : (
             <div className="form-submit-row">
               <p>
-                Saved to this browser.
+                Publishing makes your files downloadable by anyone
                 <br />
-                Public sharing will arrive with account integration.
+                under the license you choose.
               </p>
               <button
                 className="button button-dark"
-                disabled={busy || !ready || !!storageError}
+                disabled={busy}
                 type="submit"
                 name={skippingPhotos ? "skipPhoto" : undefined}
               >
@@ -476,10 +512,10 @@ function UploadDesignForm({
                   <PlusIcon />
                 )}{" "}
                 {busy
-                  ? "Saving design…"
+                  ? progress
                   : skippingPhotos
                     ? "Continue without a photo"
-                    : "Add to local library"}
+                    : "Publish design"}
               </button>
             </div>
           )}
@@ -514,11 +550,10 @@ function UploadDesignForm({
             Recipes and grade suggestions are creator reports. They don’t
             certify a printed hold’s strength.
           </p>
-          <span className="aside-label">THE FIRST VERSION</span>
+          <span className="aside-label">EARLY ACCESS</span>
           <p className="small-note">
-            Accounts, public publishing, paid bundles, and interactive 3D
-            viewing are planned next. This version keeps your work on your
-            device.
+            Files upload straight to storage and publish once every file is
+            verified. Editing and paid bundles are coming.
           </p>
         </aside>
       </div>

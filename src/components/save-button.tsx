@@ -1,34 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Bookmark } from "lucide-react";
-import { useLibrary } from "./library-provider";
+import { toggleBookmark } from "@/features/holds/bookmark-actions";
+import { signInPath } from "@/features/auth/redirects";
 
 export function SaveButton({
   id,
   title,
+  saved,
+  signedIn,
   labeled = false,
 }: {
   id: string;
   title: string;
+  saved: boolean;
+  signedIn: boolean;
   labeled?: boolean;
 }) {
-  const { savedIds, toggleSaved, ready, storageError } = useLibrary();
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
+  const [optimisticSaved, setOptimisticSaved] = useOptimistic(saved);
   const [error, setError] = useState("");
-  const saved = savedIds.includes(id);
-  async function handleSave() {
-    setBusy(true);
-    setError("");
-    try {
-      await toggleSaved(id);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Could not save this hold.",
-      );
-    } finally {
-      setBusy(false);
+  function handleSave() {
+    if (!signedIn) {
+      router.push(signInPath(pathname));
+      return;
     }
+    setError("");
+    startTransition(async () => {
+      setOptimisticSaved(!optimisticSaved);
+      const result = await toggleBookmark(id);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
+    });
   }
   return (
     <div className={labeled ? "save-control" : "card-save-control"}>
@@ -37,18 +44,18 @@ export function SaveButton({
         className={
           labeled
             ? "button button-outline"
-            : `save-button ${saved ? "saved" : ""}`
+            : `save-button ${optimisticSaved ? "saved" : ""}`
         }
-        aria-label={`${saved ? "Unsave" : "Save"} ${title}`}
-        aria-pressed={saved}
-        disabled={!ready || busy || !!storageError}
+        aria-label={`${optimisticSaved ? "Unsave" : "Save"} ${title}`}
+        aria-pressed={optimisticSaved}
+        disabled={pending}
         onClick={handleSave}
       >
         <Bookmark
           size={labeled ? 17 : 18}
-          fill={saved ? "currentColor" : "none"}
+          fill={optimisticSaved ? "currentColor" : "none"}
         />
-        {labeled && (saved ? "Saved" : "Save design")}
+        {labeled && (optimisticSaved ? "Saved" : "Save design")}
       </button>
       {error && (
         <span role="alert" className="save-error">

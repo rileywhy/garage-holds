@@ -9,18 +9,53 @@ each value goes. Nothing here is secret except where marked.
 | -------------------------------------- | ---------------- | ------- | --------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                               |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`) |
-| `R2_ACCOUNT_ID`                        | Server only      | No      | Cloudflare dashboard → R2 → account id (right sidebar)                                  |
+| `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one             |
+| `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                   |
 | `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket            |
 | `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                 |
 | `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                  |
 
 Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
-Settings → Environment Variables. Secrets never go in chat, commits, or
-`NEXT_PUBLIC_*` names. The Supabase **secret** key is not needed by the app at
-all; the server acts as the signed-in user and row-level security does the rest.
+Settings → Environment Variables, followed by a redeploy. Secrets never go in
+chat, commits, or `NEXT_PUBLIC_*` names.
 
-Without the two Supabase variables the app still runs: the header shows no
-account menu and `/sign-in` explains that accounts are not configured.
+Reads and most writes run as the signed-in user, so row-level security decides
+what each person can see and change. The secret key is used for exactly one
+thing: recording that an uploaded object really exists in R2 with the declared
+size. Users cannot be trusted to assert that themselves.
+
+Without the two Supabase variables the app still runs with no accounts and an
+empty library. Without the secret key or the R2 variables, browsing works but
+the upload form reports that uploads are not configured.
+
+## Cloudflare R2
+
+1. Dashboard → **R2 Object Storage** → Create bucket, name `garage-holds`,
+   location Automatic.
+2. **Manage R2 API Tokens** → Create API token: permission **Object Read & Write**,
+   limited to that bucket. Copy the access key id and secret into the variables
+   above. The account id is the hex string in the endpoint URL shown there.
+3. Bucket → **Settings → CORS policy**. Browsers upload straight to the bucket
+   with signed PUT URLs and fetch STL previews with signed GET URLs, so the
+   bucket must allow the site's origins:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "https://garage-holds.vercel.app",
+         "http://127.0.0.1:3000"
+       ],
+       "AllowedMethods": ["GET", "PUT", "HEAD"],
+       "AllowedHeaders": ["content-type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+The bucket stays private. Downloads and photos use signed URLs that expire
+after an hour, so draft files never leak and paid downloads can be gated later
+without moving anything.
 
 ## Supabase: Authentication settings
 
@@ -105,3 +140,13 @@ try to run it again.
 - `supabase/migrations/20261011000000_profile_onboarding.sql` adds the bio and
   the `onboarded_at` stamp. A user's first sign-in lands on `/welcome` to
   confirm their display name; `/account` edits the same fields later.
+- `supabase/migrations/20261012000000_library.sql` creates designs, their
+  files, reviews, and bookmarks. Only published designs are visible to others;
+  a database trigger refuses to publish a design without a verified model
+  file; `design_files` rows are written only by the server after checking R2.
+- `src/features/uploads/actions.ts` is the upload pipeline: create the draft
+  and sign one PUT URL per file, the browser uploads directly to R2, then the
+  server confirms each object's existence and size, marks it ready, and
+  publishes.
+- `src/features/holds/repository.ts` reads designs, reviews, and bookmarks as
+  the signed-in user and attaches signed R2 URLs for photos and downloads.
