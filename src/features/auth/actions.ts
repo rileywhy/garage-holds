@@ -136,17 +136,26 @@ export async function saveProfile(
       ...(user.onboarded ? {} : { onboarded_at: new Date().toISOString() }),
     })
     .eq("id", user.id);
-  if (error)
+  if (error) {
+    // Shows in the host's server logs (Vercel → Logs) for diagnosis.
+    console.error("profile save failed", {
+      userId: user.id,
+      code: error.code,
+      message: error.message,
+    });
     return {
       displayName,
       bio,
       errors: [
         error.code === "23505"
           ? "That display name is taken. Try another."
-          : "Your profile could not be saved. Try again.",
+          : error.code === "42703"
+            ? "The database is missing the latest migration. Run supabase/migrations in order, then try again."
+            : "Your profile could not be saved. Try again.",
       ],
       saved: false,
     };
+  }
   revalidatePath("/", "layout");
   const next = formData.get("next");
   if (typeof next === "string") redirect(safeNextPath(next));
