@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { FileBox, ImagePlus, UploadCloud, X } from "lucide-react";
 import { formatBytes } from "@/features/holds/catalog";
 
 function PhotoThumbnail({ file }: { file: File }) {
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    const next = URL.createObjectURL(file);
-    setUrl(next);
-    return () => URL.revokeObjectURL(next);
-  }, [file]);
-  return url ? <img src={url} alt={`Preview of ${file.name}`} /> : null;
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  return <img src={url} alt={`Preview of ${file.name}`} />;
 }
 
 export function FilePicker({

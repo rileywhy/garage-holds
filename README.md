@@ -15,12 +15,13 @@ Open http://127.0.0.1:3000. No credentials are needed for the prototype.
 
 ```sh
 npm run format:check
+npm run lint
 npm run typecheck
 npm test
 npm run build
 ```
 
-GitHub Actions runs the same four commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`). `.nvmrc` pins the Node major version CI uses.
+GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`). `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
 ## What works
 

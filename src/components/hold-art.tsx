@@ -191,27 +191,29 @@ export function StoredPhoto({
   alt: string;
   className?: string;
 }) {
-  const [url, setUrl] = useState("");
-  const [failed, setFailed] = useState(false);
+  // State is tagged with the id it belongs to, so a changed id reads as "loading"
+  // without resetting state inside the effect.
+  const [loaded, setLoaded] = useState({ id, url: "", failed: false });
   useEffect(() => {
     let active = true;
     let objectUrl = "";
-    setUrl("");
-    setFailed(false);
     getAsset(id)
       .then((file) => {
         if (!active) return;
         objectUrl = URL.createObjectURL(file);
-        setUrl(objectUrl);
+        setLoaded({ id, url: objectUrl, failed: false });
       })
       .catch(() => {
-        if (active) setFailed(true);
+        if (active) setLoaded({ id, url: "", failed: true });
       });
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id]);
+  const { url, failed } =
+    loaded.id === id ? loaded : { url: "", failed: false };
+  const setFailed = (failed: boolean) => setLoaded({ id, url, failed });
   return url && !failed ? (
     <img
       src={url}

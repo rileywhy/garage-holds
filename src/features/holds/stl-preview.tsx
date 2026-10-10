@@ -15,20 +15,20 @@ export function StlPreview({
   showAngles?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const [image, setImage] = useState("");
-  const [failed, setFailed] = useState(false);
   const [view, setView] = useState<StlView>("side");
+  // The render result is tagged with the file and view it was made for, so a
+  // changed file or angle reads as "loading" without resetting state in the effect.
+  const key = `${fileId}:${view}`;
+  const [rendered, setRendered] = useState({ key, image: "", failed: false });
   useEffect(() => {
     let active = true;
-    setImage("");
-    setFailed(false);
     const load = () => {
       getStlThumbnail(fileId, view)
-        .then((url) => {
-          if (active) setImage(url);
+        .then((image) => {
+          if (active) setRendered({ key, image, failed: false });
         })
         .catch(() => {
-          if (active) setFailed(true);
+          if (active) setRendered({ key, image: "", failed: true });
         });
     };
     const observer = new IntersectionObserver(
@@ -45,7 +45,9 @@ export function StlPreview({
       active = false;
       observer.disconnect();
     };
-  }, [fileId, view]);
+  }, [fileId, view, key]);
+  const { image, failed } =
+    rendered.key === key ? rendered : { image: "", failed: false };
   const label = STL_VIEWS.find((option) => option.id === view)!.label;
   return (
     <div className="stl-preview" ref={container}>
