@@ -1,12 +1,9 @@
--- Proposed hosted foundation. The local prototype does not connect to this schema.
--- Apply and test policies against a development Supabase project before deployment.
+-- PROPOSAL ONLY. Not a migration and not applied by `supabase db push`.
+-- Profiles now live in migrations/0001_profiles.sql. Each remaining table moves
+-- into a numbered migration as its feature is built, after review: publication
+-- must require confirmed files, and design_files is written only by trusted
+-- server code. See docs/next-milestone.md.
 -- All problem grades refer to a 40 degree board; 0 represents the V0–V1 group.
-
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  display_name text not null check (char_length(trim(display_name)) between 2 and 50),
-  created_at timestamptz not null default now()
-);
 
 create table public.designs (
   id uuid primary key default gen_random_uuid(),
@@ -78,7 +75,6 @@ create index reviews_design_idx on public.reviews(design_id, created_at desc);
 create index reviews_author_idx on public.reviews(author_id);
 create index bookmarks_design_idx on public.bookmarks(design_id);
 
-alter table public.profiles enable row level security;
 alter table public.designs enable row level security;
 alter table public.print_recipes enable row level security;
 alter table public.design_files enable row level security;
@@ -86,16 +82,12 @@ alter table public.reviews enable row level security;
 alter table public.bookmarks enable row level security;
 
 -- Remove Supabase default grants; explicitly grant only the supported operations.
-revoke all on public.profiles, public.designs, public.print_recipes, public.design_files, public.reviews, public.bookmarks from anon, authenticated;
-grant select on public.profiles, public.designs, public.print_recipes, public.design_files, public.reviews to anon, authenticated;
-grant insert, update on public.profiles to authenticated;
+revoke all on public.designs, public.print_recipes, public.design_files, public.reviews, public.bookmarks from anon, authenticated;
+grant select on public.designs, public.print_recipes, public.design_files, public.reviews to anon, authenticated;
 grant insert, update, delete on public.designs, public.print_recipes, public.reviews to authenticated;
 grant select, insert, delete on public.bookmarks to authenticated;
-grant all on public.profiles, public.designs, public.print_recipes, public.design_files, public.reviews, public.bookmarks to service_role;
+grant all on public.designs, public.print_recipes, public.design_files, public.reviews, public.bookmarks to service_role;
 
-create policy "Public display names" on public.profiles for select using (true);
-create policy "Create own profile" on public.profiles for insert to authenticated with check (id = (select auth.uid()));
-create policy "Update own profile" on public.profiles for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
 create policy "Read published designs or own drafts" on public.designs for select using (status = 'published' or owner_id = (select auth.uid()));
 create policy "Create own designs" on public.designs for insert to authenticated with check (owner_id = (select auth.uid()));

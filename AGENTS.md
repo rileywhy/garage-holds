@@ -12,6 +12,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Maintainability takes priority over feature count. Keep routes thin, group code by feature, and put business rules in plain TypeScript. Avoid speculative abstractions and dependencies. Keep source consistently formatted with `npm run format`.
 
-The current app is a browser-local prototype. Do not imply that uploads are publicly shared or display names are verified. Supabase/R2 environment variables and the proposed migration are not wired up yet. Before enabling public uploads, implement and test authentication, authorization, trusted file validation, and storage lifecycle handling.
+Uploads, reviews, and saved holds are still browser-local; do not imply they are publicly shared. Accounts (Supabase Auth: email codes and Google) are wired up in `src/features/auth` and `src/lib/supabase`, and run only when the public Supabase variables are set. R2 is not wired up yet. Before enabling public uploads, implement and test authorization, trusted file validation, and storage lifecycle handling. Schema changes are numbered files in `supabase/migrations`; `supabase/proposed-library.sql` is a draft, not a migration.
 
 Run focused domain tests, type checking, and a production build for consequential changes. Verify interactive changes in the browser. Never commit secrets or expose server credentials in browser code.

@@ -9,7 +9,7 @@
 
 ## First usable slice
 
-1. **Sign in and profiles.** Build email-code verification, Google sign-in, sign-out, and session handling. Create one profile per authenticated user. Use an immutable user ID for ownership; display names are editable labels. Keep the upload form's creator name only in local mode.
+1. **Sign in and profiles.** _Code in place; needs the Supabase project configured per `docs/hosted-setup.md` and a browser pass._ Email-code verification, Google sign-in, sign-out, session refresh, one profile per user created by a database trigger, immutable user id for ownership, unique editable display names. The upload form's creator name stays only in local mode.
 2. **Owned drafts.** Add a creator's design list with draft/published state and edit/delete actions. Check ownership on the server and in Postgres policies. Test with two separate users: one cannot read the other's drafts, edit their designs, or delete their files. Public visitors can read published designs only.
 3. **One complete hosted upload.** Create the draft, authorize file uploads, verify uploaded objects, and publish only after required model files are confirmed. Tie files to the owning draft rather than accepting arbitrary object keys. Enforce file counts, sizes, and supported types at the trusted boundary. Show an explicit completion state after publication.
 4. **Shared browsing, reviews, and bookmarks.** Read real records from the database with pagination. Associate reviews and bookmarks with authenticated IDs. Update profiles without rewriting the creator name on every design.

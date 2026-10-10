@@ -9,10 +9,11 @@ import {
   Plus,
   FlaskConical,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useLibrary } from "./library-provider";
 import { ThemeToggle } from "./theme-toggle";
 
-export function SiteHeader() {
+export function SiteHeader({ account }: { account?: ReactNode }) {
   const pathname = usePathname();
   const { savedIds } = useLibrary();
   return (
@@ -42,6 +43,7 @@ export function SiteHeader() {
           </Link>
         </nav>
         <div className="header-actions">
+          {account}
           <ThemeToggle />
           <Link href="/upload" className="button button-dark header-upload">
             <Plus size={16} /> Upload a design

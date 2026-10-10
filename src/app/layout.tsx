@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { LibraryProvider } from "@/components/library-provider";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
+import { AccountMenu } from "@/features/auth/account-menu";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <a href="#main-content" className="skip-link">
             Skip to content
           </a>
-          <SiteHeader />
+          <SiteHeader account={<AccountMenu />} />
           <div id="main-content">{children}</div>
           <SiteFooter />
         </LibraryProvider>

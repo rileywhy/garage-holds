@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. No credentials are needed for the prototype.
+Open http://127.0.0.1:3000. Browsing, local uploads, reviews, and saved holds need no credentials. To enable sign-in, copy `.env.example` to `.env.local` and fill in the two public Supabase values; [docs/hosted-setup.md](docs/hosted-setup.md) lists every dashboard setting involved.
 
 ```sh
 npm run format:check
@@ -55,19 +55,26 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/features/holds`: domain types, sample data, filtering, validation, catalog and detail UI.
 - `src/features/uploads`: upload form and file picker.
 - `src/features/reviews`: review UI.
+- `src/features/auth`: sign-in, sign-out, account menu, and display-name editing.
+- `src/features/profiles`: display-name rules shared by the form and the server.
 - `src/components`: shared UI and library state.
 - `src/lib/local-repository.ts`: browser persistence; no storage details in the page components.
+- `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy.
 - `tests`: domain behavior tests.
-- `supabase/migrations`: initial proposed hosted schema, not applied by the prototype.
+- `supabase/migrations`: the hosted schema, applied in order. `supabase/proposed-library.sql` is an unapplied draft of the remaining tables.
+
+## Accounts
+
+Sign-in uses Supabase Auth with email one-time codes and Google. `src/features/auth` holds the server functions, forms, and the header menu; `src/lib/supabase` holds the request-bound clients; `src/proxy.ts` refreshes sessions on each navigation. Every user gets one profile (`supabase/migrations/0001_profiles.sql`) keyed by their immutable user id, with a unique, editable display name managed at `/account`. Accounts do not yet gate uploads, reviews, or saves, which remain browser-local until the hosted library lands.
 
 ## Hosted integration next
 
-The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2. `.env.example` documents the intended configuration but is not consumed yet. Do not add service credentials to browser code.
+The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2. Do not add service credentials to browser code.
 
-The next milestone uses email codes and Google sign-in. See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests.
+See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests, and [docs/hosted-setup.md](docs/hosted-setup.md) for the external configuration.
 
-1. Review the upload fields and hosted schema, then create Supabase and R2 projects.
-2. Add verified authentication; move shared records to Supabase with tested row-level security.
+1. ~~Review the upload fields and hosted schema, then create Supabase and R2 projects.~~ Supabase project exists; R2 pending.
+2. ~~Add verified authentication~~; move shared records to Supabase with tested row-level security.
 3. Add server-issued signed R2 upload/download URLs. Validate size, type, ownership, and upload completion server-side; do not trust browser validation or declared MIME types. Reconcile abandoned uploads and deleted records with object storage.
 4. Add ownership-based edit/delete controls, file revisions, moderation/reporting, and pagination before public launch.
 5. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
