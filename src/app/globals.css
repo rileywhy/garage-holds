@@ -2290,8 +2290,27 @@ svg {
 .link-button:hover {
   color: var(--ink);
 }
-.account-sign-in {
+.account-sign-in,
+.account-designs {
   height: auto;
+}
+.card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.card-action:hover {
+  color: var(--ink);
 }
 .account-menu {
   display: flex;
@@ -2377,6 +2396,7 @@ svg {
 }
 @media (max-width: 760px) {
   .account-name,
+  .account-designs,
   .account-menu .link-button {
     display: none;
   }

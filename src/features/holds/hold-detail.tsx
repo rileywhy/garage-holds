@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, Download, FileBox, ArrowUpRight, Info } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  FileBox,
+  ArrowUpRight,
+  Info,
+  Pencil,
+} from "lucide-react";
 import { HoldVisual } from "@/components/hold-art";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
@@ -93,6 +100,14 @@ export function HoldDetail({
             <a href="#files" className="button button-dark">
               View files <ArrowUpRight size={16} />
             </a>
+            {isOwner && (
+              <Link
+                href={`/holds/${hold.id}/edit`}
+                className="button button-outline"
+              >
+                <Pencil size={15} /> Edit details
+              </Link>
+            )}
           </div>
           <dl className="spec-grid">
             <div>

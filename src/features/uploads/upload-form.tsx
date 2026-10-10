@@ -10,20 +10,11 @@ import {
   LoaderCircle,
   CircleCheck,
 } from "lucide-react";
-import { ProblemGradeField } from "@/components/problem-grade-field";
-import { Field, FieldErrors } from "@/components/form-fields";
-import { optionalNumber } from "@/lib/form-data";
-import {
-  HOLD_TYPES,
-  HOLD_SIZES,
-  MOUNT_TYPES,
-  MATERIALS,
-  SPECIAL_PROCESSES,
-  type DesignInput,
-} from "@/features/holds/types";
+import { FieldErrors } from "@/components/form-fields";
+import { readDesignInput } from "@/features/holds/design-form";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
+import { DesignFields } from "./design-fields";
 import { FilePicker } from "./file-picker";
-import { LicenseField } from "./license-field";
 import { createDraft, finalizeDesign } from "./actions";
 
 const PARALLEL_UPLOADS = 3;
@@ -107,34 +98,7 @@ function UploadDesignForm({
     event.preventDefault();
     if (saving.current || savedHold) return;
     const form = new FormData(event.currentTarget);
-    const text = (key: string) => String(form.get(key) ?? "").trim();
-    const input: DesignInput = {
-      title: text("title"),
-      description: text("description"),
-      type: text("type") as DesignInput["type"],
-      size: text("size") as DesignInput["size"],
-      mount: text("mount") as DesignInput["mount"],
-      problemGrade: optionalNumber(form.get("problemGrade")),
-      recipes: [
-        {
-          material: text("material"),
-          specialProcess: (text("specialProcess") ||
-            null) as DesignInput["recipes"][number]["specialProcess"],
-          notes: text("printNotes"),
-          textureNotes: text("textureNotes"),
-          postProcessing: text("postProcessing"),
-        },
-      ],
-      tags: [
-        ...new Set(
-          text("tags")
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        ),
-      ].slice(0, 12),
-      license: text("license") as DesignInput["license"],
-    };
+    const input = readDesignInput(form);
     const sharingPermission = form.get("ownership") === "on";
     const issues = validateUpload(input, models, photos, sharingPermission);
     if (issues.length) {
@@ -239,194 +203,31 @@ function UploadDesignForm({
           noValidate
         >
           <fieldset className="upload-fields" disabled={busy || !!savedHold}>
-            <section className="form-section">
-              <div className="section-heading">
-                <span>01</span>
-                <div>
-                  <h2>The essentials</h2>
-                  <p>Tell us what makes this hold yours.</p>
-                </div>
-              </div>
-              <Field label="Design name *">
-                <input
-                  name="title"
-                  autoFocus={focusTitle}
-                  required
-                  minLength={3}
-                  maxLength={80}
-                  placeholder="e.g. Mesa edge"
-                />
-              </Field>
-              <p className="field-hint">
-                Published as <strong>{creator}</strong>. Change your display
-                name from <Link href="/account">your account</Link>.
-              </p>
-              <Field
-                label="Description *"
-                hint="At least 20 characters. A sentence about the grip or intended use is enough."
-              >
-                <textarea
-                  name="description"
-                  required
-                  minLength={20}
-                  maxLength={5000}
-                  rows={4}
-                  placeholder="Describe the feel, intended use, mounting hardware, and any testing you’ve done."
-                />
-              </Field>
-            </section>
-            <section className="form-section" id="hold-photos">
-              <div className="section-heading">
-                <span>02</span>
-                <div>
-                  <h2>Photos & files</h2>
-                  <p>
-                    Photos are optional. Add one for your cover, or we’ll use an
-                    STL preview when available. Original files stay intact.
-                  </p>
-                </div>
-              </div>
-              <FilePicker
-                kind="photos"
-                disabled={busy || !!savedHold}
-                files={photos}
-                onChange={setPhotos}
-                accept="image/jpeg,image/png,image/webp"
-              />
-              <FilePicker
-                kind="models"
-                disabled={busy || !!savedHold}
-                files={models}
-                onChange={setModels}
-                accept={MODEL_EXTENSIONS.map(
-                  (extension) => `.${extension}`,
-                ).join(",")}
-              />
-            </section>
-            <section className="form-section">
-              <div className="section-heading">
-                <span>03</span>
-                <div>
-                  <h2>Find the right fit</h2>
-                  <p>Climbing details make your design easier to discover.</p>
-                </div>
-              </div>
-              <div className="form-grid three">
-                <Field label="Hold type *">
-                  <select name="type">
-                    {HOLD_TYPES.map((type) => (
-                      <option key={type}>{type}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Size *">
-                  <select name="size" defaultValue="Medium">
-                    {HOLD_SIZES.map((size) => (
-                      <option key={size}>{size}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Mounting *">
-                  <select name="mount" defaultValue="Screw-on">
-                    {MOUNT_TYPES.map((mount) => (
-                      <option key={mount}>{mount}</option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-              <ProblemGradeField />
-            </section>
-            <section className="form-section">
-              <div className="section-heading">
-                <span>04</span>
-                <div>
-                  <h2>Printing recipe</h2>
-                  <p>
-                    Share your print settings, texture, and any special steps.
-                  </p>
-                </div>
-              </div>
-              <div className="form-grid">
-                <Field label="Material *">
-                  <input
-                    name="material"
-                    list="materials"
-                    defaultValue="PETG"
-                    required
-                    maxLength={80}
+            <DesignFields
+              creator={creator}
+              focusTitle={focusTitle}
+              sharingConfirmation
+              filesSection={
+                <>
+                  <FilePicker
+                    kind="photos"
+                    disabled={busy || !!savedHold}
+                    files={photos}
+                    onChange={setPhotos}
+                    accept="image/jpeg,image/png,image/webp"
                   />
-                  <datalist id="materials">
-                    {MATERIALS.map((material) => (
-                      <option value={material} key={material} />
-                    ))}
-                  </datalist>
-                </Field>
-                <Field
-                  label="Special process (optional)"
-                  hint="Leave blank for a normal print."
-                >
-                  <select name="specialProcess" defaultValue="">
-                    <option value="">No special process</option>
-                    {SPECIAL_PROCESSES.map((process) => (
-                      <option key={process}>{process}</option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-              <Field label="Print settings & notes">
-                <textarea
-                  name="printNotes"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Orientation, layer height, walls, infill, printer, and what you tested…"
-                />
-              </Field>
-              <Field
-                label="Fuzzy skin / texture notes (optional)"
-                hint="Share settings you’ve tried and how the texture felt. Leave blank if you don’t use added texture."
-              >
-                <textarea
-                  name="textureNotes"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Slicer, fuzzy skin thickness and point distance, where you apply texture, and what worked…"
-                />
-              </Field>
-              <Field label="Finishing / treatment notes (optional)">
-                <input
-                  name="postProcessing"
-                  maxLength={200}
-                  placeholder="e.g. salt annealing, sanding, or none"
-                />
-              </Field>
-              <Field
-                label="Tags"
-                hint="Separate tags with commas. Up to 12 tags."
-              >
-                <input
-                  name="tags"
-                  maxLength={300}
-                  placeholder="board training, warm-up, textured"
-                />
-              </Field>
-            </section>
-            <section className="form-section">
-              <div className="section-heading">
-                <span>05</span>
-                <div>
-                  <h2>Sharing</h2>
-                  <p>Free downloads are the starting point for this library.</p>
-                </div>
-              </div>
-              <LicenseField />
-              <label className="checkbox-row ownership-check">
-                <input name="ownership" type="checkbox" required />
-                <span>
-                  I created these files or have permission to share them under
-                  the selected license.
-                </span>
-              </label>
-            </section>
+                  <FilePicker
+                    kind="models"
+                    disabled={busy || !!savedHold}
+                    files={models}
+                    onChange={setModels}
+                    accept={MODEL_EXTENSIONS.map(
+                      (extension) => `.${extension}`,
+                    ).join(",")}
+                  />
+                </>
+              }
+            />
             {skippingPhotos && !savedHold && (
               <div
                 className="photo-reminder"

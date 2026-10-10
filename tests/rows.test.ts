@@ -9,6 +9,7 @@ import {
   type DesignRow,
 } from "../src/features/holds/rows";
 import { validateDesign } from "../src/features/holds/validation";
+import { readDesignInput } from "../src/features/holds/design-form";
 
 const row: DesignRow = {
   id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
@@ -126,4 +127,32 @@ test("object keys never include user-supplied names", () => {
   assert.equal(fileExtension("noextension"), "");
   assert.equal(photoContentType("jpg"), "image/jpeg");
   assert.equal(photoContentType("stl"), null);
+});
+
+test("the design form reads into a DesignInput with trimmed, deduplicated tags", () => {
+  const form = new FormData();
+  form.set("title", "  Mesa edge ");
+  form.set(
+    "description",
+    "A crisp incut edge for steep boards, tested on a 40.",
+  );
+  form.set("type", "Crimp");
+  form.set("size", "Medium");
+  form.set("mount", "Screw-on");
+  form.set("problemGrade", "5");
+  form.set("material", "PETG-CF");
+  form.set("specialProcess", "");
+  form.set("printNotes", "0.2 mm layers");
+  form.set("textureNotes", "");
+  form.set("postProcessing", "");
+  form.set("tags", "crimp, board training ,crimp,, edge");
+  form.set("license", "CC BY 4.0");
+  const input = readDesignInput(form);
+  assert.equal(input.title, "Mesa edge");
+  assert.equal(input.problemGrade, 5);
+  assert.equal(input.recipes[0].specialProcess, null);
+  assert.deepEqual(input.tags, ["crimp", "board training", "edge"]);
+  assert.deepEqual(validateDesign(input), []);
+  form.set("problemGrade", "");
+  assert.equal(readDesignInput(form).problemGrade, null);
 });

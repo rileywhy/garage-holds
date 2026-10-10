@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { Hold, Review } from "./types";
@@ -14,11 +14,13 @@ export function HoldCard({
   reviews,
   saved,
   signedIn,
+  actions,
 }: {
   hold: Hold;
   reviews: Review[];
   saved: boolean;
   signedIn: boolean;
+  actions?: ReactNode;
 }) {
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const photoCount = hold.photos.length;
@@ -65,7 +67,13 @@ export function HoldCard({
             </span>
           </>
         )}
-        <span className="card-label">{hold.isSample ? "SAMPLE" : "FREE"}</span>
+        <span className="card-label">
+          {hold.isSample
+            ? "SAMPLE"
+            : hold.status === "draft"
+              ? "DRAFT"
+              : "FREE"}
+        </span>
         {!hold.isSample && (
           <SaveButton
             id={hold.id}
@@ -103,6 +111,7 @@ export function HoldCard({
             {summary.count > 0 && <span>({summary.count})</span>}
           </span>
         </div>
+        {actions && <div className="card-actions">{actions}</div>}
       </div>
     </article>
   );

@@ -9,8 +9,12 @@ import {
   type License,
 } from "@/features/holds/licenses";
 
-export function LicenseField() {
-  const [license, setLicense] = useState<License | "">("");
+export function LicenseField({
+  defaultValue = "",
+}: {
+  defaultValue?: License | "";
+}) {
+  const [license, setLicense] = useState<License | "">(defaultValue);
   return (
     <>
       <Field

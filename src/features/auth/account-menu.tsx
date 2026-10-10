@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogIn } from "lucide-react";
+import { Layers3, LogIn } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getCurrentUser } from "./current-user";
 import { signOut } from "./actions";
@@ -17,6 +17,11 @@ export async function AccountMenu() {
     );
   return (
     <div className="account-menu">
+      {user.onboarded && (
+        <Link href="/designs" className="nav-link account-designs">
+          <Layers3 size={15} /> My designs
+        </Link>
+      )}
       <Link
         href={user.onboarded ? "/account" : "/welcome"}
         className="account-link"
