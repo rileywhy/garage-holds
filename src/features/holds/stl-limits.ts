@@ -1,0 +1,2 @@
+export const MAX_STL_PREVIEW_BYTES = 25 * 1024 * 1024;
+export const MAX_STL_PREVIEW_TRIANGLES = 500_000;
