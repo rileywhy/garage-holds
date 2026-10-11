@@ -1,0 +1,62 @@
+# Your to-do list
+
+Things only you can do, in rough priority order. This file holds active
+items only: when something is done it is removed, never ticked off. Claude
+keeps it current as work lands; add your own items freely.
+
+## Settings to add
+
+- **`ALERT_WEBHOOK_URL` on Vercel.** Where feedback, design reports, and
+  upload-allowance notices arrive. Discord: Server Settings → Integrations →
+  Webhooks → New Webhook → pick a channel → Copy Webhook URL. Slack's
+  "Incoming Webhooks" app gives the same kind of URL. Add it under
+  Settings → Environment Variables (Production, Sensitive), then redeploy.
+  Until then these messages only reach the Vercel log.
+- **`NEXT_PUBLIC_CONTACT_EMAIL` on Vercel.** Shown to anyone who reaches
+  their upload allowance so they can ask for more. Any address you are
+  willing to make public. Redeploy after adding.
+
+## Domain and search
+
+- **Buy a domain** (`garageholds.com` if free; Cloudflare Registrar or
+  Porkbun sell near cost) and add it in Vercel → Settings → Domains,
+  setting the DNS records Vercel shows. Then tell Claude the name: the docs,
+  R2 CORS origins, and Supabase redirect URLs need it, and the sitemap
+  switches on its own.
+- **Google Search Console** once the domain is live: add the property,
+  choose HTML-tag verification and paste the tag's `content` value to
+  Claude to add to the site, submit `/sitemap.xml`, request indexing for
+  the home page. See `docs/hosted-setup.md` → "Search engines".
+
+## Things to try in a browser
+
+- **Phone photo round trip.** Open `/upload` on the computer, press "Add
+  photos from your phone", scan with the phone, take a photo, confirm it
+  appears on the computer within a few seconds. Then the same from a
+  design's edit page.
+- **Second-account test, remaining half.** From the incognito account,
+  save the published design. As the owner, edit one word of its
+  description and remove a photo. Claude can confirm both from the data.
+- **Mobile and both themes** on the catalog, a design page, the upload
+  page, and the edit page.
+- **Send one feedback message** from the footer after the webhook is set,
+  to see the ping arrive.
+
+## Local tooling
+
+- **Docker walkthrough** in `docs/local-stack.md`: install Docker Desktop,
+  `npm run db:start`, `npm run test:integration`. Needed before you change
+  the schema yourself; CI runs the same stack in the meantime.
+
+## Content
+
+- **Seed the library** with your own holds: real recipes, photos on a wall.
+  The sample designs come out once a few real ones exist.
+- **Ask two or three designers** whose CC-licensed holds you like whether
+  you may re-host them with credit.
+
+## Open questions for Claude
+
+- Google sign-in: is the Google Cloud OAuth client done, and is the
+  consent screen still in "Testing" (only listed test users can sign in)?
+- Laptop RAM, and whether Docker Desktop is installed yet.
