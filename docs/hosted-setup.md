@@ -15,7 +15,7 @@ each value goes. Nothing here is secret except where marked.
 | `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                    |
 | `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                     |
 | `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                             |
-| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives upload-allowance notices (below)                                                             |
+| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                              |
 | `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                  |
 | `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | Optional. The public origin for the sitemap and link previews once there is a custom domain; Vercel's own production URL is used otherwise |
 
@@ -196,6 +196,20 @@ update public.profiles
 
 Users cannot change these columns themselves; the update grant on profiles
 does not include them.
+
+## Feedback and reports
+
+The footer's "Report a bug or send feedback" and the "Report this design"
+link on every design page open the same small form. Each message is stored
+in the `feedback` table (`supabase/migrations/20261017000000_feedback.sql`),
+which only the server reads, and forwarded as one line to
+`ALERT_WEBHOOK_URL` with the sender's name and email when signed in, or
+whatever contact they typed otherwise. A hidden honeypot field drops bot
+submissions. To read everything ever sent:
+
+```sql
+select created_at, contact, page, body from public.feedback order by created_at desc;
+```
 
 ## Search engines and link previews
 

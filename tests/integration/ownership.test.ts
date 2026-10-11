@@ -330,6 +330,23 @@ describe("deletion", () => {
   });
 });
 
+describe("feedback", () => {
+  test("feedback rows are written and read by the server only", async () => {
+    const row = { body: "The preview is upside down.", page: "/holds/x" };
+    const byUser = await owner.client.from("feedback").insert(row);
+    assert.equal(byUser.error?.code, RLS_VIOLATION);
+    const byVisitor = await visitor.from("feedback").select("id");
+    assert.equal(byVisitor.error?.code, RLS_VIOLATION);
+    const byServer = await admin
+      .from("feedback")
+      .insert({ ...row, author_id: owner.id })
+      .select("id")
+      .single();
+    assert.equal(byServer.error, null);
+    await admin.from("feedback").delete().eq("id", byServer.data!.id);
+  });
+});
+
 describe("profiles", () => {
   test("profiles are public, editable by their owner, and uniquely named", async () => {
     const { data: profiles } = await visitor

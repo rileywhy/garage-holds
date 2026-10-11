@@ -2528,3 +2528,80 @@ svg {
 .button-danger:hover {
   background: var(--error-line);
 }
+
+/* Feedback and report dialog. */
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.feedback-trigger {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.feedback-trigger:hover {
+  text-decoration: underline;
+}
+.detail-report {
+  margin: 14px 0 0;
+  font-size: 11px;
+}
+.feedback-dialog {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.feedback-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+.feedback-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.feedback-dialog h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.feedback-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+.feedback-form textarea,
+.feedback-form input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+.feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.feedback-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.feedback-sent p {
+  margin: 0;
+}

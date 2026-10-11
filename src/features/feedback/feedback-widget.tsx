@@ -1,0 +1,146 @@
+"use client";
+
+import { useActionState, useEffect, useRef, useState } from "react";
+import { Flag, LoaderCircle, MessageSquare, Send, X } from "lucide-react";
+import { FieldErrors } from "@/components/form-fields";
+import { submitFeedback, type FeedbackState } from "./actions";
+import { MAX_BODY } from "./validation";
+
+// A button that opens a small dialog: bug reports and general feedback from
+// the footer, or a report about one design from its page, which is the
+// same form with the first line filled in.
+export function FeedbackWidget({
+  label = "Report a bug or send feedback",
+  prefill = "",
+  icon = "feedback",
+  signedIn = false,
+}: {
+  label?: string;
+  prefill?: string;
+  icon?: "feedback" | "report";
+  signedIn?: boolean;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState("");
+  const [state, action, pending] = useActionState<FeedbackState, FormData>(
+    submitFeedback,
+    { errors: [], sent: false },
+  );
+
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (open && !element.open) {
+      setPage(window.location.pathname + window.location.search);
+      element.showModal();
+    } else if (!open && element.open) element.close();
+  }, [open]);
+
+  const Icon = icon === "report" ? Flag : MessageSquare;
+  return (
+    <>
+      <button
+        type="button"
+        className="feedback-trigger"
+        onClick={() => setOpen(true)}
+      >
+        <Icon size={14} /> {label}
+      </button>
+      <dialog
+        ref={dialog}
+        className="feedback-dialog"
+        aria-labelledby="feedback-heading"
+        onClose={() => setOpen(false)}
+      >
+        <div className="feedback-dialog-head">
+          <h2 id="feedback-heading">
+            {icon === "report" ? "Report this design" : "Bug or feedback"}
+          </h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close"
+            onClick={() => setOpen(false)}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {state.sent ? (
+          <div className="feedback-sent" role="status">
+            <p>
+              <strong>Sent. Thank you.</strong>
+            </p>
+            <p className="small-note">
+              It goes straight to the person running the site.
+            </p>
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={() => setOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <form action={action} className="feedback-form" noValidate>
+            <input type="hidden" name="page" value={page} />
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              className="sr-only"
+              aria-hidden
+            />
+            <label>
+              <span>
+                {icon === "report"
+                  ? "What is wrong with it?"
+                  : "What happened, or what would help?"}
+              </span>
+              <textarea
+                name="body"
+                rows={5}
+                maxLength={MAX_BODY}
+                required
+                defaultValue={prefill}
+                placeholder={
+                  icon === "report"
+                    ? "Stolen model, broken file, wrong license, something else…"
+                    : "Steps to reproduce help a lot."
+                }
+              />
+            </label>
+            {!signedIn && (
+              <label>
+                <span>How to reach you (optional)</span>
+                <input
+                  type="text"
+                  name="contact"
+                  maxLength={120}
+                  placeholder="Email or a handle"
+                />
+              </label>
+            )}
+            <FieldErrors errors={state.errors} />
+            <div className="feedback-actions">
+              <button
+                type="submit"
+                className="button button-dark"
+                disabled={pending}
+              >
+                {pending ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : (
+                  <Send size={16} />
+                )}{" "}
+                {pending ? "Sending…" : "Send"}
+              </button>
+            </div>
+          </form>
+        )}
+      </dialog>
+    </>
+  );
+}

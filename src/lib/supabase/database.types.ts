@@ -166,6 +166,42 @@ export type Database = {
           },
         ];
       };
+      feedback: {
+        Row: {
+          author_id: string | null;
+          body: string;
+          contact: string;
+          created_at: string;
+          id: string;
+          page: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_id?: string | null;
+          body: string;
+          contact?: string;
+          created_at?: string;
+          id?: string;
+          page?: string;
+        };
+        Update: {
+          author_id?: string | null;
+          body?: string;
+          contact?: string;
+          created_at?: string;
+          id?: string;
+          page?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "feedback_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       phone_photos: {
         Row: {
           bytes: number;

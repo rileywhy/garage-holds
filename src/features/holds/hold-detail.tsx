@@ -10,6 +10,7 @@ import {
 import { HoldVisual } from "@/components/hold-art";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
+import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "./grades";
 import { formatBytes } from "./catalog";
 import { ReviewSection } from "@/features/reviews/review-section";
@@ -234,6 +235,16 @@ export function HoldDetail({
           <section className="license-panel">
             <h3>Sharing & license</h3>
             <LicenseSummary license={hold.license} />
+            {!hold.isSample && (
+              <p className="detail-report">
+                <FeedbackWidget
+                  label="Report this design"
+                  icon="report"
+                  signedIn={signedIn}
+                  prefill={`Reporting "${hold.title}" (/holds/${hold.id}): `}
+                />
+              </p>
+            )}
             {hold.tags.length > 0 && (
               <>
                 <h3 className="tags-heading">Design tags</h3>

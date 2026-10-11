@@ -35,9 +35,8 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const savedCount = (await getCurrentUser())
-    ? (await listSavedIds()).length
-    : 0;
+  const user = await getCurrentUser();
+  const savedCount = user ? (await listSavedIds()).length : 0;
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
@@ -51,7 +50,7 @@ export default async function RootLayout({
         </a>
         <SiteHeader account={<AccountMenu />} savedCount={savedCount} />
         <div id="main-content">{children}</div>
-        <SiteFooter />
+        <SiteFooter signedIn={user !== null} />
       </body>
     </html>
   );

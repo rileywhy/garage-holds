@@ -33,6 +33,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Photo-free designs show an automatically generated STL thumbnail in the library and on detail pages. Photos take priority when provided.
 - STL covers start with a low side angle to show the lip and incut. Detail pages offer Side, Other side, End, Other end, and Overview angles. A broad flat outer face is used as a likely mounting surface; irregular meshes fall back to Z-up. Orientation is a best-effort guess, and alternate views help when it guesses incorrectly.
 - Save designs to your account and leave one editable review per design with printing settings, material, post-processing, and a suggested problem grade at 40°.
+- A feedback dialog in the footer and a "Report this design" link on every design page, both stored and forwarded to the site owner.
 - Edit or delete your own designs. Each account has an upload allowance (20 designs, 2 GB by default) that the site owner can raise; "My designs" shows your usage.
 - Responsive layouts and keyboard-accessible forms. A generated sitemap and robots file, and Open Graph link previews with the design's first photo.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
@@ -56,6 +57,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/features/uploads`: upload form, file picker, the three-step upload pipeline (draft → signed PUT to R2 → verify and publish), the phone photo hand-off behind `/phone/<session>`, and the storage sweep behind `/api/sweep`.
 - `src/features/reviews`: review UI.
 - `src/features/auth`: sign-in, sign-out, account menu, and display-name editing.
+- `src/features/feedback`: the bug report, feedback, and design report dialog.
 - `src/features/profiles`: display-name rules shared by the form and the server.
 - `src/components`: shared UI and library state.
 - `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.

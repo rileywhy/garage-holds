@@ -10,6 +10,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { ThemeToggle } from "./theme-toggle";
 
 export function SiteHeader({
@@ -60,16 +61,19 @@ export function SiteHeader({
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="site-footer">
       <div>
         <span className="footer-wordmark">garage holds</span>
         <span>Printable climbing holds for your home wall.</span>
       </div>
-      <Link href="/upload">
-        Made something good? Share it <ArrowUpRight size={15} />
-      </Link>
+      <div className="footer-links">
+        <FeedbackWidget signedIn={signedIn} />
+        <Link href="/upload">
+          Made something good? Share it <ArrowUpRight size={15} />
+        </Link>
+      </div>
     </footer>
   );
 }
