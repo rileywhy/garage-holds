@@ -31,6 +31,10 @@ ASSETS = {
         PROJECT / "node_modules/three/examples/jsm/controls/OrbitControls.js",
         "text/javascript",
     ),
+    "/vendor/BufferGeometryUtils.js": (
+        PROJECT / "node_modules/three/examples/jsm/utils/BufferGeometryUtils.js",
+        "text/javascript",
+    ),
 }
 BUILD_LOCK = threading.Lock()
 

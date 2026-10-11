@@ -25,6 +25,7 @@ class Model:
 
     def preview(self) -> dict:
         return dict(
+            material_grams=estimate_material(self.mesh),
             lip_radius=self.lip_radius,
             vertices=np.round(self.mesh.vertices, 5).tolist(),
             faces=self.mesh.faces.tolist(),
@@ -40,6 +41,19 @@ class Model:
             else None,
             watertight=bool(self.mesh.is_watertight),
         )
+
+
+def estimate_material(mesh: trimesh.Trimesh) -> list[int]:
+    """Rough PETG mass: 1.6 mm solid shell plus 25–40% of the remaining core.
+
+    Area × thickness is a first-order shell allowance, capped at solid volume
+    for thin models. This is not slicing; no supports, brim or purge is included.
+    PETG density: Prusament TDS, 1.27 g/cm³.
+    """
+    volume = float(mesh.volume)
+    shell = min(volume, float(mesh.area) * 1.6)
+    core = volume - shell
+    return [round((shell + core * infill) / 1000 * 1.27) for infill in (0.25, 0.4)]
 
 
 def _rounded_outline(
@@ -66,7 +80,9 @@ def _rounded_outline(
         outgoings.append(outgoing)
         turns.append(turn)
         wanted.append(
-            0 if radii[index] == 0 or abs(turn) < 1e-8 else radii[index] * math.tan(abs(turn) / 2)
+            0
+            if radii[index] == 0 or abs(turn) < 1e-8
+            else radii[index] * math.tan(abs(turn) / 2)
         )
     scale = [1.0] * count
     for index in range(count):
@@ -88,7 +104,12 @@ def _rounded_outline(
             normal = np.array([-incoming[1], incoming[0]]) * np.sign(turn)
             center = start + normal * radius
             angle = math.atan2(*(start - center)[::-1])
-            angles = angle + np.linspace(0, turn, segments + 1)
+            # A broad lip needs more samples than a small body fillet. Bound
+            # angular steps as well as keeping the minimum sample count.
+            arc_segments = max(
+                segments, math.ceil(abs(turn) / (math.pi / (6 * segments)))
+            )
+            angles = angle + np.linspace(0, turn, arc_segments + 1)
             arc = center + radius * np.column_stack((np.cos(angles), np.sin(angles)))
         starts.append(start)
         ends.append(end)
@@ -114,7 +135,8 @@ def cross_section(
     projection = p.edge_depth + support
     outer = (p.body_height / 2, projection)
     inner = (outer[0] - p.edge_depth * math.tan(math.radians(p.incut)), support)
-    if inner[0] <= -p.body_height / 2:
+    shelf_at_wall = inner[0] - support * math.tan(math.radians(p.incut))
+    if shelf_at_wall <= -p.body_height / 2:
         raise ValueError(
             "This depth and incut fold the grip below the body. Increase body height, or reduce depth or incut."
         )
@@ -123,12 +145,13 @@ def cross_section(
             (-p.body_height / 2, 0),
             (-p.body_height * 0.34, projection * 0.53),
             outer,
-            inner,
-            (inner[0], 0),
+            (shelf_at_wall, 0),
         ]
     )
+    # One continuous shelf plane reaches the wall. The former bend/fillet at
+    # the 6 mm root made a second raised edge behind a heavily rounded lip.
     profile, used = _rounded_outline(
-        points, [0, p.body_rounding, p.lip_radius, 1.5, 0], segments
+        points, [0, p.body_rounding, p.lip_radius, 0], segments
     )
     # The lip rounds as far as the edge and body allow. A radius larger than
     # the grip face can hold is reported back rather than refused, so very
@@ -145,7 +168,7 @@ def _loft(
     profile, inner, outer, lip_radius = cross_section(p, segments)
     half, rounding = p.width / 2, p.end_rounding
     core = half - rounding
-    cap_angles = np.linspace(0, math.pi / 2, segments + 2)[1:-1]
+    cap_angles = np.linspace(0, math.pi / 2, 2 * segments + 2)[1:-1]
     x_values = np.concatenate(
         (
             -core - rounding * np.sin(cap_angles[::-1]),
@@ -269,21 +292,38 @@ def _screw_positions(
     angles = np.linspace(0, 2 * math.pi, 32, endpoint=False)
     radius = p.head_diameter / 2 + 0.75
     offsets = radius * np.column_stack((np.cos(angles), np.sin(angles)))
+    # Large lip fillets reach lower down the front. Keep the entire head
+    # recess below the fillet tangent, rather than cutting into the grip.
+    _, _, outer, lip_radius = cross_section(p)
+    incoming = np.array([p.body_height * 0.84, (p.edge_depth + 6) * 0.47])
+    incoming /= np.linalg.norm(incoming)
+    outgoing = np.array([-math.tan(math.radians(p.incut)), -1.0])
+    outgoing /= np.linalg.norm(outgoing)
+    turn = math.atan2(
+        incoming[0] * outgoing[1] - incoming[1] * outgoing[0], incoming @ outgoing
+    )
+    lip_start = outer[0] - incoming[0] * lip_radius * math.tan(abs(turn) / 2)
+
+    def hole_height(x):
+        half = p.width / 2
+        # Check the head's full horizontal span, including the rounded ends.
+        edge_x = abs(x) + radius if lip_start >= 0 else max(0, abs(x) - radius)
+        cap = math.sqrt(
+            max(0, 1 - (max(0, edge_x - (half - p.end_rounding)) / p.end_rounding) ** 2)
+        )
+        bow = p.bow * (1 - (x / half) ** 2)
+        return min(-p.body_height * 0.02, lip_start * cap - radius) + bow
+
     minimum_span = (p.screw_count - 1) * (p.head_diameter + 1.5)
     preferred_span = max(p.width * 0.6, minimum_span)
     spans = (
-        [0]
-        if p.screw_count == 1
-        else (
-            np.arange(preferred_span, minimum_span - 1e-9, -1)
-            if p.auto_spacing
-            else [p.screw_spacing]
-        )
+        np.arange(preferred_span, minimum_span - 1e-9, -1)
+        if p.auto_spacing
+        else [p.screw_spacing]
     )
     for span in spans:
         positions = [
-            (x, -p.body_height * 0.02 + p.bow * (1 - (x / (p.width / 2)) ** 2))
-            for x in np.linspace(-span / 2, span / 2, p.screw_count)
+            (x, hole_height(x)) for x in np.linspace(-span / 2, span / 2, p.screw_count)
         ]
         if all(
             _inside_contours(x + dx, y + dy, contours)

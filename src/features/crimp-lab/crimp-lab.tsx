@@ -223,12 +223,10 @@ export function CrimpLab() {
   }
 
   const screws = Boolean(parameters.screws);
-  const single = Number(parameters.screw_count) === 1;
   const disabledFor = (control: Control) =>
     control.group === "Mounting" &&
     (!screws ||
-      (control.key === "screw_spacing" &&
-        (Boolean(parameters.auto_spacing) || single)));
+      (control.key === "screw_spacing" && Boolean(parameters.auto_spacing)));
 
   return (
     <div className="lab">
@@ -307,7 +305,7 @@ export function CrimpLab() {
                     <input
                       type="checkbox"
                       checked={Boolean(parameters.auto_spacing)}
-                      disabled={!screws || single}
+                      disabled={!screws}
                       onChange={(event) =>
                         change("auto_spacing", event.target.checked)
                       }
@@ -450,8 +448,8 @@ export function CrimpLab() {
                   value={`${preview.dimensions.join(" × ")} mm`}
                 />
                 <Metric
-                  label="Solid volume"
-                  value={`${preview.volume_cm3} cm³`}
+                  label="Estimated material"
+                  value={`≈ ${preview.material_grams.join("–")} g`}
                 />
                 <Metric
                   label="Mesh"
@@ -472,6 +470,13 @@ export function CrimpLab() {
               <Metric label="Mesh" value="Preparing…" />
             )}
           </dl>
+          {preview && (
+            <p className="small-note">
+              25–40% infill · PETG at 1.27 g/cm³ · estimated 1.6 mm shell. Rough
+              estimate; excludes supports and waste. Check your slicer for the
+              final weight.
+            </p>
+          )}
           <p
             className={`lab-status ${status.error ? "error" : ""}`}
             role="status"

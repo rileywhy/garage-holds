@@ -132,11 +132,11 @@ CONTROLS = [
         key="screw_count",
         label="Number of screw holes",
         group="Mounting",
-        min=1,
+        min=2,
         max=6,
         step=1,
         unit="",
-        help="Evenly distributes holes across the hold. One hole goes in the centre. Turn mounting holes off for none.",
+        help="Evenly distributes two to six holes across the hold. Turn mounting holes off for none.",
     ),
     dict(
         key="screw_spacing",
@@ -146,7 +146,7 @@ CONTROLS = [
         max=260,
         step=1,
         unit="mm",
-        help="Distance between the two outermost screw centres. Used only when automatic spacing is off and there is more than one hole.",
+        help="Distance between the two outermost screw centres. Used only when automatic spacing is off.",
     ),
     dict(
         key="shank_diameter",
@@ -245,17 +245,12 @@ def parse_parameters(values: dict) -> Parameters:
             raise ValueError(
                 "The head recess must be at least 1 mm wider than the screw hole."
             )
-        if (
-            p.screw_count > 1
-            and not p.auto_spacing
-            and p.screw_spacing + p.head_diameter + 4 > p.width
-        ):
+        if not p.auto_spacing and p.screw_spacing + p.head_diameter + 4 > p.width:
             raise ValueError(
                 "Move the screws closer together, reduce end rounding, or increase width."
             )
         if (
-            p.screw_count > 1
-            and not p.auto_spacing
+            not p.auto_spacing
             and p.screw_spacing / (p.screw_count - 1) < p.head_diameter + 1.5
         ):
             raise ValueError(

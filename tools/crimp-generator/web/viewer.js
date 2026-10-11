@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/OrbitControls.js";
+import { toCreasedNormals } from "/vendor/BufferGeometryUtils.js";
 
 const VIEWS = {
   "three-quarter": [1, 0.7, 1.1],
@@ -45,13 +46,14 @@ export class Viewer {
   }
 
   update(data, fit = false) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
+    const indexed = new THREE.BufferGeometry();
+    indexed.setAttribute(
       "position",
       new THREE.Float32BufferAttribute(data.vertices.flat(), 3),
     );
-    geometry.setIndex(data.faces.flat());
-    geometry.computeVertexNormals();
+    indexed.setIndex(data.faces.flat());
+    const geometry = toCreasedNormals(indexed, Math.PI / 3);
+    indexed.dispose();
     // Display as on a print bed; the Python mesh/STL keep their original axes.
     geometry.rotateX(-Math.PI / 2);
     if (this.mesh) {
@@ -66,8 +68,9 @@ export class Viewer {
   }
 
   setView(view) {
-    if (!this.mesh || !VIEWS[view]) return;
+    if (!VIEWS[view]) return;
     this.view = view;
+    if (!this.mesh) return;
     const box = new THREE.Box3().setFromObject(this.mesh);
     const centre = box.getCenter(new THREE.Vector3());
     const direction = new THREE.Vector3(...VIEWS[view]).normalize();

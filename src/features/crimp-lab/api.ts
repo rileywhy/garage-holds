@@ -37,6 +37,7 @@ export interface Preview {
   grip_outer: [number, number];
   dimensions: number[];
   volume_cm3: number;
+  material_grams: [number, number];
   triangles: number;
   screw_spacing: number | null;
   // The lip radius actually used: smaller than asked when the edge is short.

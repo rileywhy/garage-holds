@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Preview } from "./api";
 
 // The interactive preview: an orthographic camera around the generated
@@ -67,13 +68,16 @@ export class Viewer {
   }
 
   update(data: Preview, fit = false) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
+    const indexed = new THREE.BufferGeometry();
+    indexed.setAttribute(
       "position",
       new THREE.Float32BufferAttribute(data.vertices.flat(), 3),
     );
-    geometry.setIndex(data.faces.flat());
-    geometry.computeVertexNormals();
+    indexed.setIndex(data.faces.flat());
+    // Boolean cuts leave uneven triangles. Equal face weighting prevents
+    // shading ridges along small fillets; sharp back/hole edges stay crisp.
+    const geometry = toCreasedNormals(indexed, Math.PI / 3);
+    indexed.dispose();
     // Display as on a print bed; the Python mesh and STL keep their axes.
     geometry.rotateX(-Math.PI / 2);
     const first = !this.mesh;
@@ -88,8 +92,8 @@ export class Viewer {
   }
 
   setView(view: ViewName) {
-    if (!this.mesh) return;
     this.view = view;
+    if (!this.mesh) return;
     const box = new THREE.Box3().setFromObject(this.mesh);
     const centre = box.getCenter(new THREE.Vector3());
     const direction = new THREE.Vector3(...VIEWS[view]).normalize();

@@ -40,16 +40,14 @@ function refreshWidgets() {
   for (const key of widgets.keys()) updateControl(key, parameters[key]);
   $("#screws").checked = parameters.screws;
   $("#auto-spacing").checked = parameters.auto_spacing;
-  $("#auto-spacing").disabled =
-    !parameters.screws || parameters.screw_count === 1;
+  $("#auto-spacing").disabled = !parameters.screws;
   $("#seed").value = parameters.seed;
   for (const control of config.controls.filter(
     (item) => item.group === "Mounting",
   )) {
     const disabled =
       !parameters.screws ||
-      (control.key === "screw_spacing" &&
-        (parameters.auto_spacing || parameters.screw_count === 1));
+      (control.key === "screw_spacing" && parameters.auto_spacing);
     widgets.get(control.key).number.disabled = disabled;
     widgets.get(control.key).slider.disabled = disabled;
   }
@@ -99,7 +97,7 @@ async function preview() {
     drawProfile($("#profile"), data, settings);
     const rows = [
       ["Dimensions", `${data.dimensions.join(" × ")} mm`],
-      ["Solid volume", `${data.volume_cm3} cm³`],
+      ["Estimated material", `≈ ${data.material_grams.join("–")} g`],
       ["Mesh", `${data.triangles.toLocaleString()} triangles · closed`],
       ["Screw holes", `${data.screws.length}`],
     ];

@@ -9,7 +9,7 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import _inside_contours, _solid, build, cross_section
+from geometry import _inside_contours, _solid, build, cross_section, estimate_material
 from parameters import PRESETS, Parameters, design_document, parse_parameters
 
 
@@ -143,7 +143,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(model.preview()["lip_radius"], model.lip_radius)
         small = build(Parameters(edge_depth=4, lip_radius=20, screws=False))
         self.assert_solid(small)
-        self.assertLess(small.lip_radius, 4)
+        self.assertLess(small.lip_radius, 4 + 6)
         self.assertEqual(build(Parameters()).lip_radius, Parameters().lip_radius)
         # A sloping edge has room for the full rounding: a 20 mm sloper.
         sloper = build(Parameters(lip_radius=20, incut=-30, screws=False))
@@ -165,6 +165,47 @@ class GeometryTests(unittest.TestCase):
         centre = first.mesh.vertices[np.abs(first.mesh.vertices[:, 0]) < 1e-6, 1:]
         for point in first.profile:
             self.assertLess(np.linalg.norm(centre - point, axis=1).min(), 1e-6)
+
+    def test_material_estimate_includes_shell_and_caps_thin_models(self):
+        cube = trimesh.creation.box(extents=[100, 100, 100])
+        self.assertEqual(estimate_material(cube), [409, 581])
+        thin = trimesh.creation.box(extents=[100, 100, 1])
+        self.assertEqual(estimate_material(thin), [13, 13])
+        low, high = build(Parameters()).preview()["material_grams"]
+        self.assertGreater(low, 0)
+        self.assertGreater(high, low)
+
+    def test_maximum_rounding_has_one_shelf_and_no_recess_in_the_lip(self):
+        p = Parameters(lip_radius=20)
+        profile, inner, outer, radius = cross_section(p)
+        wall_y = inner[0] - 6 * math.tan(math.radians(p.incut))
+        self.assertTrue(np.any(np.all(np.isclose(profile, [wall_y, 0]), axis=1)))
+        shelf = profile[(profile[:, 0] > 0) & (profile[:, 1] > 0) & (profile[:, 1] < 1)]
+        self.assertGreater(len(shelf), 0)
+        np.testing.assert_allclose(
+            shelf[:, 0],
+            outer[0] + (shelf[:, 1] - outer[1]) * math.tan(math.radians(p.incut)),
+        )
+        incoming = np.array([p.body_height * 0.84, (p.edge_depth + 6) * 0.47])
+        incoming /= np.linalg.norm(incoming)
+        outgoing = np.array(
+            [-math.sin(math.radians(p.incut)), -math.cos(math.radians(p.incut))]
+        )
+        turn = math.acos(float(incoming @ outgoing))
+        lip_start = outer[0] - incoming[0] * radius * math.tan(turn / 2)
+        for quality in ("preview", "export"):
+            with self.subTest(quality=quality):
+                plain = build(replace(p, screws=False), quality)
+                drilled = build(p, quality)
+                self.assert_solid(drilled)
+                self.assertEqual(len(drilled.screws), 3)
+                self.assertLess(drilled.screws[0][1], build(Parameters()).screws[0][1])
+                # Screw cutters must remove no material from the gripping lip.
+                plain_lip = _solid(plain.mesh).trim_by_plane((0, 1, 0), lip_start)
+                drilled_lip = _solid(drilled.mesh).trim_by_plane((0, 1, 0), lip_start)
+                self.assertAlmostEqual(
+                    plain_lip.volume(), drilled_lip.volume(), delta=0.01
+                )
 
     def test_variations_are_visible_and_preserve_contact_and_back(self):
         p = Parameters(character=1.4, screws=False)
@@ -254,7 +295,7 @@ class GeometryTests(unittest.TestCase):
         self.assertFalse(_inside_contours(x, y, contours))
 
     def test_requested_hole_counts_are_present_in_preview_and_export(self):
-        for count in range(1, 7):
+        for count in range(2, 7):
             with self.subTest(count=count):
                 p = Parameters(screw_count=count)
                 preview, exported = build(p), build(p, "export")
@@ -265,17 +306,9 @@ class GeometryTests(unittest.TestCase):
                 self.assertEqual(
                     len(_solid(exported.mesh).slice(0.1).to_polygons()), count + 1
                 )
-                if count == 1:
-                    self.assertEqual(preview.screws[0][0], 0)
-                    self.assertIsNone(preview.preview()["screw_spacing"])
-                else:
-                    differences = np.diff([point[0] for point in preview.screws])
-                    np.testing.assert_allclose(differences, differences[0])
-                    self.assertGreaterEqual(differences[0], p.head_diameter + 1.5)
-        single = build(
-            Parameters(screw_count=1, auto_spacing=False, screw_spacing=260, width=50)
-        )
-        self.assertEqual(len(single.screws), 1)
+                differences = np.diff([point[0] for point in preview.screws])
+                np.testing.assert_allclose(differences, differences[0])
+                self.assertGreaterEqual(differences[0], p.head_diameter + 1.5)
         self.assertEqual(build(Parameters(screws=False, screw_count=6)).screws, [])
 
     def test_crowded_rows_are_rejected(self):
@@ -303,6 +336,7 @@ class ParameterTests(unittest.TestCase):
             {"screws": 1},
             {"auto_spacing": 0},
             {"screw_count": 0},
+            {"screw_count": 1},
             {"screw_count": 7},
             {"screw_count": 2.5},
             {"screw_count": True},

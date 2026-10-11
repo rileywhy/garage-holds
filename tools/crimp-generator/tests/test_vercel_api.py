@@ -45,6 +45,12 @@ class VercelApiTests(unittest.TestCase):
         code, _, body = self.request("GET")
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(body)["defaults"]["screw_count"], 3)
+        count = next(
+            control
+            for control in json.loads(body)["controls"]
+            if control["key"] == "screw_count"
+        )
+        self.assertEqual(count["min"], 2)
 
         code, _, body = self.request(
             "POST", json.dumps({"action": "preview", "parameters": {}})
@@ -52,6 +58,8 @@ class VercelApiTests(unittest.TestCase):
         self.assertEqual(code, 200)
         data = json.loads(body)
         self.assertTrue(data["watertight"])
+        self.assertEqual(len(data["material_grams"]), 2)
+        self.assertLess(data["material_grams"][0], data["material_grams"][1])
         self.assertEqual(data["design"]["generator"], "garage-holds-crimp")
 
         code, _, body = self.request(
@@ -61,7 +69,8 @@ class VercelApiTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["parameters"]["width"], 90)
 
         code, headers, body = self.request(
-            "POST", json.dumps({"action": "stl", "parameters": data["design"]["parameters"]})
+            "POST",
+            json.dumps({"action": "stl", "parameters": data["design"]["parameters"]}),
         )
         self.assertEqual(code, 200)
         self.assertEqual(headers["Content-Type"], "model/stl")
@@ -70,7 +79,13 @@ class VercelApiTests(unittest.TestCase):
 
     def test_bad_requests(self):
         self.assertEqual(self.request("POST", "{}", "text/plain")[0], 415)
-        for body in ("{", "[]", '{"action":"nope"}', '{"action":"preview","parameters":{"width":1}}'):
+        for body in (
+            "{",
+            "[]",
+            '{"action":"nope"}',
+            '{"action":"preview","parameters":{"width":1}}',
+            '{"action":"validate","parameters":{"screw_count":1}}',
+        ):
             with self.subTest(body=body):
                 self.assertEqual(self.request("POST", body)[0], 400)
 
