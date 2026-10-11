@@ -120,15 +120,15 @@ separate install. It needs a personal access token for the hosted project:
 `npx supabase login` stores one, or set `SUPABASE_ACCESS_TOKEN` (Account →
 Access Tokens in the dashboard). Both are secrets.
 
-The first four migrations were pasted into the SQL editor by hand, so the
-hosted project does not know they ran. Do this once to adopt the CLI:
+The first four migrations were pasted into the SQL editor by hand and later
+recorded in the hosted project's migration history
+(`supabase_migrations.schema_migrations`), which is what
+`supabase migration repair --status applied <version>` does for any future
+hand-applied file. Link the project once on your machine:
 
 ```sh
 npx supabase link --project-ref hbwvqjktqdxyspaqyshb   # asks for the database password
-npx supabase migration list --linked                   # local versions listed, remote column empty
-npx supabase migration repair --status applied \
-  20261010000000 20261011000000 20261012000000 20261013000000
-npx supabase migration list --linked                   # every version now in both columns
+npx supabase migration list --linked                   # every version in both columns
 npx supabase db push --dry-run                         # "Remote database is up to date."
 ```
 
@@ -188,6 +188,8 @@ cron jobs once a day at an approximate time, which is enough here.
 - `supabase/migrations/20261013000000_service_role_grants.sql` gives the
   service role its table grants back; without it, file registration fails
   with "permission denied for table design_files".
+- `supabase/migrations/20261014000000_function_grants.sql` stops the
+  sign-up trigger function being callable through the REST API.
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
   and sign one PUT URL per file, the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
