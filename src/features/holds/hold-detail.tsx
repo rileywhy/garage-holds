@@ -8,7 +8,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { HoldVisual } from "@/components/hold-art";
-import { PhotoImage } from "@/components/photo-image";
+import { PhotoGallery } from "./photo-gallery";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
@@ -40,24 +40,16 @@ export function HoldDetail({
       </Link>
       <div className="detail-layout">
         <div className="detail-gallery">
-          <div className="detail-main-visual">
-            <HoldVisual hold={hold} large />
-            {hold.isSample && (
-              <span className="illustration-label">
-                Sample design illustration
-              </span>
-            )}
-          </div>
-          {hold.photos.length > 1 && (
-            <div className="detail-extra-photos">
-              {hold.photos.slice(1).map((photo, index) => (
-                <PhotoImage
-                  src={photo.cardUrl}
-                  fallback={photo.url}
-                  alt={`${hold.title}, additional photo ${index + 1}`}
-                  key={photo.id}
-                />
-              ))}
+          {hold.photos.length ? (
+            <PhotoGallery hold={hold} />
+          ) : (
+            <div className="detail-main-visual">
+              <HoldVisual hold={hold} large />
+              {hold.isSample && (
+                <span className="illustration-label">
+                  Sample design illustration
+                </span>
+              )}
             </div>
           )}
           <div className="gallery-caption">

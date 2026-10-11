@@ -1358,12 +1358,41 @@ svg {
   gap: 10px;
   margin-top: 12px;
 }
+.detail-extra-photos button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
 .detail-extra-photos img {
+  display: block;
   width: 100%;
   height: 115px;
   object-fit: cover;
   border-radius: 5px;
   border: 1px solid var(--line);
+  opacity: 0.75;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s;
+}
+.detail-extra-photos button:hover img,
+.detail-extra-photos button[aria-pressed="true"] img {
+  opacity: 1;
+  border-color: var(--accent);
+}
+.detail-extra-photos button:focus-visible img {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.detail-photo-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
 }
 .gallery-caption {
   display: flex;
