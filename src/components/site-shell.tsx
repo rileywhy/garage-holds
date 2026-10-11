@@ -36,7 +36,7 @@ export function SiteHeader({
             href="/"
             className={`nav-link ${pathname === "/" ? "active" : ""}`}
           >
-            Explore
+            explore the pile
           </Link>
           <Link
             href="/saved"
@@ -73,7 +73,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
     <footer className="site-footer">
       <div>
         <span className="footer-wordmark">garage holds</span>
-        <span>Printable climbing holds for your home wall.</span>
+        <span>grips for your board.</span>
       </div>
       <div className="footer-links">
         <FeedbackWidget signedIn={signedIn} />

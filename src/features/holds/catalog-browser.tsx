@@ -104,32 +104,10 @@ export function CatalogBrowser({
               : "Discover 3D printable climbing holds, share your designs, and find the right grip for your home wall or training board."}
           </p>
           <a href="#library" className="hero-text-link">
-            {savedOnly ? "Browse your saved designs" : "Explore the library"}
+            {savedOnly ? "Browse your saved designs" : "explore the pile"}
             <ArrowDown size={15} />
           </a>
         </div>
-        {!savedOnly && (
-          <div className="hero-note">
-            <div className="angle-drawing">
-              <span className="angle-board" />
-              <span className="angle-floor" />
-              <span className="angle-arc" />
-              <span className="angle-number">40°</span>
-              <i />
-              <i />
-              <i />
-            </div>
-            <div>
-              <p className="eyebrow">YOUR ANGLE. YOUR STYLE.</p>
-              <p>
-                From the first warm-up
-                <br />
-                to the project grip.
-              </p>
-              <span>Find the right fit for your board.</span>
-            </div>
-          </div>
-        )}
         {savedOnly && (
           <div className="saved-hero-icon">
             <Bookmark size={66} strokeWidth={1} />
@@ -144,7 +122,7 @@ export function CatalogBrowser({
         <div className="library-title-row">
           <div>
             <h2>
-              {savedOnly ? "Saved designs" : "The hold library"}
+              {savedOnly ? "Saved designs" : "the pile"}
               <span className="result-count">{filtered.length}</span>
             </h2>
             <p>
@@ -353,7 +331,7 @@ export function CatalogBrowser({
                 </p>
                 {savedOnly && !candidates.length ? (
                   <Link href="/" className="button button-dark">
-                    Explore designs <ArrowUpRight size={15} />
+                    explore the pile <ArrowUpRight size={15} />
                   </Link>
                 ) : (
                   <button

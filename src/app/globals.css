@@ -390,95 +390,6 @@ svg {
 .hero-text-link:hover {
   color: var(--accent);
 }
-.hero-note {
-  display: flex;
-  align-items: center;
-  gap: 34px;
-  border-left: 1px solid var(--line);
-  padding-left: 44px;
-  margin-top: 14px;
-  max-width: 415px;
-}
-.hero-note .eyebrow {
-  font-size: 8px;
-  letter-spacing: 1.35px;
-  margin-bottom: 10px;
-}
-.hero-note p:not(.eyebrow) {
-  font-family: Georgia, serif;
-  font-size: 24px;
-  line-height: 1.35;
-  letter-spacing: -0.5px;
-}
-.hero-note > div > span {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 10px;
-}
-.angle-drawing {
-  position: relative;
-  width: 104px;
-  height: 130px;
-  flex-shrink: 0;
-}
-.angle-board {
-  width: 4px;
-  height: 123px;
-  background: var(--accent);
-  position: absolute;
-  bottom: 0;
-  left: 59px;
-  transform: rotate(-35deg);
-  transform-origin: bottom;
-  border-radius: 4px;
-}
-.angle-floor {
-  position: absolute;
-  bottom: 0;
-  left: 5px;
-  right: 0;
-  height: 1px;
-  background: light-dark(#b8c0ad, #9b91b4);
-}
-.angle-arc {
-  position: absolute;
-  width: 42px;
-  height: 42px;
-  bottom: 0;
-  left: 61px;
-  border-top: 1px dashed light-dark(#9eac8c, #86779f);
-  border-right: 1px dashed light-dark(#9eac8c, #86779f);
-  border-radius: 0 100% 0 0;
-}
-.angle-number {
-  position: absolute;
-  font-family: Georgia, serif !important;
-  font-size: 15px !important;
-  left: 73px;
-  bottom: 47px;
-  color: var(--accent) !important;
-}
-.angle-drawing i {
-  position: absolute;
-  width: 9px;
-  height: 5px;
-  background: light-dark(#aab69c, #a596bf);
-  transform: rotate(-35deg);
-  border-radius: 2px;
-}
-.angle-drawing i:nth-of-type(1) {
-  bottom: 30px;
-  left: 37px;
-}
-.angle-drawing i:nth-of-type(2) {
-  bottom: 63px;
-  left: 14px;
-}
-.angle-drawing i:nth-of-type(3) {
-  bottom: 91px;
-  left: -6px;
-}
 .library-section {
   border-top: 1px solid var(--line);
   padding-top: 30px;
@@ -1918,13 +1829,6 @@ svg {
   .hold-grid {
     gap: 23px 18px;
   }
-  .hero-note {
-    padding-left: 25px;
-    gap: 20px;
-  }
-  .hero-note p:not(.eyebrow) {
-    font-size: 21px;
-  }
   .catalog-hero h1 {
     font-size: 58px;
   }
@@ -1942,9 +1846,6 @@ svg {
 @media (max-width: 980px) {
   .hold-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .hero-note {
-    display: none;
   }
   .catalog-hero {
     padding-top: 39px;

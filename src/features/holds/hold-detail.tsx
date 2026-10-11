@@ -69,7 +69,7 @@ export function HoldDetail({
               ? "SAMPLE DESIGN"
               : hold.status === "draft"
                 ? "DRAFT · ONLY YOU CAN SEE THIS"
-                : "FREE DESIGN"}
+                : "free grip"}
           </p>
           <h1>{hold.title}</h1>
           <p className="detail-creator">
