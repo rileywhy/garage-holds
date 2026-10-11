@@ -6,7 +6,15 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { deleteObject, headObject, isR2Configured, signUpload } from "@/lib/r2";
+import sharp from "sharp";
+import {
+  deleteObject,
+  getObject,
+  headObject,
+  isR2Configured,
+  putObject,
+  signUpload,
+} from "@/lib/r2";
 import { getUserId } from "@/features/holds/repository";
 import {
   fileExtension,
@@ -15,6 +23,7 @@ import {
 } from "@/features/holds/rows";
 import { MAX_PHOTOS, validatePhotos } from "@/features/holds/validation";
 import type { PendingUpload, UploadFileDescriptor } from "./actions";
+import { normalizeCrop, type CropRect } from "./crop";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -176,4 +185,75 @@ export async function finishPhotoUpload(
     revalidatePath(`/holds/${designId}/edit`);
   }
   return { added, errors };
+}
+
+export type CropPhotoResult = { cropped: true } | { error: string };
+
+// Crops a stored photo of the owner's own design to the rectangle chosen in
+// the cropper, in the photo's displayed (orientation-corrected) pixels. The
+// result is written as a new object before the row moves to it, so a
+// failure leaves the photo as it was; the old object goes last.
+export async function cropPhoto(
+  designId: string,
+  fileId: string,
+  rect: CropRect,
+): Promise<CropPhotoResult> {
+  if (!isR2Configured() || !isSupabaseAdminConfigured())
+    return { error: "Uploads aren't configured in this environment yet." };
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { error: "Sign in to edit your design." };
+  const { data: file } = await supabase
+    .from("design_files")
+    .select("id, object_key, extension, kind, status, designs!inner(owner_id)")
+    .eq("id", fileId)
+    .eq("design_id", designId)
+    .eq("designs.owner_id", userId)
+    .maybeSingle();
+  if (!file || file.kind !== "photo" || file.status !== "ready")
+    return { error: "This photo could not be found." };
+  const contentType = photoContentType(file.extension);
+  if (!contentType) return { error: "This photo cannot be cropped." };
+
+  try {
+    const original = await getObject(file.object_key);
+    // Browsers display photos the way their orientation tag says, and the
+    // cropper measured against that; rotate() bakes the tag in so the
+    // rectangle lines up.
+    const image = sharp(original).rotate();
+    const meta = await sharp(original).metadata();
+    const swap = (meta.orientation ?? 1) >= 5;
+    const width = swap ? meta.height : meta.width;
+    const height = swap ? meta.width : meta.height;
+    const crop = normalizeCrop(rect, width, height);
+    if (!crop) return { error: "Choose a smaller area to crop to." };
+    const cropped = image.extract(crop);
+    const output =
+      contentType === "image/png"
+        ? cropped.png()
+        : contentType === "image/webp"
+          ? cropped.webp({ quality: 90 })
+          : cropped.jpeg({ quality: 90 });
+    const bytes = new Uint8Array(await output.toBuffer());
+    const key = objectKey(designId, crypto.randomUUID(), file.extension);
+    await putObject(key, bytes, contentType);
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin
+      .from("design_files")
+      .update({ object_key: key, bytes: bytes.byteLength })
+      .eq("id", file.id);
+    if (error) {
+      await deleteObject(key);
+      console.error("crop row update failed", { designId, fileId, error });
+      return { error: "The crop could not be saved. Try again." };
+    }
+    await deleteObject(file.object_key);
+  } catch (error) {
+    console.error("crop failed", { designId, fileId, error });
+    return { error: "The photo could not be cropped. Try again." };
+  }
+  revalidatePath("/");
+  revalidatePath(`/holds/${designId}`);
+  revalidatePath(`/holds/${designId}/edit`);
+  return { cropped: true };
 }

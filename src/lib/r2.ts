@@ -116,6 +116,33 @@ export async function headObject(key: string) {
   }
 }
 
+// The whole object in memory; used for photos only, which are capped at
+// MAX_PHOTO_BYTES by validation before they are ever stored.
+export async function getObject(key: string): Promise<Uint8Array> {
+  const { s3, bucket } = r2();
+  const result = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  if (!result.Body) throw new Error(`Object ${key} has no body.`);
+  return result.Body.transformToByteArray();
+}
+
+export async function putObject(
+  key: string,
+  body: Uint8Array,
+  contentType: string,
+) {
+  const { s3, bucket } = r2();
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}
+
 export async function deleteObject(key: string) {
   const { s3, bucket } = r2();
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));

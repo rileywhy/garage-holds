@@ -13,12 +13,15 @@ import {
   type PhonePhoto,
 } from "@/features/uploads/phone-actions";
 import {
+  cropPhoto,
   finishPhotoUpload,
   startPhotoUpload,
 } from "@/features/uploads/photo-actions";
+import { PhotoCropper } from "@/features/uploads/photo-cropper";
 import { uploadAll } from "@/features/uploads/put-files";
 import { deleteDesign, removePhoto, updateDesign } from "./design-actions";
 import { readDesignInput } from "./design-form";
+import type { CropRect } from "@/features/uploads/crop";
 import { MAX_PHOTOS, validateDesign } from "./validation";
 import type { Hold } from "./types";
 
@@ -243,6 +246,9 @@ function PhotoSection({
   const router = useRouter();
   const [errors, setErrors] = useState<string[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [cropping, setCropping] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const busy = disabled || removing !== null || saving !== null;
 
   async function remove(photoId: string, label: string) {
     if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
@@ -257,6 +263,20 @@ function PhotoSection({
     router.refresh();
   }
 
+  async function crop(photoId: string, rect: CropRect) {
+    setCropping(null);
+    setSaving(photoId);
+    setErrors([]);
+    const result = await cropPhoto(hold.id, photoId, rect);
+    setSaving(null);
+    if ("error" in result) {
+      setErrors([result.error]);
+      return;
+    }
+    router.refresh();
+  }
+
+  const open = hold.photos.find((photo) => photo.id === cropping);
   return (
     <section className="form-section" aria-labelledby="edit-photos-heading">
       <h2 id="edit-photos-heading">Photos</h2>
@@ -287,9 +307,17 @@ function PhotoSection({
                 </span>
                 <button
                   type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => setCropping(photo.id)}
+                >
+                  {saving === photo.id ? "Cropping…" : "Crop"}
+                </button>
+                <button
+                  type="button"
                   className="icon-button"
                   aria-label={`Remove ${label}`}
-                  disabled={disabled || removing !== null}
+                  disabled={busy}
                   onClick={() => remove(photo.id, label)}
                 >
                   {removing === photo.id ? (
@@ -322,6 +350,14 @@ function PhotoSection({
         </>
       )}
       <FieldErrors errors={errors} />
+      {open && (
+        <PhotoCropper
+          source={open.url}
+          name={`photo ${hold.photos.indexOf(open) + 1}`}
+          onCancel={() => setCropping(null)}
+          onApply={(rect) => crop(open.id, rect)}
+        />
+      )}
     </section>
   );
 }

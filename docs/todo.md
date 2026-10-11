@@ -38,7 +38,8 @@ keeps it current as work lands; add your own items freely.
   photos from your phone", scan with the phone, take a photo, confirm it
   appears on the computer within a few seconds. Then the same from a
   design's edit page, where also adding a photo from the computer's files
-  should work alongside it.
+  should work alongside it, and where "Crop" on an existing photo should
+  save a cropped copy.
 - **Second-account test, remaining half.** From the incognito account,
   save the published design. As the owner, edit one word of its
   description and remove a photo. Claude can confirm both from the data.

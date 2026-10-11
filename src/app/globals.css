@@ -2533,6 +2533,104 @@ svg {
   background: var(--error-line);
 }
 
+/* Optional photo crop: a quiet link on each photo row and a modal with one
+   draggable box. */
+.text-button {
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+.text-button:hover:not(:disabled) {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.text-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.crop-dialog {
+  width: min(760px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.crop-dialog::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.crop-dialog h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.crop-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 12px 0;
+  line-height: 0;
+  touch-action: none;
+  user-select: none;
+}
+.crop-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+}
+.crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.45);
+  cursor: move;
+}
+.crop-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 0.4);
+  border-radius: 50%;
+  margin: -9px;
+}
+.crop-handle-nw {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.crop-handle-ne {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+.crop-handle-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+.crop-handle-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.crop-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.crop-actions-end {
+  flex: 1;
+}
+
 /* Feedback and report dialog. */
 .footer-links {
   display: flex;

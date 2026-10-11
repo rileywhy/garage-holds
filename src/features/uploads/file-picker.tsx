@@ -2,7 +2,10 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { FileBox, ImagePlus, UploadCloud, X } from "lucide-react";
+import { FieldErrors } from "@/components/form-fields";
 import { formatBytes } from "@/features/holds/catalog";
+import { cropFile } from "./crop-file";
+import { PhotoCropper } from "./photo-cropper";
 
 function PhotoThumbnail({ file }: { file: File }) {
   const url = useMemo(() => URL.createObjectURL(file), [file]);
@@ -27,6 +30,10 @@ export function FilePicker({
   compact?: boolean;
 }) {
   const [dragging, setDragging] = useState(false);
+  // Index of the photo open in the cropper, if any. Cropping is optional
+  // and tucked behind a small link; most photos go up untouched.
+  const [cropping, setCropping] = useState<number | null>(null);
+  const [cropError, setCropError] = useState("");
   const inputId = useId();
   const photos = kind === "photos";
   const key = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
@@ -115,6 +122,19 @@ export function FilePicker({
                   {photos && !compact && index === 0 ? " · Cover photo" : ""}
                 </small>
               </span>
+              {photos && file.type.startsWith("image/") && (
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => {
+                    setCropError("");
+                    setCropping(index);
+                  }}
+                >
+                  Crop
+                </button>
+              )}
               <button
                 type="button"
                 className="icon-button"
@@ -128,6 +148,28 @@ export function FilePicker({
             </li>
           ))}
         </ul>
+      )}
+      <FieldErrors errors={cropError ? [cropError] : []} />
+      {cropping !== null && files[cropping] && (
+        <PhotoCropper
+          source={files[cropping]}
+          name={files[cropping].name}
+          onCancel={() => setCropping(null)}
+          onApply={async (rect) => {
+            const index = cropping;
+            setCropping(null);
+            try {
+              const cropped = await cropFile(files[index], rect);
+              onChange(
+                files.map((file, position) =>
+                  position === index ? cropped : file,
+                ),
+              );
+            } catch (error) {
+              setCropError((error as Error).message);
+            }
+          }}
+        />
       )}
     </div>
   );
