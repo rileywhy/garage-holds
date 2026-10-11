@@ -48,6 +48,11 @@ function r2() {
       // Path-style keeps the bucket out of the hostname, so the only DNS name
       // involved is the one Cloudflare documents.
       forcePathStyle: true,
+      // Newer SDKs sign a checksum of an empty body into presigned PUT URLs,
+      // which R2 rejects once the real file arrives. Only compute checksums
+      // where the operation requires them.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       credentials: {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
