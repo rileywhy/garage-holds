@@ -181,6 +181,30 @@ class GeometryTests(unittest.TestCase):
         )
         self.assertEqual(folded.preview()["adjusted"], folded.adjusted)
 
+    def test_holes_always_come_out_through_the_back(self):
+        # Steep incuts leave only a strip of flat back; the holes must still
+        # reach it, so the body grows until the whole row goes through.
+        for p in (
+            Parameters(edge_depth=49, incut=60, lip_radius=19.5),
+            Parameters(edge_depth=56.5, incut=50, lip_radius=9.25),
+            Parameters(edge_depth=30, incut=55, screw_count=4),
+        ):
+            with self.subTest(parameters=p):
+                model = build(p)
+                self.assert_solid(model)
+                built = model.parameters
+                shelf_at_wall = built.body_height / 2 - (
+                    built.edge_depth + 6
+                ) * math.tan(math.radians(built.incut))
+                for _, y in model.screws:
+                    self.assertLess(y + p.shank_diameter / 2, shelf_at_wall)
+                    self.assertGreater(y - p.shank_diameter / 2, -built.body_height / 2)
+                # The back face is cut by every hole.
+                back = _solid(model.mesh).slice(0.1).to_polygons()
+                self.assertEqual(len(back), 1 + p.screw_count)
+                # And the back is a face, not a sliver.
+                self.assertGreaterEqual(shelf_at_wall + built.body_height / 2, 15)
+
     def test_holes_cross_the_back_and_remove_volume(self):
         drilled = build(Parameters())
         undrilled = build(Parameters(screws=False))

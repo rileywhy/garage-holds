@@ -271,13 +271,21 @@ BODY_GROWTH = 30.0
 BODY_MAX = 150.0
 
 
+# The least height of flat back a hold keeps against the wall, so a steep
+# incut still mounts on a real face rather than a sliver. The screw check
+# grows the body further when the shanks need more.
+MIN_BACK_FACE = 15.0
+
+
 def minimum_body_height(p: Parameters) -> float:
-    """The least body height that keeps the shelf above the lower body
-    with a few millimetres to spare, for this depth and incut."""
+    """The least body height that keeps a MIN_BACK_FACE tall back below
+    where the shelf meets the wall, for this depth and incut."""
     if p.incut <= 0:
         return 0.0
     # The shelf runs on to the wall, 6 mm behind the inner grip corner.
-    return math.ceil((p.edge_depth + 6) * math.tan(math.radians(p.incut)) + 8)
+    return math.ceil(
+        (p.edge_depth + 6) * math.tan(math.radians(p.incut)) + MIN_BACK_FACE
+    )
 
 
 class _NoRoomForScrews(ValueError):
@@ -341,9 +349,7 @@ def _build(p: Parameters, quality: str, seat_floor: float = 0.5) -> Model:
             else np.array([seat])
         )
         for seat in seats:
-            screws = _screw_positions(
-                p, mounting_solid, seat + cone_height, candidates
-            )
+            screws = _screw_positions(p, mounting_solid, float(seat), candidates)
             if screws:
                 break
         else:
@@ -418,24 +424,36 @@ def _screw_candidates(p: Parameters) -> np.ndarray:
 
 
 def _screw_positions(
-    p: Parameters, solid: manifold.Manifold, seat_top: float, candidates: np.ndarray
+    p: Parameters, solid: manifold.Manifold, seat: float, candidates: np.ndarray
 ) -> list[tuple[float, float]]:
-    """The first candidate row whose recesses all sit inside the body at
-    the seat, or an empty list. The row drops as far as it must when a
-    deep edge or incut thins the top of the body."""
-    radius = p.head_diameter / 2 + 0.75
-    # Where a recess centre may sit: the body's slice at the seat, inset by
-    # the recess radius, so a centre inside it has a full margin of material.
-    section = solid.slice(seat_top + 0.5)
-    if section.is_empty():
-        raise ValueError(
-            "The screw seat is above the top of the body. Lower the seat or deepen the edge."
-        )
-    room = section.offset(-radius, manifold.JoinType.Round, 2.0, 32).to_polygons()
-    if not room or not len(candidates):
+    """The first candidate row whose holes sit inside the body all the way
+    through, or an empty list. The row drops as far as it must when a deep
+    edge or incut thins the top of the body."""
+    cone_height = (p.head_diameter - p.shank_diameter) / 2
+    head = p.head_diameter / 2 + 0.75
+    # Where a hole centre may sit: the body's slices, each inset by what
+    # the hole needs there, intersected. The shank must come out through
+    # the flat back with material around it (a steep shelf leaves only a
+    # strip of back face), and the head recess must fit from the seat up.
+    checks = [
+        (0.5, p.shank_diameter / 2 + 2.0),
+        (seat + 0.5, head),
+        (seat + cone_height + 0.5, head),
+    ]
+    room = None
+    for height, inset in checks:
+        section = solid.slice(height)
+        if section.is_empty():
+            raise ValueError(
+                "The screw seat is above the top of the body. Lower the seat or deepen the edge."
+            )
+        region = section.offset(-inset, manifold.JoinType.Round, 2.0, 32)
+        room = region if room is None else room ^ region
+    polygons = room.to_polygons() if room is not None else []
+    if not polygons or not len(candidates):
         return []
     centres = candidates.reshape(-1, 2)
-    fits = _inside_mask(centres, room).reshape(len(candidates), -1).all(axis=1)
+    fits = _inside_mask(centres, polygons).reshape(len(candidates), -1).all(axis=1)
     if not fits.any():
         return []
     row = candidates[int(np.argmax(fits))]
