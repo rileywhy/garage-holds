@@ -52,6 +52,10 @@ keeps it current as work lands; add your own items freely.
 
 - **Seed the library** with your own holds: real recipes, photos on a wall.
   The sample designs come out once a few real ones exist.
+- **Upload the two granite crimps** from `rileywhy/holdmaking` as the
+  first real designs: run `generate_granite_crimps.py` there (the folder's
+  README has the pip line), upload each `.stl` with `preview.png`, and use
+  the README's print settings as the recipe.
 - **Ask two or three designers** whose CC-licensed holds you like whether
   you may re-host them with credit.
 
