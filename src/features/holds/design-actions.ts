@@ -7,6 +7,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { deleteObject, isR2Configured } from "@/lib/r2";
+import { deletePhotoObjects } from "@/features/uploads/photo-sizes";
 import { readDesignInput } from "./design-form";
 import { getUserId } from "./repository";
 import { validateDesign } from "./validation";
@@ -81,7 +82,7 @@ export async function deleteDesign(
   if (!userId) return { error: "Sign in to delete your design." };
   const { data: design } = await supabase
     .from("designs")
-    .select("id, design_files(object_key)")
+    .select("id, design_files(object_key, kind)")
     .eq("id", designId)
     .eq("owner_id", userId)
     .maybeSingle();
@@ -96,7 +97,9 @@ export async function deleteDesign(
     console.error("design delete failed", { userId, designId, error });
     return { error: "The design could not be deleted. Try again." };
   }
-  for (const file of design.design_files) await deleteObject(file.object_key);
+  for (const file of design.design_files)
+    if (file.kind === "photo") await deletePhotoObjects(file.object_key);
+    else await deleteObject(file.object_key);
   revalidatePath("/");
   revalidatePath("/designs");
   revalidatePath("/saved");
@@ -133,7 +136,7 @@ export async function removePhoto(
     console.error("photo removal failed", { designId, fileId, error });
     return { error: "The photo could not be removed. Try again." };
   }
-  await deleteObject(file.object_key);
+  await deletePhotoObjects(file.object_key);
   revalidatePath("/");
   revalidatePath(`/holds/${designId}`);
   revalidatePath(`/holds/${designId}/edit`);

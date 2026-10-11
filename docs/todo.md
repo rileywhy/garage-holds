@@ -4,6 +4,19 @@ Things only you can do, in rough priority order. This file holds active
 items only: when something is done it is removed, never ticked off. Claude
 keeps it current as work lands; add your own items freely.
 
+## Run once
+
+- **Run the storage sweep** so the photos you uploaded before today get
+  their smooth card sizes (new uploads make them on their own):
+
+  ```sh
+  curl -H "Authorization: Bearer $CRON_SECRET" https://garage-holds.vercel.app/api/sweep
+  ```
+
+  The response should show `photoSizes` of 3 or so. Until then those cards
+  still show the full-size photo, which looks grainy when zoomed out. The
+  nightly cron does the same if you would rather wait.
+
 ## Settings to add
 
 - **`ALERT_WEBHOOK_URL` on Vercel.** Where feedback, design reports, and

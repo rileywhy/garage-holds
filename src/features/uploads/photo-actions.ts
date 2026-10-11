@@ -24,6 +24,7 @@ import {
 import { MAX_PHOTOS, validatePhotos } from "@/features/holds/validation";
 import type { PendingUpload, UploadFileDescriptor } from "./actions";
 import { normalizeCrop, type CropRect } from "./crop";
+import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -148,7 +149,7 @@ export async function finishPhotoUpload(
   const admin = createSupabaseAdminClient();
   const { data: files } = await admin
     .from("design_files")
-    .select("id, object_key, name, bytes, status")
+    .select("id, object_key, name, extension, bytes, status")
     .eq("design_id", designId)
     .eq("kind", "photo")
     .in("id", fileIds);
@@ -177,6 +178,7 @@ export async function finishPhotoUpload(
       errors.push(`${file.name} could not be saved. Try again.`);
       continue;
     }
+    await createPhotoSizes(file.object_key, file.extension);
     added += 1;
   }
   if (added) {
@@ -237,17 +239,18 @@ export async function cropPhoto(
     const bytes = new Uint8Array(await output.toBuffer());
     const key = objectKey(designId, crypto.randomUUID(), file.extension);
     await putObject(key, bytes, contentType);
+    await createPhotoSizes(key, file.extension);
     const admin = createSupabaseAdminClient();
     const { error } = await admin
       .from("design_files")
       .update({ object_key: key, bytes: bytes.byteLength })
       .eq("id", file.id);
     if (error) {
-      await deleteObject(key);
+      await deletePhotoObjects(key);
       console.error("crop row update failed", { designId, fileId, error });
       return { error: "The crop could not be saved. Try again." };
     }
-    await deleteObject(file.object_key);
+    await deletePhotoObjects(file.object_key);
   } catch (error) {
     console.error("crop failed", { designId, fileId, error });
     return { error: "The photo could not be cropped. Try again." };

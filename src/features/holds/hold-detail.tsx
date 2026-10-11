@@ -8,6 +8,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { HoldVisual } from "@/components/hold-art";
+import { PhotoImage } from "@/components/photo-image";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
@@ -50,8 +51,9 @@ export function HoldDetail({
           {hold.photos.length > 1 && (
             <div className="detail-extra-photos">
               {hold.photos.slice(1).map((photo, index) => (
-                <img
-                  src={photo.url}
+                <PhotoImage
+                  src={photo.cardUrl}
+                  fallback={photo.url}
                   alt={`${hold.title}, additional photo ${index + 1}`}
                   key={photo.id}
                 />

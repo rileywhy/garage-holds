@@ -4,6 +4,7 @@ import { useId } from "react";
 import type { Hold, Illustration } from "@/features/holds/types";
 import { FileBox } from "lucide-react";
 import { StlPreview } from "@/features/holds/stl-preview";
+import { PhotoImage } from "./photo-image";
 
 const profiles: Record<Illustration, string> = {
   ripple:
@@ -193,9 +194,10 @@ export function HoldVisual({
   const stl = hold.files.find((file) => file.extension.toLowerCase() === "stl");
   const photo = hold.photos[photoIndex];
   return photo ? (
-    <img
+    <PhotoImage
       key={photo.id}
-      src={photo.url}
+      src={large ? photo.largeUrl : photo.cardUrl}
+      fallback={photo.url}
       alt={`${hold.title}, photo ${photoIndex + 1} of ${hold.photos.length}`}
       className="hold-photo"
     />

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { copyObject, deleteObject } from "@/lib/r2";
 import { objectKey, photoContentType } from "@/features/holds/rows";
+import { createPhotoSizes } from "./photo-sizes";
 
 // Photos handed over from a phone (see phone-actions.ts). A session is a
 // short-lived, unguessable id the phone uploads into; the photos stay in the
@@ -76,6 +77,7 @@ export async function attachInboxPhotos(
       await deleteObject(key);
       throw new Error(`Could not attach ${photo.name}: ${error.message}`);
     }
+    await createPhotoSizes(key, photo.extension);
     await admin.from("phone_photos").delete().eq("id", photo.id);
     await deleteObject(photo.object_key);
   }

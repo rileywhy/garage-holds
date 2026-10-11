@@ -1,13 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { INBOX_KEY_PREFIX, OBJECT_KEY_PREFIX } from "@/features/holds/rows";
+import {
+  INBOX_KEY_PREFIX,
+  OBJECT_KEY_PREFIX,
+  photoObjectKeys,
+} from "@/features/holds/rows";
 
 // The storage sweep: reconciles the database with the bucket. Three things
 // can be left behind by an upload that never finished: a draft whose files
 // never arrived, a phone session whose photos were never attached, and an
 // object whose rows are gone (a signed PUT used after its draft was
 // abandoned, or a delete that failed halfway). All are removed once they are
-// old enough that no upload can still be in progress.
+// old enough that no upload can still be in progress. It also makes the
+// display sizes of any photo that lacks them (see photo-sizes.ts).
 //
 // The clients are passed in so the integration tests can run the sweep on
 // the local stack with a fake bucket; sweep.ts binds the real ones.
@@ -25,6 +30,7 @@ export interface StoredObject {
 export interface ObjectStore {
   listObjects(prefix: string): Promise<StoredObject[]>;
   deleteObject(key: string): Promise<void>;
+  createPhotoSizes(objectKey: string, extension: string): Promise<void>;
 }
 
 export interface SweepReport {
@@ -34,6 +40,8 @@ export interface SweepReport {
   stalePhoneSessions: number;
   phoneObjects: number;
   orphanedObjects: number;
+  // Photos whose display sizes were missing and have been (or would be) made.
+  photoSizes: number;
 }
 
 export function isAbandonedDraft(
@@ -75,13 +83,17 @@ export async function sweep(
 ): Promise<SweepReport> {
   const { data: drafts, error: draftsError } = await admin
     .from("designs")
-    .select("id, status, created_at, design_files(object_key)")
+    .select("id, status, created_at, design_files(object_key, kind)")
     .eq("status", "draft");
   if (draftsError)
     throw new Error(`Could not list drafts: ${draftsError.message}`);
   const abandoned = drafts.filter((draft) => isAbandonedDraft(draft, now));
   const draftKeys = abandoned.flatMap((draft) =>
-    draft.design_files.map((file) => file.object_key),
+    draft.design_files.flatMap((file) =>
+      file.kind === "photo"
+        ? photoObjectKeys(file.object_key)
+        : [file.object_key],
+    ),
   );
   if (!dryRun && abandoned.length) {
     // Objects first: if a delete fails here, the rows survive and the next
@@ -124,7 +136,7 @@ export async function sweep(
     { data: files, error: filesError },
     { data: photos, error: photosError },
   ] = await Promise.all([
-    admin.from("design_files").select("object_key"),
+    admin.from("design_files").select("object_key, kind, extension, status"),
     admin.from("phone_photos").select("object_key"),
   ]);
   if (filesError)
@@ -134,17 +146,36 @@ export async function sweep(
   // After a real pass the removed rows and objects are both gone; in a dry
   // run both remain, so their keys stay "known" and are not counted a second
   // time as orphans.
-  const known = new Set([...files, ...photos].map((row) => row.object_key));
+  const known = new Set([
+    ...files.flatMap((file) =>
+      file.kind === "photo"
+        ? photoObjectKeys(file.object_key)
+        : [file.object_key],
+    ),
+    ...photos.map((row) => row.object_key),
+  ]);
+  const stored = await store.listObjects(OBJECT_KEY_PREFIX);
   const orphans = orphanedObjects(
-    [
-      ...(await store.listObjects(OBJECT_KEY_PREFIX)),
-      ...(await store.listObjects(INBOX_KEY_PREFIX)),
-    ],
+    [...stored, ...(await store.listObjects(INBOX_KEY_PREFIX))],
     known,
     now,
   );
   if (!dryRun)
     for (const object of orphans) await store.deleteObject(object.key);
+
+  // Display sizes for photos that lack them: those stored before sizes
+  // existed, or whose generation failed after the upload.
+  const storedKeys = new Set(stored.map((object) => object.key));
+  const unsized = files.filter(
+    (file) =>
+      file.kind === "photo" &&
+      file.status === "ready" &&
+      storedKeys.has(file.object_key) &&
+      photoObjectKeys(file.object_key).some((key) => !storedKeys.has(key)),
+  );
+  if (!dryRun)
+    for (const file of unsized)
+      await store.createPhotoSizes(file.object_key, file.extension);
 
   return {
     dryRun,
@@ -153,5 +184,6 @@ export async function sweep(
     stalePhoneSessions: stale.length,
     phoneObjects: phoneKeys.length,
     orphanedObjects: orphans.length,
+    photoSizes: unsized.length,
   };
 }

@@ -7,6 +7,8 @@ import {
   photoContentType,
   reviewRowToReview,
   type DesignRow,
+  photoObjectKeys,
+  photoSizeKey,
 } from "../src/features/holds/rows";
 import { validateDesign } from "../src/features/holds/validation";
 import { readDesignInput } from "../src/features/holds/design-form";
@@ -166,4 +168,14 @@ test("the design form reads into a DesignInput with trimmed, deduplicated tags",
   assert.deepEqual(validateDesign(input), []);
   form.set("problemGrade", "");
   assert.equal(readDesignInput(form).problemGrade, null);
+});
+
+test("photo sizes live beside the original under derived keys", () => {
+  assert.equal(photoSizeKey("designs/d/f.jpg", "card"), "designs/d/f-card.jpg");
+  assert.equal(photoSizeKey("designs/d/f", "large"), "designs/d/f-large");
+  assert.deepEqual(photoObjectKeys("designs/d.x/f.webp"), [
+    "designs/d.x/f.webp",
+    "designs/d.x/f-card.webp",
+    "designs/d.x/f-large.webp",
+  ]);
 });

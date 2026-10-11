@@ -35,7 +35,11 @@ export interface ModelFile {
 
 export interface Photo {
   id: string;
+  // The original, for cropping and as a fallback.
   url: string;
+  // Resampled copies for cards and the design page (see photo-sizes.ts).
+  cardUrl: string;
+  largeUrl: string;
 }
 
 export interface PrintRecipe {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Trash2, X } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
+import { PhotoImage } from "@/components/photo-image";
 import { DesignFields } from "@/features/uploads/design-fields";
 import { FilePicker } from "@/features/uploads/file-picker";
 import { PhonePhotoPicker } from "@/features/uploads/phone-photo-picker";
@@ -295,8 +296,9 @@ function PhotoSection({
               index === 0 ? "the cover photo" : `photo ${index + 1}`;
             return (
               <li key={photo.id}>
-                <img
-                  src={photo.url}
+                <PhotoImage
+                  src={photo.cardUrl}
+                  fallback={photo.url}
                   alt={`${hold.title}, photo ${index + 1}`}
                 />
                 <span>

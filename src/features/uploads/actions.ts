@@ -20,6 +20,7 @@ import {
   attachInboxPhotos,
   ownInboxPhotos,
 } from "./phone-photos";
+import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
 import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 import { notifyOwner } from "@/lib/alerts";
@@ -203,6 +204,8 @@ export async function finalizeDesign(
       .from("design_files")
       .update({ status: "ready" })
       .eq("id", file.id);
+    if (file.kind === "photo")
+      await createPhotoSizes(file.object_key, fileExtension(file.name));
   }
   if (errors.length) return { errors };
 
@@ -278,10 +281,12 @@ export async function abandonDraft(designId: string): Promise<void> {
   const admin = createSupabaseAdminClient();
   const { data: files } = await admin
     .from("design_files")
-    .select("object_key")
+    .select("object_key, kind")
     .eq("design_id", designId);
   // Objects first; a failure here leaves the rows for the sweep to retry.
-  for (const file of files ?? []) await deleteObject(file.object_key);
+  for (const file of files ?? [])
+    if (file.kind === "photo") await deletePhotoObjects(file.object_key);
+    else await deleteObject(file.object_key);
   const { error } = await supabase
     .from("designs")
     .delete()

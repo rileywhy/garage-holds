@@ -5,9 +5,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isR2Configured, signDownload, signImage } from "@/lib/r2";
 import {
   designRowToHold,
+  PHOTO_SIZES,
   photoContentType,
+  photoSizeKey,
   reviewRowToReview,
   type DesignRow,
+  type PhotoSize,
   type ReviewRow,
 } from "./rows";
 import type { Hold, Review } from "./types";
@@ -109,12 +112,16 @@ async function toHolds(rows: DesignRow[]): Promise<Hold[]> {
           .filter((file) => file.status === "ready")
           .map(async (file) => {
             const imageType = photoContentType(file.extension);
-            urls.set(
-              file.id,
-              file.kind === "photo" && imageType
-                ? await signImage(file.object_key, imageType)
-                : await signDownload(file.object_key, file.name),
-            );
+            if (file.kind !== "photo" || !imageType) {
+              urls.set(file.id, await signDownload(file.object_key, file.name));
+              return;
+            }
+            urls.set(file.id, await signImage(file.object_key, imageType));
+            for (const size of Object.keys(PHOTO_SIZES) as PhotoSize[])
+              urls.set(
+                `${file.id}:${size}`,
+                await signImage(photoSizeKey(file.object_key, size), imageType),
+              );
           }),
       ),
     );

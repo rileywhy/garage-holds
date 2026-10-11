@@ -2,6 +2,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { deleteObject, listObjects } from "@/lib/r2";
 import { sweep, type SweepReport } from "./lifecycle";
+import { createPhotoSizes } from "./photo-sizes";
 
 // The sweep against the real database and bucket. See lifecycle.ts for what
 // it removes and why.
@@ -10,7 +11,7 @@ export function sweepStorage(options: {
 }): Promise<SweepReport> {
   return sweep(
     createSupabaseAdminClient(),
-    { listObjects, deleteObject },
+    { listObjects, deleteObject, createPhotoSizes },
     options,
   );
 }

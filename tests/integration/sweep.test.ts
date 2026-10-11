@@ -31,6 +31,13 @@ function fakeStore(initial: StoredObject[]) {
     deleteObject: async (key) => {
       objects.delete(key);
     },
+    createPhotoSizes: async (key) => {
+      for (const size of ["card", "large"])
+        objects.set(key.replace(/\.jpg$/, `-${size}.jpg`), {
+          key: key.replace(/\.jpg$/, `-${size}.jpg`),
+          lastModified: now,
+        });
+    },
     keys: () => [...objects.keys()].sort(),
   };
   return store;
@@ -56,13 +63,18 @@ async function insertDesign(title: string, createdAt: Date) {
   return data.id;
 }
 
-async function insertFile(designId: string, key: string, status: string) {
+async function insertFile(
+  designId: string,
+  key: string,
+  status: string,
+  kind: "model" | "photo" = "model",
+) {
   const { error } = await admin.from("design_files").insert({
     design_id: designId,
-    kind: "model",
+    kind,
     object_key: key,
-    name: "model.stl",
-    extension: "stl",
+    name: kind === "photo" ? "wall.jpg" : "model.stl",
+    extension: kind === "photo" ? "jpg" : "stl",
     bytes: 10,
     status,
   });
@@ -96,6 +108,18 @@ before(async () => {
   await insertFile(freshDraft, `designs/${freshDraft}/model.stl`, "pending");
   published = await insertDesign("Published", twoDaysAgo);
   await insertFile(published, `designs/${published}/model.stl`, "ready");
+  await insertFile(
+    published,
+    `designs/${published}/sized.jpg`,
+    "ready",
+    "photo",
+  );
+  await insertFile(
+    published,
+    `designs/${published}/plain.jpg`,
+    "ready",
+    "photo",
+  );
   const { error } = await admin
     .from("designs")
     .update({ status: "published" })
@@ -114,6 +138,10 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     { key: `designs/${oldDraft}/model.stl`, lastModified: twoDaysAgo },
     { key: `designs/${freshDraft}/model.stl`, lastModified: minutesAgo },
     { key: `designs/${published}/model.stl`, lastModified: twoDaysAgo },
+    { key: `designs/${published}/sized.jpg`, lastModified: twoDaysAgo },
+    { key: `designs/${published}/sized-card.jpg`, lastModified: twoDaysAgo },
+    { key: `designs/${published}/sized-large.jpg`, lastModified: twoDaysAgo },
+    { key: `designs/${published}/plain.jpg`, lastModified: twoDaysAgo },
     { key: `inbox/${oldSession}/photo.jpg`, lastModified: twoDaysAgo },
     { key: `inbox/${freshSession}/photo.jpg`, lastModified: minutesAgo },
     { key: "designs/gone/orphan.stl", lastModified: twoDaysAgo },
@@ -131,6 +159,7 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     stalePhoneSessions: 1,
     phoneObjects: 1,
     orphanedObjects: 2,
+    photoSizes: 1,
   });
   assert.deepEqual(store.keys(), initial);
 
@@ -141,6 +170,12 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     [
       `designs/${freshDraft}/model.stl`,
       `designs/${published}/model.stl`,
+      `designs/${published}/sized.jpg`,
+      `designs/${published}/sized-card.jpg`,
+      `designs/${published}/sized-large.jpg`,
+      `designs/${published}/plain.jpg`,
+      `designs/${published}/plain-card.jpg`,
+      `designs/${published}/plain-large.jpg`,
       `inbox/${freshSession}/photo.jpg`,
       "designs/gone/arriving.stl",
       "unrelated/other.txt",
@@ -170,5 +205,6 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     stalePhoneSessions: 0,
     phoneObjects: 0,
     orphanedObjects: 0,
+    photoSizes: 0,
   });
 });

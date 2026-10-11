@@ -168,7 +168,13 @@ curl -H "Authorization: Bearer $CRON_SECRET" "https://garage-holds.vercel.app/ap
 ```
 
 The response counts abandoned drafts, stale phone sessions, their objects,
-and orphaned objects.
+orphaned objects, and photos missing their display sizes. The sweep also
+makes those sizes: every photo is stored with resampled copies beside it
+(`-card` at 800 px and `-large` at 1600 px, see
+`src/features/uploads/photo-sizes.ts`) so cards and the design page never
+have to shrink a full phone photo in the browser, which turns chalk and
+texture into shimmer. Uploads make them as they finish; the sweep catches
+up anything uploaded before this existed.
 Without `dry=1` the same call performs the sweep. Vercel's Hobby plan runs
 cron jobs once a day at an approximate time, which is enough here.
 
