@@ -144,6 +144,9 @@ try to run it again.
   files, reviews, and bookmarks. Only published designs are visible to others;
   a database trigger refuses to publish a design without a verified model
   file; `design_files` rows are written only by the server after checking R2.
+- `supabase/migrations/20261013000000_service_role_grants.sql` gives the
+  service role its table grants back; without it, file registration fails
+  with "permission denied for table design_files".
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
   and sign one PUT URL per file, the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
