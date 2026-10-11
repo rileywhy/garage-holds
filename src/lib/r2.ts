@@ -121,7 +121,8 @@ export async function deleteObject(key: string) {
 }
 
 // Every object under a prefix, following pagination. Used by the storage
-// sweep only; nothing user-facing lists the bucket.
+// sweep only (src/features/uploads/lifecycle.ts); nothing user-facing lists
+// the bucket.
 export async function listObjects(prefix: string): Promise<StoredObject[]> {
   const { s3, bucket } = r2();
   const objects: StoredObject[] = [];

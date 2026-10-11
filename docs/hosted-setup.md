@@ -192,7 +192,8 @@ cron jobs once a day at an approximate time, which is enough here.
   and sign one PUT URL per file, the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
   publishes. A failure after the draft exists abandons it again.
-- `src/features/uploads/sweep.ts` and `src/app/api/sweep/route.ts` are the
-  nightly reconciliation described above.
+- `src/features/uploads/lifecycle.ts` is the nightly reconciliation
+  described above, run by `src/app/api/sweep/route.ts`; the integration tests
+  exercise it on the local stack with an in-memory bucket.
 - `src/features/holds/repository.ts` reads designs, reviews, and bookmarks as
   the signed-in user and attaches signed R2 URLs for photos and downloads.
