@@ -18,8 +18,14 @@ export function isR2Configured() {
   return Boolean(r2Config());
 }
 
+// Accepts the bare 32-character account id or the full S3 endpoint URL that
+// Cloudflare shows next to the token, which is easy to paste by mistake.
+function accountIdFrom(value: string | undefined) {
+  return value?.match(/[0-9a-f]{32}/i)?.[0] ?? "";
+}
+
 function r2Config() {
-  const accountId = process.env.R2_ACCOUNT_ID;
+  const accountId = accountIdFrom(process.env.R2_ACCOUNT_ID);
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   const bucket = process.env.R2_BUCKET_NAME;
@@ -39,6 +45,9 @@ function r2() {
     s3: new S3Client({
       region: "auto",
       endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+      // Path-style keeps the bucket out of the hostname, so the only DNS name
+      // involved is the one Cloudflare documents.
+      forcePathStyle: true,
       credentials: {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
