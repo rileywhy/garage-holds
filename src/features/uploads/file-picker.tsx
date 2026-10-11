@@ -16,12 +16,15 @@ export function FilePicker({
   onChange,
   accept,
   disabled = false,
+  compact = false,
 }: {
   kind: "photos" | "models";
   files: File[];
   onChange: (files: File[]) => void;
   accept: string;
   disabled?: boolean;
+  // Adding to an existing design: shorter copy, no first-photo plea.
+  compact?: boolean;
 }) {
   const [dragging, setDragging] = useState(false);
   const inputId = useId();
@@ -76,7 +79,9 @@ export function FilePicker({
         )}
         <strong>
           {photos
-            ? "Add photos (optional, but appreciated!)"
+            ? compact
+              ? "Add photos from this computer"
+              : "Add photos (optional, but appreciated!)"
             : "Drop your model files here"}
         </strong>
         <span>
@@ -88,7 +93,7 @@ export function FilePicker({
             : "STL, 3MF, STEP, OBJ + more · up to 10 files · 100 MB each"}
         </small>
       </label>
-      {photos && files.length === 0 && (
+      {photos && !compact && files.length === 0 && (
         <p className="photo-picker-hint">
           Please add a photo if you have one. We’d really appreciate it—photos
           make the feel and texture easier to understand.
@@ -107,7 +112,7 @@ export function FilePicker({
                 <strong title={file.name}>{file.name}</strong>
                 <small>
                   {formatBytes(file.size)}
-                  {photos && index === 0 ? " · Cover photo" : ""}
+                  {photos && !compact && index === 0 ? " · Cover photo" : ""}
                 </small>
               </span>
               <button

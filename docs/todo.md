@@ -37,7 +37,8 @@ keeps it current as work lands; add your own items freely.
 - **Phone photo round trip.** Open `/upload` on the computer, press "Add
   photos from your phone", scan with the phone, take a photo, confirm it
   appears on the computer within a few seconds. Then the same from a
-  design's edit page.
+  design's edit page, where also adding a photo from the computer's files
+  should work alongside it.
 - **Second-account test, remaining half.** From the incognito account,
   save the published design. As the owner, edit one word of its
   description and remove a photo. Claude can confirm both from the data.

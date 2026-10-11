@@ -30,6 +30,7 @@ export const MAX_MODEL_BYTES = 100 * 1024 * 1024;
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 export const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const MAX_PHOTOS = 6;
 type UploadFile = { name: string; size: number; type: string };
 const bounded = (value: number, min: number, max: number) =>
   Number.isFinite(value) && value >= min && value <= max;
@@ -41,7 +42,7 @@ export function validateFiles(
   const errors: string[] = [];
   if (!models.length) errors.push("Add at least one model file.");
   if (models.length > 10) errors.push("Choose up to 10 model files.");
-  if (photos.length > 6) errors.push("Choose up to 6 photos.");
+  errors.push(...validatePhotos(photos));
   for (const file of models) {
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     if (!MODEL_EXTENSIONS.includes(extension))
@@ -51,17 +52,25 @@ export function validateFiles(
         `${file.name}: model files must be between 1 byte and 100 MB.`,
       );
   }
+  if (
+    [...models, ...photos].reduce((sum, file) => sum + file.size, 0) >
+    MAX_TOTAL_BYTES
+  )
+    errors.push("Keep the total upload under 200 MB.");
+  return errors;
+}
+
+// Photo rules on their own, for adding photos to a design that exists.
+export function validatePhotos(photos: UploadFile[]): string[] {
+  const errors: string[] = [];
+  if (photos.length > MAX_PHOTOS)
+    errors.push(`Choose up to ${MAX_PHOTOS} photos.`);
   for (const file of photos) {
     if (!PHOTO_TYPES.includes(file.type))
       errors.push(`${file.name}: use a JPG, PNG, or WebP photo.`);
     if (!file.size || file.size > MAX_PHOTO_BYTES)
       errors.push(`${file.name}: photos must be between 1 byte and 10 MB.`);
   }
-  if (
-    [...models, ...photos].reduce((sum, file) => sum + file.size, 0) >
-    MAX_TOTAL_BYTES
-  )
-    errors.push("Keep the total upload under 200 MB.");
   return errors;
 }
 

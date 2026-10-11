@@ -6,12 +6,19 @@ import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Trash2, X } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
 import { DesignFields } from "@/features/uploads/design-fields";
+import { FilePicker } from "@/features/uploads/file-picker";
 import { PhonePhotoPicker } from "@/features/uploads/phone-photo-picker";
 import {
   attachPhonePhotos,
   type PhonePhoto,
 } from "@/features/uploads/phone-actions";
+import {
+  finishPhotoUpload,
+  startPhotoUpload,
+} from "@/features/uploads/photo-actions";
+import { uploadAll } from "@/features/uploads/put-files";
 import { deleteDesign, removePhoto, updateDesign } from "./design-actions";
+import { MAX_PHOTOS } from "./validation";
 import type { Hold } from "./types";
 
 export function EditDesignForm({ hold }: { hold: Hold }) {
@@ -118,16 +125,18 @@ function DeleteSection({ hold }: { hold: Hold }) {
   );
 }
 
-// Photos can be removed, and added from a phone, after publishing. Model
-// files cannot be replaced yet.
+// Photos can be removed, and added from this computer or a phone, after
+// publishing. Model files cannot be replaced yet.
 function PhotoSection({ hold }: { hold: Hold }) {
   const router = useRouter();
+  const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<PhonePhoto[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [added, setAdded] = useState(0);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const room = Math.max(0, 6 - hold.photos.length);
+  const room = Math.max(0, MAX_PHOTOS - hold.photos.length);
+  const chosen = files.length + selected.length;
 
   async function remove(photoId: string, label: string) {
     if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
@@ -142,21 +151,62 @@ function PhotoSection({ hold }: { hold: Hold }) {
     router.refresh();
   }
 
+  // Computer files go up through signed PUTs and are verified; phone photos
+  // are already in the inbox and only need attaching. Both are cleared after
+  // an attempt so a retry never adds the same photo twice.
   async function add() {
-    setSaving(true);
-    setErrors([]);
-    const result = await attachPhonePhotos(
-      hold.id,
-      selected.map((photo) => photo.id),
-    );
-    setSaving(false);
-    if ("errors" in result) {
-      setErrors(result.errors);
+    if (chosen > room) {
+      setErrors([
+        `A design can have up to ${MAX_PHOTOS} photos; you can add ${room} more.`,
+      ]);
       return;
     }
-    setAdded((count) => count + result.added);
+    setSaving(true);
+    setErrors([]);
+    const problems: string[] = [];
+    let count = 0;
+    if (files.length) {
+      const start = await startPhotoUpload(
+        hold.id,
+        files.map((file) => ({
+          kind: "photo",
+          name: file.name,
+          bytes: file.size,
+          type: file.type,
+        })),
+      );
+      if ("errors" in start) {
+        setSaving(false);
+        setErrors(start.errors);
+        return;
+      }
+      await uploadAll(
+        start.uploads.map((upload, index) => ({
+          url: upload.url,
+          file: files[index],
+        })),
+      );
+      const finished = await finishPhotoUpload(
+        hold.id,
+        start.uploads.map((upload) => upload.fileId),
+      );
+      count += finished.added;
+      problems.push(...finished.errors);
+    }
+    if (selected.length) {
+      const result = await attachPhonePhotos(
+        hold.id,
+        selected.map((photo) => photo.id),
+      );
+      if ("errors" in result) problems.push(...result.errors);
+      else count += result.added;
+    }
+    setSaving(false);
+    setAdded((total) => total + count);
+    setErrors(problems);
+    setFiles([]);
     setSelected([]);
-    router.refresh();
+    if (count) router.refresh();
   }
 
   return (
@@ -167,7 +217,7 @@ function PhotoSection({ hold }: { hold: Hold }) {
           ? `${hold.photos.length} of 6 photos. Remove one with its ✕. `
           : "No photos yet. "}
         {room
-          ? "Add more from your phone; they appear after the current ones."
+          ? `Add up to ${room} more from this computer or your phone; they appear after the current ones.`
           : "This design has all the photos it can hold."}
       </p>
       {hold.photos.length > 0 && (
@@ -207,13 +257,21 @@ function PhotoSection({ hold }: { hold: Hold }) {
       )}
       {room > 0 && (
         <>
+          <FilePicker
+            kind="photos"
+            compact
+            disabled={saving}
+            files={files}
+            onChange={setFiles}
+            accept="image/jpeg,image/png,image/webp"
+          />
           <PhonePhotoPicker
             designId={hold.id}
             selected={selected}
             onChange={setSelected}
             disabled={saving}
           />
-          {selected.length > 0 && (
+          {chosen > 0 && (
             <button
               type="button"
               className="button button-dark"
@@ -227,7 +285,7 @@ function PhotoSection({ hold }: { hold: Hold }) {
               )}{" "}
               {saving
                 ? "Adding…"
-                : `Add ${selected.length} ${selected.length === 1 ? "photo" : "photos"}`}
+                : `Add ${chosen} ${chosen === 1 ? "photo" : "photos"}`}
             </button>
           )}
         </>

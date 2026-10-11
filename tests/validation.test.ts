@@ -10,6 +10,7 @@ import {
   MAX_MODEL_BYTES,
   validateFiles,
   validateDesign,
+  validatePhotos,
   validateReview,
   validateUpload,
 } from "../src/features/holds/validation";
@@ -116,6 +117,17 @@ test("rejects executables, zero-byte files, oversized models and SVG photos", ()
     /JPG, PNG, or WebP/,
   );
 });
+test("photos can be validated on their own, for adding to an existing design", () => {
+  assert.deepEqual(validatePhotos([]), []);
+  assert.deepEqual(validatePhotos([photo, { ...photo, name: "b.jpg" }]), []);
+  assert.match(validatePhotos(Array(7).fill(photo)).join(" "), /up to 6/);
+  assert.match(
+    validatePhotos([{ ...photo, type: "image/gif" }]).join(" "),
+    /JPG, PNG, or WebP/,
+  );
+  assert.match(validatePhotos([{ ...photo, size: 0 }]).join(" "), /1 byte/);
+});
+
 test("grades are optional and use V0–V1 followed by V2 through V17", () => {
   for (const problemGrade of [null, 0, 2, 5, 17]) {
     assert.deepEqual(validateDesign({ ...SAMPLE_HOLDS[0], problemGrade }), []);

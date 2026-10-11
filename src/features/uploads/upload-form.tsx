@@ -18,33 +18,7 @@ import { FilePicker } from "./file-picker";
 import { PhonePhotoPicker } from "./phone-photo-picker";
 import { abandonDraft, createDraft, finalizeDesign } from "./actions";
 import type { PhonePhoto } from "./phone-actions";
-
-const PARALLEL_UPLOADS = 3;
-
-// Browser-to-R2 PUTs, a few at a time, so one large file never blocks photos.
-async function uploadAll(jobs: { url: string; file: File }[]) {
-  const queue = [...jobs];
-  const failed: string[] = [];
-  await Promise.all(
-    Array.from({ length: PARALLEL_UPLOADS }, async () => {
-      for (let job = queue.shift(); job; job = queue.shift()) {
-        try {
-          const response = await fetch(job.url, {
-            method: "PUT",
-            body: job.file,
-            headers: {
-              "Content-Type": job.file.type || "application/octet-stream",
-            },
-          });
-          if (!response.ok) failed.push(job.file.name);
-        } catch {
-          failed.push(job.file.name);
-        }
-      }
-    }),
-  );
-  return failed;
-}
+import { uploadAll } from "./put-files";
 
 export function UploadForm({ creator }: { creator: string }) {
   const [formVersion, setFormVersion] = useState(0);
