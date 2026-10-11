@@ -92,8 +92,10 @@ export async function sweep(
     .select("object_key");
   if (filesError)
     throw new Error(`Could not list files: ${filesError.message}`);
+  // After a real pass the abandoned drafts' rows and objects are both gone;
+  // in a dry run both remain, so their keys stay "known" and are not counted
+  // a second time as orphans.
   const known = new Set(files.map((file) => file.object_key));
-  for (const key of draftKeys) known.delete(key);
   const orphans = orphanedObjects(
     await store.listObjects(OBJECT_KEY_PREFIX),
     known,
