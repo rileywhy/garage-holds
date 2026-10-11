@@ -99,10 +99,21 @@ export function reviewRowToReview(row: ReviewRow): Review {
 }
 
 // Object keys group a design's files and never embed user-supplied names.
+// Photos handed over from a phone wait under inbox/<session>/ until the
+// design they belong to exists; attaching copies them under designs/.
 export const OBJECT_KEY_PREFIX = "designs/";
+export const INBOX_KEY_PREFIX = "inbox/";
 
 export function objectKey(designId: string, fileId: string, extension: string) {
   return `${OBJECT_KEY_PREFIX}${designId}/${fileId}.${extension}`;
+}
+
+export function inboxObjectKey(
+  sessionId: string,
+  photoId: string,
+  extension: string,
+) {
+  return `${INBOX_KEY_PREFIX}${sessionId}/${photoId}.${extension}`;
 }
 
 export function fileExtension(name: string) {

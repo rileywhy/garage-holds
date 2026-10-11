@@ -28,6 +28,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Search and combined filters for hold type, size, mounting, material, optional special process, and an optional suggested problem grade at 40°. Grades use V0–V1, V2, V3, … V17.
 - Model pages with size, mounting, grade suggestions at 40°, printing recipes, optional fuzzy skin / texture notes, and licensing. Normal prints leave special process blank; unusual steps use plain-language labels.
 - Upload model files with optional photos and publish them for anyone to download. Skipping photos asks for one friendly confirmation.
+- Add photos from your phone: the upload and edit pages show a QR code that opens a page on the phone to take a photo or pick one, and the photos appear on the computer within seconds.
 - Browse multiple photos using arrows on library cards before opening a design's detail page.
 - Photo-free designs show an automatically generated STL thumbnail in the library and on detail pages. Photos take priority when provided.
 - STL covers start with a low side angle to show the lip and incut. Detail pages offer Side, Other side, End, Other end, and Overview angles. A broad flat outer face is used as a likely mounting surface; irregular meshes fall back to Z-up. Orientation is a best-effort guess, and alternate views help when it guesses incorrectly.
@@ -51,7 +52,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 
 - `src/app`: thin Next.js routes, page metadata, global styles.
 - `src/features/holds`: domain types, sample data, filtering, validation, row mapping, the server-side repository, catalog and detail UI.
-- `src/features/uploads`: upload form, file picker, the three-step upload pipeline (draft → signed PUT to R2 → verify and publish), and the storage sweep behind `/api/sweep`.
+- `src/features/uploads`: upload form, file picker, the three-step upload pipeline (draft → signed PUT to R2 → verify and publish), the phone photo hand-off behind `/phone/<session>`, and the storage sweep behind `/api/sweep`.
 - `src/features/reviews`: review UI.
 - `src/features/auth`: sign-in, sign-out, account menu, and display-name editing.
 - `src/features/profiles`: display-name rules shared by the form and the server.

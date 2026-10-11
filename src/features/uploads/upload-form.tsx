@@ -15,7 +15,9 @@ import { readDesignInput } from "@/features/holds/design-form";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
 import { DesignFields } from "./design-fields";
 import { FilePicker } from "./file-picker";
+import { PhonePhotoPicker } from "./phone-photo-picker";
 import { abandonDraft, createDraft, finalizeDesign } from "./actions";
+import type { PhonePhoto } from "./phone-actions";
 
 const PARALLEL_UPLOADS = 3;
 
@@ -68,6 +70,7 @@ function UploadDesignForm({
   focusTitle: boolean;
 }) {
   const [photos, setPhotos] = useState<File[]>([]);
+  const [phonePhotos, setPhonePhotos] = useState<PhonePhoto[]>([]);
   const [models, setModels] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [progress, setProgress] = useState<Progress>("");
@@ -82,7 +85,8 @@ function UploadDesignForm({
   const completionRegion = useRef<HTMLDivElement>(null);
   const errorRegion = useRef<HTMLDivElement>(null);
   const photoReminderRegion = useRef<HTMLDivElement>(null);
-  const skippingPhotos = photoReminder && photos.length === 0;
+  const photoCount = photos.length + phonePhotos.length;
+  const skippingPhotos = photoReminder && photoCount === 0;
 
   function showErrors(errors: string[]) {
     setErrors(errors);
@@ -100,13 +104,25 @@ function UploadDesignForm({
     const form = new FormData(event.currentTarget);
     const input = readDesignInput(form);
     const sharingPermission = form.get("ownership") === "on";
-    const issues = validateUpload(input, models, photos, sharingPermission);
+    const issues = validateUpload(
+      input,
+      models,
+      [
+        ...photos,
+        ...phonePhotos.map((photo) => ({
+          name: photo.name,
+          size: photo.bytes,
+          type: "image/jpeg",
+        })),
+      ],
+      sharingPermission,
+    );
     if (issues.length) {
       showErrors(issues);
       return;
     }
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    if (!photos.length && submitter?.getAttribute("name") !== "skipPhoto") {
+    if (!photoCount && submitter?.getAttribute("name") !== "skipPhoto") {
       setPhotoReminder(true);
       setErrors([]);
       requestAnimationFrame(() => {
@@ -132,6 +148,7 @@ function UploadDesignForm({
           type: file.type,
         })),
         sharingPermission,
+        phonePhotos.map((photo) => photo.id),
       );
       if ("errors" in draft) {
         showErrors(draft.errors);
@@ -155,7 +172,10 @@ function UploadDesignForm({
           return;
         }
         setProgress("Publishing…");
-        const result = await finalizeDesign(draft.designId);
+        const result = await finalizeDesign(
+          draft.designId,
+          phonePhotos.map((photo) => photo.id),
+        );
         if ("errors" in result) {
           showErrors(result.errors);
           return;
@@ -223,6 +243,11 @@ function UploadDesignForm({
                     files={photos}
                     onChange={setPhotos}
                     accept="image/jpeg,image/png,image/webp"
+                  />
+                  <PhonePhotoPicker
+                    disabled={busy || !!savedHold}
+                    selected={phonePhotos}
+                    onChange={setPhonePhotos}
                   />
                   <FilePicker
                     kind="models"

@@ -15,6 +15,11 @@ import {
 } from "@/features/holds/rows";
 import { validateUpload } from "@/features/holds/validation";
 import type { DesignInput } from "@/features/holds/types";
+import {
+  asUploadFile as inboxAsUploadFile,
+  attachInboxPhotos,
+  ownInboxPhotos,
+} from "./phone-photos";
 
 export interface UploadFileDescriptor {
   kind: "model" | "photo";
@@ -35,20 +40,27 @@ export type CreateDraftResult =
 export type FinalizeResult = { designId: string } | { errors: string[] };
 
 // Step 1 of 3: validate, create the draft, reserve object keys, and hand the
-// browser one signed PUT URL per file. Nothing is public yet.
+// browser one signed PUT URL per file. Nothing is public yet. Photos already
+// handed over from a phone are validated here and attached at publish time.
 export async function createDraft(
   input: DesignInput,
   files: UploadFileDescriptor[],
   sharingPermission: boolean,
+  phonePhotoIds: string[] = [],
 ): Promise<CreateDraftResult> {
   if (!isR2Configured() || !isSupabaseAdminConfigured())
     return { errors: ["Uploads aren't configured in this environment yet."] };
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { errors: ["Sign in to upload a design."] };
+
   const models = files.filter((file) => file.kind === "model");
   const photos = files.filter((file) => file.kind === "photo");
+  const phonePhotos = await ownInboxPhotos(supabase, phonePhotoIds);
   const errors = validateUpload(
     input,
     models.map(asUploadFile),
-    photos.map(asUploadFile),
+    [...photos.map(asUploadFile), ...phonePhotos.map(inboxAsUploadFile)],
     sharingPermission,
   );
   // Photos are served by extension, so the extension must be an image type
@@ -56,11 +68,9 @@ export async function createDraft(
   for (const photo of photos)
     if (!photoContentType(fileExtension(photo.name)))
       errors.push(`${photo.name}: photos must be .jpg, .png, or .webp files.`);
+  if (phonePhotos.length < phonePhotoIds.length)
+    errors.push("Some phone photos are no longer available. Scan again.");
   if (errors.length) return { errors };
-
-  const supabase = await createSupabaseServerClient();
-  const userId = await getUserId(supabase);
-  if (!userId) return { errors: ["Sign in to upload a design."] };
 
   const recipe = input.recipes[0];
   const { data: design, error } = await supabase
@@ -124,10 +134,12 @@ export async function createDraft(
 }
 
 // Step 3 of 3: confirm every object landed in R2 with the declared size, mark
-// the files ready, and publish. The database refuses to publish without a
-// verified model file, so this is the only path to a public design.
+// the files ready, attach any phone photos, and publish. The database refuses
+// to publish without a verified model file, so this is the only path to a
+// public design.
 export async function finalizeDesign(
   designId: string,
+  phonePhotoIds: string[] = [],
 ): Promise<FinalizeResult> {
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
@@ -173,6 +185,18 @@ export async function finalizeDesign(
       .eq("id", file.id);
   }
   if (errors.length) return { errors };
+
+  const phonePhotos = await ownInboxPhotos(supabase, phonePhotoIds);
+  if (phonePhotos.length < phonePhotoIds.length)
+    return {
+      errors: ["Some phone photos are no longer available. Scan again."],
+    };
+  try {
+    await attachInboxPhotos(admin, designId, phonePhotos, files.length);
+  } catch (error) {
+    console.error("attach phone photos failed", { designId, error });
+    return { errors: ["Your phone photos could not be attached. Try again."] };
+  }
 
   const { error } = await supabase
     .from("designs")

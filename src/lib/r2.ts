@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -118,6 +119,18 @@ export async function headObject(key: string) {
 export async function deleteObject(key: string) {
   const { s3, bucket } = r2();
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+// Server-side copy within the bucket; the bytes never leave R2.
+export async function copyObject(fromKey: string, toKey: string) {
+  const { s3, bucket } = r2();
+  await s3.send(
+    new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: `/${bucket}/${encodeURIComponent(fromKey).replace(/%2F/g, "/")}`,
+      Key: toKey,
+    }),
+  );
 }
 
 // Every object under a prefix, following pagination. Used by the storage

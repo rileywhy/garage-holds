@@ -166,6 +166,88 @@ export type Database = {
           },
         ];
       };
+      phone_photos: {
+        Row: {
+          bytes: number;
+          created_at: string;
+          extension: string;
+          id: string;
+          name: string;
+          object_key: string;
+          session_id: string;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bytes: number;
+          created_at?: string;
+          extension: string;
+          id?: string;
+          name: string;
+          object_key: string;
+          session_id: string;
+          status?: string;
+        };
+        Update: {
+          bytes?: number;
+          created_at?: string;
+          extension?: string;
+          id?: string;
+          name?: string;
+          object_key?: string;
+          session_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "phone_photos_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "phone_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      phone_sessions: {
+        Row: {
+          created_at: string;
+          design_id: string | null;
+          expires_at: string;
+          id: string;
+          owner_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          design_id?: string | null;
+          expires_at?: string;
+          id?: string;
+          owner_id: string;
+        };
+        Update: {
+          created_at?: string;
+          design_id?: string | null;
+          expires_at?: string;
+          id?: string;
+          owner_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "phone_sessions_design_id_fkey";
+            columns: ["design_id"];
+            isOneToOne: false;
+            referencedRelation: "designs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "phone_sessions_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           avatar_url: string | null;

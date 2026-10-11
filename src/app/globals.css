@@ -1158,7 +1158,8 @@ svg {
   color: var(--muted);
   margin-top: 4px;
 }
-.file-picker + .file-picker {
+.file-picker + .file-picker,
+.phone-handoff + .file-picker {
   margin-top: 18px;
 }
 .file-list,
@@ -2413,5 +2414,92 @@ svg {
   *:after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Phone photo hand-off: the QR panel on the upload and edit pages, and the
+   page the phone lands on. */
+.phone-handoff {
+  margin-top: 13px;
+}
+.phone-handoff-panel {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+  background: var(--subtle-bg);
+}
+.phone-handoff-code {
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+  padding: 6px;
+  background: #ffffff;
+  color: #111111;
+  border-radius: 4px;
+}
+.qr-code {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.phone-handoff-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.phone-handoff-text p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.phone-handoff-text strong {
+  font-size: 13px;
+}
+.phone-handoff-text .button {
+  align-self: flex-start;
+}
+.phone-photos li.excluded img {
+  opacity: 0.35;
+}
+.phone-photos li.excluded strong {
+  color: var(--muted);
+}
+.phone-page {
+  max-width: 480px;
+  padding-top: 28px;
+}
+.phone-page h1 {
+  font-size: 22px;
+  margin: 8px 0 10px;
+}
+.phone-page > p {
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.phone-uploader-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.phone-uploader-actions .button {
+  justify-content: center;
+  padding: 14px 16px;
+  font-size: 15px;
+}
+.phone-uploader .photo-previews {
+  margin-top: 16px;
+}
+@media (max-width: 480px) {
+  .phone-handoff-panel {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .phone-handoff-text .button {
+    align-self: center;
   }
 }

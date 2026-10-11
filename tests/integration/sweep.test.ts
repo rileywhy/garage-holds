@@ -16,6 +16,8 @@ let user: TestUser;
 let oldDraft: string;
 let freshDraft: string;
 let published: string;
+let oldSession: string;
+let freshSession: string;
 
 const now = new Date();
 const twoDaysAgo = new Date(now.getTime() - 2 * ABANDONED_AFTER_MS);
@@ -67,6 +69,25 @@ async function insertFile(designId: string, key: string, status: string) {
   if (error) throw error;
 }
 
+async function insertSession(createdAt: Date) {
+  const { data, error } = await admin
+    .from("phone_sessions")
+    .insert({ owner_id: user.id, created_at: createdAt.toISOString() })
+    .select("id")
+    .single();
+  if (error) throw error;
+  const { error: photoError } = await admin.from("phone_photos").insert({
+    session_id: data.id,
+    object_key: `inbox/${data.id}/photo.jpg`,
+    name: "wall.jpg",
+    extension: "jpg",
+    bytes: 10,
+    status: "ready",
+  });
+  if (photoError) throw photoError;
+  return data.id;
+}
+
 before(async () => {
   user = await createUser(admin, "sweeper");
   oldDraft = await insertDesign("Old draft", twoDaysAgo);
@@ -80,6 +101,8 @@ before(async () => {
     .update({ status: "published" })
     .eq("id", published);
   if (error) throw error;
+  oldSession = await insertSession(twoDaysAgo);
+  freshSession = await insertSession(minutesAgo);
 });
 
 after(async () => {
@@ -91,8 +114,11 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     { key: `designs/${oldDraft}/model.stl`, lastModified: twoDaysAgo },
     { key: `designs/${freshDraft}/model.stl`, lastModified: minutesAgo },
     { key: `designs/${published}/model.stl`, lastModified: twoDaysAgo },
+    { key: `inbox/${oldSession}/photo.jpg`, lastModified: twoDaysAgo },
+    { key: `inbox/${freshSession}/photo.jpg`, lastModified: minutesAgo },
     { key: "designs/gone/orphan.stl", lastModified: twoDaysAgo },
     { key: "designs/gone/arriving.stl", lastModified: minutesAgo },
+    { key: "inbox/gone/orphan.jpg", lastModified: twoDaysAgo },
     { key: "unrelated/other.txt", lastModified: twoDaysAgo },
   ]);
   const initial = store.keys();
@@ -102,7 +128,9 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     dryRun: true,
     abandonedDrafts: 1,
     draftObjects: 1,
-    orphanedObjects: 1,
+    stalePhoneSessions: 1,
+    phoneObjects: 1,
+    orphanedObjects: 2,
   });
   assert.deepEqual(store.keys(), initial);
 
@@ -113,6 +141,7 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     [
       `designs/${freshDraft}/model.stl`,
       `designs/${published}/model.stl`,
+      `inbox/${freshSession}/photo.jpg`,
       "designs/gone/arriving.stl",
       "unrelated/other.txt",
     ].sort(),
@@ -127,12 +156,19 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     { id: freshDraft, status: "draft" },
     { id: published, status: "published" },
   ]);
+  const { data: sessions } = await admin
+    .from("phone_sessions")
+    .select("id")
+    .eq("owner_id", user.id);
+  assert.deepEqual(sessions, [{ id: freshSession }]);
 
   const again = await sweep(admin, store, { now });
   assert.deepEqual(again, {
     dryRun: false,
     abandonedDrafts: 0,
     draftObjects: 0,
+    stalePhoneSessions: 0,
+    phoneObjects: 0,
     orphanedObjects: 0,
   });
 });

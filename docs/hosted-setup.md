@@ -149,9 +149,10 @@ Postgres matches the hosted one.
 An upload that fails after its draft was created is removed by the browser
 right away (`abandonDraft` in `src/features/uploads/actions.ts`). Whatever
 that misses, a closed tab or a failed delete, is reconciled by
-`GET /api/sweep`: drafts older than a day are deleted with their objects, and
-objects under `designs/` that no row refers to are deleted once they are a
-day old, so an upload still in flight is never touched.
+`GET /api/sweep`: drafts and phone sessions older than a day are deleted with
+their objects, and objects under `designs/` or `inbox/` that no row refers to
+are deleted once they are a day old, so an upload still in flight is never
+touched.
 
 `vercel.json` schedules it nightly through Vercel Cron, which sends
 `Authorization: Bearer <CRON_SECRET>`. Set `CRON_SECRET` in the Vercel
@@ -163,7 +164,8 @@ first real one:
 curl -H "Authorization: Bearer $CRON_SECRET" "https://garage-holds.vercel.app/api/sweep?dry=1"
 ```
 
-The response counts abandoned drafts, their objects, and orphaned objects.
+The response counts abandoned drafts, stale phone sessions, their objects,
+and orphaned objects.
 Without `dry=1` the same call performs the sweep. Vercel's Hobby plan runs
 cron jobs once a day at an approximate time, which is enough here.
 
@@ -190,6 +192,10 @@ cron jobs once a day at an approximate time, which is enough here.
   with "permission denied for table design_files".
 - `supabase/migrations/20261014000000_function_grants.sql` stops the
   sign-up trigger function being callable through the REST API.
+- `supabase/migrations/20261015000000_phone_photos.sql` adds phone sessions
+  and the photo inbox behind the QR code on the upload and edit pages. The
+  phone page needs no sign-in; the unguessable session id is the credential,
+  it expires after 15 minutes, and the server checks it on every upload.
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
   and sign one PUT URL per file, the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and

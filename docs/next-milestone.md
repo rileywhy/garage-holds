@@ -11,7 +11,7 @@
 
 1. **Sign in and profiles.** _Code in place; needs the Supabase project configured per `docs/hosted-setup.md` and a browser pass._ Email-code verification, Google sign-in, sign-out, session refresh, one profile per user created by a database trigger, immutable user id for ownership, unique editable display names. The upload form's creator name stays only in local mode.
 2. **Owned drafts.** _Built._ Ownership is checked on the server and in Postgres policies. "My designs" edits metadata. Two-user tests (`tests/integration`) run against the local Supabase stack in CI and locally per `docs/local-stack.md`.
-3. **One complete hosted upload.** _Built; needs R2 configured and a browser pass._ Draft → signed PUT URLs tied to the draft's own object keys → server verifies each object → publish, which the database refuses without a verified model file.
+3. **One complete hosted upload.** _Built and in use._ Draft → signed PUT URLs tied to the draft's own object keys → server verifies each object → publish, which the database refuses without a verified model file. Photos can also come from a phone through the QR code on the upload and edit pages.
 4. **Shared browsing, reviews, and bookmarks.** _Built._ Records come from the database as the signed-in user; reviews and bookmarks belong to profile ids; creator names come from profiles at read time. Pagination still to do.
 5. **Storage lifecycle.** _Failed uploads abandon their draft; a nightly sweep (`/api/sweep`) removes stale drafts and orphaned objects._ Replaced files and deletion are still to do. Browser-local storage was removed rather than imported.
 
