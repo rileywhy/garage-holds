@@ -191,12 +191,13 @@ describe("files and publication", () => {
   });
 });
 
+const review = {
+  rating: 4,
+  body: "Printed well in PETG-CF.",
+};
+
 describe("reviews", () => {
   let reviewId: string;
-  const review = {
-    rating: 4,
-    body: "Printed well in PETG-CF.",
-  };
 
   test("only published designs can be reviewed, once per person", async () => {
     const draft = await owner.client
@@ -278,6 +279,57 @@ describe("bookmarks", () => {
   });
 });
 
+describe("deletion", () => {
+  test("deleting one's own design takes its files, reviews, and bookmarks with it", async () => {
+    const { data: design } = await owner.client
+      .from("designs")
+      .insert({ ...draftInput, owner_id: owner.id, title: "Doomed edge" })
+      .select("id")
+      .single();
+    const id = design!.id;
+    await admin.from("design_files").insert({
+      design_id: id,
+      kind: "model",
+      object_key: `designs/${id}/model.stl`,
+      name: "doomed.stl",
+      extension: "stl",
+      bytes: 10,
+      status: "ready",
+    });
+    await owner.client
+      .from("designs")
+      .update({ status: "published" })
+      .eq("id", id);
+    await other.client
+      .from("reviews")
+      .insert({ ...review, design_id: id, author_id: other.id });
+    await other.client
+      .from("bookmarks")
+      .insert({ owner_id: other.id, design_id: id });
+
+    const byOther = await other.client
+      .from("designs")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    assert.deepEqual(byOther.data, []);
+
+    const byOwner = await owner.client
+      .from("designs")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    assert.deepEqual(byOwner.data, [{ id }]);
+    for (const table of ["design_files", "reviews", "bookmarks"] as const) {
+      const { count } = await admin
+        .from(table)
+        .select("*", { count: "exact", head: true })
+        .eq("design_id", id);
+      assert.equal(count, 0, table);
+    }
+  });
+});
+
 describe("profiles", () => {
   test("profiles are public, editable by their owner, and uniquely named", async () => {
     const { data: profiles } = await visitor
@@ -299,6 +351,12 @@ describe("profiles", () => {
       .update({ display_name: ownerName.toUpperCase() })
       .eq("id", other.id);
     assert.equal(taken.error?.code, UNIQUE_VIOLATION);
+
+    const raised = await other.client
+      .from("profiles")
+      .update({ upload_limit_designs: 1000 })
+      .eq("id", other.id);
+    assert.equal(raised.error?.code, RLS_VIOLATION);
 
     const renamed = await other.client
       .from("profiles")

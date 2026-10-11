@@ -15,6 +15,8 @@ each value goes. Nothing here is secret except where marked.
 | `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                    |
 | `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                     |
 | `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                             |
+| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives upload-allowance notices (below)                                                             |
+| `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                  |
 | `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | Optional. The public origin for the sitemap and link previews once there is a custom domain; Vercel's own production URL is used otherwise |
 
 Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
@@ -169,6 +171,31 @@ The response counts abandoned drafts, stale phone sessions, their objects,
 and orphaned objects.
 Without `dry=1` the same call performs the sweep. Vercel's Hobby plan runs
 cron jobs once a day at an approximate time, which is enough here.
+
+## Upload allowance
+
+Every account may hold 20 designs and 2 GB of files by default
+(`supabase/migrations/20261016000000_upload_limits.sql`). The upload and
+phone-photo steps refuse anything past that with a message naming
+`NEXT_PUBLIC_CONTACT_EMAIL`, and "My designs" shows each person their usage.
+
+When someone is refused, or a publish takes them past 80% of either limit,
+the server posts one line to `ALERT_WEBHOOK_URL`. In Discord: server
+settings → Integrations → Webhooks → New Webhook, pick a channel, copy the
+URL. Slack's incoming webhooks work the same way. Set the variable in
+Vercel and redeploy. Without it the line goes to the runtime log only.
+
+To raise someone's allowance, run this in the SQL editor (or ask Claude
+through the Supabase connector):
+
+```sql
+update public.profiles
+  set upload_limit_designs = 100, upload_limit_bytes = 10 * 1024 * 1024 * 1024
+  where display_name = 'their display name';
+```
+
+Users cannot change these columns themselves; the update grant on profiles
+does not include them.
 
 ## Search engines and link previews
 

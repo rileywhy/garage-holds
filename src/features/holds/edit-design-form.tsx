@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, LoaderCircle, X } from "lucide-react";
+import { ArrowLeft, Check, LoaderCircle, Trash2, X } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
 import { DesignFields } from "@/features/uploads/design-fields";
 import { PhonePhotoPicker } from "@/features/uploads/phone-photo-picker";
@@ -11,7 +11,7 @@ import {
   attachPhonePhotos,
   type PhonePhoto,
 } from "@/features/uploads/phone-actions";
-import { removePhoto, updateDesign } from "./design-actions";
+import { deleteDesign, removePhoto, updateDesign } from "./design-actions";
 import type { Hold } from "./types";
 
 export function EditDesignForm({ hold }: { hold: Hold }) {
@@ -62,7 +62,59 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
           </button>
         </div>
       </form>
+      <DeleteSection hold={hold} />
     </main>
+  );
+}
+
+// Deleting removes the files, reviews, and saves with the design. Kept
+// outside the edit form so a stray Enter can never reach it.
+function DeleteSection({ hold }: { hold: Hold }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove() {
+    if (
+      !window.confirm(
+        `Delete "${hold.title}" for good? Its files, reviews, and saves go with it. This cannot be undone.`,
+      )
+    )
+      return;
+    setDeleting(true);
+    setError("");
+    const result = await deleteDesign(hold.id);
+    if ("error" in result) {
+      setDeleting(false);
+      setError(result.error);
+      return;
+    }
+    router.push("/designs");
+    router.refresh();
+  }
+
+  return (
+    <section className="danger-zone" aria-labelledby="delete-design-heading">
+      <h2 id="delete-design-heading">Delete this design</h2>
+      <p className="small-note">
+        Removes it from the library along with its files, reviews, and saves.
+        There is no undo.
+      </p>
+      <button
+        type="button"
+        className="button button-outline button-danger"
+        disabled={deleting}
+        onClick={remove}
+      >
+        {deleting ? (
+          <LoaderCircle size={17} className="spin" />
+        ) : (
+          <Trash2 size={17} />
+        )}{" "}
+        {deleting ? "Deleting…" : "Delete design"}
+      </button>
+      <FieldErrors errors={error ? [error] : []} />
+    </section>
   );
 }
 

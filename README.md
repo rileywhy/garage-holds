@@ -33,6 +33,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Photo-free designs show an automatically generated STL thumbnail in the library and on detail pages. Photos take priority when provided.
 - STL covers start with a low side angle to show the lip and incut. Detail pages offer Side, Other side, End, Other end, and Overview angles. A broad flat outer face is used as a likely mounting surface; irregular meshes fall back to Z-up. Orientation is a best-effort guess, and alternate views help when it guesses incorrectly.
 - Save designs to your account and leave one editable review per design with printing settings, material, post-processing, and a suggested problem grade at 40°.
+- Edit or delete your own designs. Each account has an upload allowance (20 designs, 2 GB by default) that the site owner can raise; "My designs" shows your usage.
 - Responsive layouts and keyboard-accessible forms. A generated sitemap and robots file, and Open Graph link previews with the design's first photo.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
 - Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure, and a failed upload leaves no half-finished draft behind.
@@ -72,7 +73,7 @@ The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2.
 
 See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests, and [docs/hosted-setup.md](docs/hosted-setup.md) for the external configuration.
 
-1. Delete a design, and replace its model files, for a creator's own designs.
+1. Replace a design's model files.
 2. Moderation/reporting, pagination, and search in the database before public launch.
 3. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
 4. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.

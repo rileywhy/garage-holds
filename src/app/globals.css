@@ -2503,3 +2503,28 @@ svg {
     align-self: center;
   }
 }
+
+/* Deleting a design, kept visually apart from the edit form. */
+.danger-zone {
+  margin-top: 28px;
+  padding: 18px;
+  border: 1px solid var(--error-line);
+  border-radius: 6px;
+  background: var(--error-bg);
+}
+.danger-zone h2 {
+  font-size: 15px;
+  margin: 0 0 6px;
+  color: var(--error-ink);
+}
+.danger-zone .small-note {
+  color: var(--error-ink);
+  margin: 0 0 12px;
+}
+.button-danger {
+  border-color: var(--error-line);
+  color: var(--error-ink);
+}
+.button-danger:hover {
+  background: var(--error-line);
+}

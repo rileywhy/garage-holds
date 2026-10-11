@@ -20,6 +20,9 @@ import {
   attachInboxPhotos,
   ownInboxPhotos,
 } from "./phone-photos";
+import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
+import { contactEmail, loadAllowance } from "./usage";
+import { notifyOwner } from "@/lib/alerts";
 
 export interface UploadFileDescriptor {
   kind: "model" | "photo";
@@ -71,6 +74,23 @@ export async function createDraft(
   if (phonePhotos.length < phonePhotoIds.length)
     errors.push("Some phone photos are no longer available. Scan again.");
   if (errors.length) return { errors };
+
+  // The account's allowance, checked before anything is written. A refusal
+  // also tells the owner, who can raise the limit for a real contributor.
+  const { usage, limits } = await loadAllowance(supabase, userId);
+  const incomingBytes =
+    files.reduce((sum, file) => sum + file.bytes, 0) +
+    phonePhotos.reduce((sum, photo) => sum + photo.bytes, 0);
+  const allowance = checkAllowance(usage, limits, {
+    designs: 1,
+    bytes: incomingBytes,
+  });
+  if (!allowance.allowed) {
+    await notifyOwner(
+      `Upload refused: user ${userId} is at the ${allowance.reason} limit (${usage.designs}/${limits.designs} designs, ${usage.bytes}/${limits.bytes} bytes) and tried to upload "${input.title}".`,
+    );
+    return { errors: [limitMessage(allowance.reason, limits, contactEmail())] };
+  }
 
   const recipe = input.recipes[0];
   const { data: design, error } = await supabase
@@ -209,7 +229,35 @@ export async function finalizeDesign(
     };
   }
   revalidatePath("/");
+  await warnWhenNearLimit(supabase, userId);
   return { designId };
+}
+
+// Tells the owner once, when a publish takes the account over 80% of a
+// limit, so the allowance can be raised before the uploader runs into it.
+async function warnWhenNearLimit(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+) {
+  const { usage, limits } = await loadAllowance(supabase, userId);
+  if (!isNearLimit(usage, limits)) return;
+  const { data: last } = await supabase
+    .from("designs")
+    .select("design_files(bytes)")
+    .eq("owner_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastBytes =
+    last?.design_files.reduce((sum, file) => sum + file.bytes, 0) ?? 0;
+  const before = {
+    designs: usage.designs - 1,
+    bytes: usage.bytes - lastBytes,
+  };
+  if (isNearLimit(before, limits)) return;
+  await notifyOwner(
+    `Heads up: user ${userId} is at ${usage.designs}/${limits.designs} designs and ${usage.bytes}/${limits.bytes} bytes. Raise their allowance if the designs are good.`,
+  );
 }
 
 // Called by the browser when an upload fails after the draft was created, so

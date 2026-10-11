@@ -26,6 +26,8 @@ import {
   MAX_SESSION_PHOTOS,
   ownInboxPhotos,
 } from "./phone-photos";
+import { checkAllowance, limitMessage } from "./allowance";
+import { contactEmail, loadAllowance } from "./usage";
 
 // The phone hand-off. The signed-in desktop starts a session and shows its
 // URL as a QR code; the phone opens it and uploads photos without signing
@@ -195,6 +197,13 @@ export async function attachPhonePhotos(
         `A design can have up to 6 photos; this one has ${existing.length}.`,
       ],
     };
+  const { usage, limits } = await loadAllowance(supabase, userId);
+  const allowance = checkAllowance(usage, limits, {
+    designs: 0,
+    bytes: photos.reduce((sum, photo) => sum + photo.bytes, 0),
+  });
+  if (!allowance.allowed)
+    return { errors: [limitMessage(allowance.reason, limits, contactEmail())] };
   const nextPosition =
     design.design_files.reduce(
       (max, file) => Math.max(max, file.position),

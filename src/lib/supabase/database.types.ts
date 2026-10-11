@@ -257,6 +257,8 @@ export type Database = {
           id: string;
           onboarded_at: string | null;
           updated_at: string;
+          upload_limit_bytes: number;
+          upload_limit_designs: number;
         };
         ComputedFields: never;
         Insert: {
@@ -267,6 +269,8 @@ export type Database = {
           id: string;
           onboarded_at?: string | null;
           updated_at?: string;
+          upload_limit_bytes?: number;
+          upload_limit_designs?: number;
         };
         Update: {
           avatar_url?: string | null;
@@ -276,6 +280,8 @@ export type Database = {
           id?: string;
           onboarded_at?: string | null;
           updated_at?: string;
+          upload_limit_bytes?: number;
+          upload_limit_designs?: number;
         };
         Relationships: [];
       };

@@ -66,6 +66,44 @@ export async function updateDesign(
   redirect(`/holds/${designId}`);
 }
 
+export type DeleteDesignResult = { deleted: true } | { error: string };
+
+// Deletes one of the user's own designs with everything attached to it.
+// The row goes first through the user's client, so row-level security is
+// the authority and the cascade removes files, reviews, and bookmarks in
+// one step; the objects follow, and any that fail are swept later.
+export async function deleteDesign(
+  designId: string,
+): Promise<DeleteDesignResult> {
+  if (!isR2Configured() || !isSupabaseAdminConfigured())
+    return { error: "Uploads aren't configured in this environment yet." };
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { error: "Sign in to delete your design." };
+  const { data: design } = await supabase
+    .from("designs")
+    .select("id, design_files(object_key)")
+    .eq("id", designId)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  if (!design) return { error: "This design could not be found." };
+  const { data: deleted, error } = await supabase
+    .from("designs")
+    .delete()
+    .eq("id", designId)
+    .eq("owner_id", userId)
+    .select("id");
+  if (error || !deleted?.length) {
+    console.error("design delete failed", { userId, designId, error });
+    return { error: "The design could not be deleted. Try again." };
+  }
+  for (const file of design.design_files) await deleteObject(file.object_key);
+  revalidatePath("/");
+  revalidatePath("/designs");
+  revalidatePath("/saved");
+  return { deleted: true };
+}
+
 export type RemovePhotoResult = { removed: true } | { error: string };
 
 // Removes one photo from the owner's own design. File rows are server-owned,
