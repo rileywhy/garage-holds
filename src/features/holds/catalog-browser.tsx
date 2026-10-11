@@ -91,18 +91,15 @@ export function CatalogBrowser({
                 with potential.
               </>
             ) : (
-              <>
-                Printable holds.
-                <br />
-                <span>For your home wall.</span>
-              </>
+              <>3d grips for your board</>
             )}
           </h1>
-          <p className="hero-description">
-            {savedOnly
-              ? "Keep the designs you want to come back to. Saved designs follow your account to any device."
-              : "Discover 3D printable climbing holds, share your designs, and find the right grip for your home wall or training board."}
-          </p>
+          {savedOnly && (
+            <p className="hero-description">
+              Keep the designs you want to come back to. Saved designs follow
+              your account to any device.
+            </p>
+          )}
           <a href="#library" className="hero-text-link">
             {savedOnly ? "Browse your saved designs" : "explore the pile"}
             <ArrowDown size={15} />
@@ -125,11 +122,7 @@ export function CatalogBrowser({
               {savedOnly ? "Saved designs" : "the pile"}
               <span className="result-count">{filtered.length}</span>
             </h2>
-            <p>
-              {savedOnly
-                ? "A good idea deserves a second look."
-                : "Open designs. Endless combinations."}
-            </p>
+            {savedOnly && <p>A good idea deserves a second look.</p>}
           </div>
           <span className="sample-note">
             {savedOnly
