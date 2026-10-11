@@ -99,8 +99,10 @@ export function reviewRowToReview(row: ReviewRow): Review {
 }
 
 // Object keys group a design's files and never embed user-supplied names.
+export const OBJECT_KEY_PREFIX = "designs/";
+
 export function objectKey(designId: string, fileId: string, extension: string) {
-  return `designs/${designId}/${fileId}.${extension}`;
+  return `${OBJECT_KEY_PREFIX}${designId}/${fileId}.${extension}`;
 }
 
 export function fileExtension(name: string) {

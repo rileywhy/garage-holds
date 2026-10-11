@@ -13,7 +13,7 @@
 2. **Owned drafts.** _Built._ Ownership is checked on the server and in Postgres policies. "My designs" edits metadata. Two-user tests (`tests/integration`) run against the local Supabase stack in CI and locally per `docs/local-stack.md`.
 3. **One complete hosted upload.** _Built; needs R2 configured and a browser pass._ Draft → signed PUT URLs tied to the draft's own object keys → server verifies each object → publish, which the database refuses without a verified model file.
 4. **Shared browsing, reviews, and bookmarks.** _Built._ Records come from the database as the signed-in user; reviews and bookmarks belong to profile ids; creator names come from profiles at read time. Pagination still to do.
-5. **Storage lifecycle.** Handle failed uploads, abandoned drafts, replaced files, and deletion. Browser-local storage was removed rather than imported.
+5. **Storage lifecycle.** _Failed uploads abandon their draft; a nightly sweep (`/api/sweep`) removes stale drafts and orphaned objects._ Replaced files and deletion are still to do. Browser-local storage was removed rather than imported.
 
 This is one end-to-end milestone: a user signs in, uploads a design, sees it from another browser, edits their own design, and cannot edit someone else's.
 

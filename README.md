@@ -34,7 +34,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Save designs to your account and leave one editable review per design with printing settings, material, post-processing, and a suggested problem grade at 40°.
 - Responsive layouts and keyboard-accessible forms.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
-- Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure.
+- Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure, and a failed upload leaves no half-finished draft behind.
 - Upload validation explains missing fields beside the submit button, including the 20-character description minimum. It preserves the form and avoids the browser's automatic jump to an invalid field.
 
 Eight sample entries use SVG illustrations and fictional metadata. They contain no printable files or fabricated community reviews.
@@ -51,7 +51,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 
 - `src/app`: thin Next.js routes, page metadata, global styles.
 - `src/features/holds`: domain types, sample data, filtering, validation, row mapping, the server-side repository, catalog and detail UI.
-- `src/features/uploads`: upload form, file picker, and the three-step upload pipeline (draft → signed PUT to R2 → verify and publish).
+- `src/features/uploads`: upload form, file picker, the three-step upload pipeline (draft → signed PUT to R2 → verify and publish), and the storage sweep behind `/api/sweep`.
 - `src/features/reviews`: review UI.
 - `src/features/auth`: sign-in, sign-out, account menu, and display-name editing.
 - `src/features/profiles`: display-name rules shared by the form and the server.
@@ -71,11 +71,10 @@ The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2.
 
 See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests, and [docs/hosted-setup.md](docs/hosted-setup.md) for the external configuration.
 
-1. Reconcile abandoned drafts and failed uploads with object storage; sweep orphaned R2 objects.
-2. Delete and file replacement for a creator's own designs.
-3. Moderation/reporting, pagination, and search in the database before public launch.
-4. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
-5. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.
+1. Delete and file replacement for a creator's own designs.
+2. Moderation/reporting, pagination, and search in the database before public launch.
+3. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
+4. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.
 
 The schema has not had a production security audit. Edits, deletion, revisions, paid downloads, subscriptions, and interactive 3D viewing are not implemented.
 

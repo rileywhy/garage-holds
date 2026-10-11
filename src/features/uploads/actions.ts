@@ -188,6 +188,36 @@ export async function finalizeDesign(
   return { designId };
 }
 
+// Called by the browser when an upload fails after the draft was created, so
+// a failed attempt leaves nothing behind. Only the owner's own draft can go;
+// published designs are never touched here.
+export async function abandonDraft(designId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return;
+  const { data: design } = await supabase
+    .from("designs")
+    .select("id, status")
+    .eq("id", designId)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  if (!design || design.status !== "draft") return;
+
+  const admin = createSupabaseAdminClient();
+  const { data: files } = await admin
+    .from("design_files")
+    .select("object_key")
+    .eq("design_id", designId);
+  // Objects first; a failure here leaves the rows for the sweep to retry.
+  for (const file of files ?? []) await deleteObject(file.object_key);
+  const { error } = await supabase
+    .from("designs")
+    .delete()
+    .eq("id", designId)
+    .eq("status", "draft");
+  if (error) console.error("abandon draft failed", { designId, error });
+}
+
 function asUploadFile(file: UploadFileDescriptor) {
   return { name: file.name, size: file.bytes, type: file.type };
 }

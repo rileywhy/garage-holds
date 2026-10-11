@@ -14,6 +14,7 @@ each value goes. Nothing here is secret except where marked.
 | `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket            |
 | `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                 |
 | `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                  |
+| `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)          |
 
 Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
 Settings → Environment Variables, followed by a redeploy. Secrets never go in
@@ -143,6 +144,29 @@ run through `npx prettier --write`). Check `db.major_version` in
 `supabase/config.toml` against Project Settings → Infrastructure so the local
 Postgres matches the hosted one.
 
+## Storage sweep
+
+An upload that fails after its draft was created is removed by the browser
+right away (`abandonDraft` in `src/features/uploads/actions.ts`). Whatever
+that misses, a closed tab or a failed delete, is reconciled by
+`GET /api/sweep`: drafts older than a day are deleted with their objects, and
+objects under `designs/` that no row refers to are deleted once they are a
+day old, so an upload still in flight is never touched.
+
+`vercel.json` schedules it nightly through Vercel Cron, which sends
+`Authorization: Bearer <CRON_SECRET>`. Set `CRON_SECRET` in the Vercel
+project (Settings → Environment Variables, then redeploy); without it the
+route answers 503 and nothing runs. To see what a sweep would do before the
+first real one:
+
+```sh
+curl -H "Authorization: Bearer $CRON_SECRET" "https://garage-holds.vercel.app/api/sweep?dry=1"
+```
+
+The response counts abandoned drafts, their objects, and orphaned objects.
+Without `dry=1` the same call performs the sweep. Vercel's Hobby plan runs
+cron jobs once a day at an approximate time, which is enough here.
+
 ## What the app does with all this
 
 - `src/proxy.ts` refreshes the session cookie on each navigation and sends
@@ -167,6 +191,8 @@ Postgres matches the hosted one.
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
   and sign one PUT URL per file, the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
-  publishes.
+  publishes. A failure after the draft exists abandons it again.
+- `src/features/uploads/sweep.ts` and `src/app/api/sweep/route.ts` are the
+  nightly reconciliation described above.
 - `src/features/holds/repository.ts` reads designs, reviews, and bookmarks as
   the signed-in user and attaches signed R2 URLs for photos and downloads.

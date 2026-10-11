@@ -15,7 +15,7 @@ import { readDesignInput } from "@/features/holds/design-form";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
 import { DesignFields } from "./design-fields";
 import { FilePicker } from "./file-picker";
-import { createDraft, finalizeDesign } from "./actions";
+import { abandonDraft, createDraft, finalizeDesign } from "./actions";
 
 const PARALLEL_UPLOADS = 3;
 
@@ -137,24 +137,32 @@ function UploadDesignForm({
         showErrors(draft.errors);
         return;
       }
-      setProgress("Uploading files…");
-      const failed = await uploadAll(
-        draft.uploads.map((upload, index) => ({
-          url: upload.url,
-          file: allFiles[index],
-        })),
-      );
-      if (failed.length) {
-        showErrors([
-          `${failed.join(", ")} did not upload. Check your connection and try again.`,
-        ]);
-        return;
-      }
-      setProgress("Publishing…");
-      const published = await finalizeDesign(draft.designId);
-      if ("errors" in published) {
-        showErrors(published.errors);
-        return;
+      // From here on a failure removes the draft again, so trying again
+      // starts clean instead of leaving a half-uploaded design behind.
+      let published = false;
+      try {
+        setProgress("Uploading files…");
+        const failed = await uploadAll(
+          draft.uploads.map((upload, index) => ({
+            url: upload.url,
+            file: allFiles[index],
+          })),
+        );
+        if (failed.length) {
+          showErrors([
+            `${failed.join(", ")} did not upload. Check your connection and try again.`,
+          ]);
+          return;
+        }
+        setProgress("Publishing…");
+        const result = await finalizeDesign(draft.designId);
+        if ("errors" in result) {
+          showErrors(result.errors);
+          return;
+        }
+        published = true;
+      } finally {
+        if (!published) abandonDraft(draft.designId).catch(() => undefined);
       }
       setSavedHold({
         id: draft.designId,

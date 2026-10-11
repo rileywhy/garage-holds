@@ -3,10 +3,12 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { StoredObject } from "@/features/uploads/lifecycle";
 
 // Cloudflare R2 through its S3-compatible API. Credentials are server-only;
 // browsers only ever see short-lived signed URLs for one object at a time.
@@ -116,6 +118,31 @@ export async function headObject(key: string) {
 export async function deleteObject(key: string) {
   const { s3, bucket } = r2();
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+// Every object under a prefix, following pagination. Used by the storage
+// sweep only; nothing user-facing lists the bucket.
+export async function listObjects(prefix: string): Promise<StoredObject[]> {
+  const { s3, bucket } = r2();
+  const objects: StoredObject[] = [];
+  let token: string | undefined;
+  do {
+    const page = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
+    );
+    for (const object of page.Contents ?? [])
+      if (object.Key)
+        objects.push({
+          key: object.Key,
+          lastModified: object.LastModified ?? new Date(0),
+        });
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return objects;
 }
 
 function isNotFound(error: unknown) {
