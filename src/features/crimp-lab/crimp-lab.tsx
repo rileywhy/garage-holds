@@ -28,8 +28,9 @@ const VIEW_LABELS: Record<ViewName, string> = {
 const DEBOUNCE_MS = 180;
 const CUSTOM = "Custom";
 
-// Crimp Lab: sliders on the left, the generated hold on the right. Every
-// change asks /api/crimp for a fresh preview; export asks for a finer STL.
+// Crimp Lab: sliders on the left, the generated hold on the right; on a
+// phone the hold stays pinned above the sliders. Every change asks
+// /api/crimp for a fresh preview; export asks for a finer STL.
 export function CrimpLab() {
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
@@ -390,7 +391,7 @@ export function CrimpLab() {
           hold’s strength.
         </p>
       </aside>
-      <section className="lab-workspace" aria-label="Model preview">
+      <section className="lab-stage" aria-label="Model preview">
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
           {(Object.keys(VIEW_LABELS) as ViewName[]).map((name) => (
             <button
@@ -426,74 +427,74 @@ export function CrimpLab() {
           <span>Drag to rotate · scroll to zoom</span>
           <span>Flat back on the wall plane</span>
         </p>
-        <div className="lab-details">
-          <section className="lab-card">
-            <h3>Side profile</h3>
-            {preview ? (
-              <Profile data={preview} parameters={parameters} />
-            ) : (
-              <p className="small-note">Waiting for the first preview…</p>
-            )}
-          </section>
-          <section className="lab-card">
-            <h3>Your model</h3>
-            <dl className="lab-metrics">
-              {preview ? (
-                <>
-                  <Metric
-                    label="Dimensions"
-                    value={`${preview.dimensions.join(" × ")} mm`}
-                  />
-                  <Metric
-                    label="Solid volume"
-                    value={`${preview.volume_cm3} cm³`}
-                  />
-                  <Metric
-                    label="Mesh"
-                    value={`${preview.triangles.toLocaleString()} triangles · closed`}
-                  />
-                  <Metric
-                    label="Screw holes"
-                    value={String(preview.screws.length)}
-                  />
-                  {preview.screw_spacing !== null && (
-                    <Metric
-                      label="Centre spacing"
-                      value={`${preview.screw_spacing} mm across width`}
-                    />
-                  )}
-                </>
-              ) : (
-                <Metric label="Mesh" value="Preparing…" />
-              )}
-            </dl>
-            <p
-              className={`lab-status ${status.error ? "error" : ""}`}
-              role="status"
-              aria-live="polite"
-            >
-              {status.text}
-            </p>
-            <button
-              type="button"
-              className="button button-dark"
-              disabled={!design || exporting}
-              onClick={exportStl}
-            >
-              {exporting ? (
-                <LoaderCircle size={16} className="spin" />
-              ) : (
-                <Download size={16} />
-              )}{" "}
-              Export STL
-            </button>
-            <p className="small-note">
-              Millimetres · flat back · original geometry. Upload it like any
-              other design when it has earned a place in the library.
-            </p>
-          </section>
-        </div>
       </section>
+      <div className="lab-details">
+        <section className="lab-card">
+          <h3>Side profile</h3>
+          {preview ? (
+            <Profile data={preview} parameters={parameters} />
+          ) : (
+            <p className="small-note">Waiting for the first preview…</p>
+          )}
+        </section>
+        <section className="lab-card">
+          <h3>Your model</h3>
+          <dl className="lab-metrics">
+            {preview ? (
+              <>
+                <Metric
+                  label="Dimensions"
+                  value={`${preview.dimensions.join(" × ")} mm`}
+                />
+                <Metric
+                  label="Solid volume"
+                  value={`${preview.volume_cm3} cm³`}
+                />
+                <Metric
+                  label="Mesh"
+                  value={`${preview.triangles.toLocaleString()} triangles · closed`}
+                />
+                <Metric
+                  label="Screw holes"
+                  value={String(preview.screws.length)}
+                />
+                {preview.screw_spacing !== null && (
+                  <Metric
+                    label="Centre spacing"
+                    value={`${preview.screw_spacing} mm across width`}
+                  />
+                )}
+              </>
+            ) : (
+              <Metric label="Mesh" value="Preparing…" />
+            )}
+          </dl>
+          <p
+            className={`lab-status ${status.error ? "error" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            {status.text}
+          </p>
+          <button
+            type="button"
+            className="button button-dark"
+            disabled={!design || exporting}
+            onClick={exportStl}
+          >
+            {exporting ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Download size={16} />
+            )}{" "}
+            Export STL
+          </button>
+          <p className="small-note">
+            Millimetres · flat back · original geometry. Upload it like any
+            other design when it has earned a place in the library.
+          </p>
+        </section>
+      </div>
     </div>
   );
 }

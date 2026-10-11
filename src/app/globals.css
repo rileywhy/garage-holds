@@ -2606,16 +2606,29 @@ svg {
   margin: 0;
 }
 
-/* Crimp Lab: controls on the left, generated hold on the right. */
+/* Crimp Lab: controls on the left, generated hold on the right. On a phone
+   the hold is pinned to the top so a slider and its effect share the screen. */
 .lab-page {
   max-width: 1288px;
 }
 .lab {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-areas:
+    "controls stage"
+    "controls details";
   gap: 28px;
   margin-top: 28px;
   align-items: start;
+}
+.lab-controls {
+  grid-area: controls;
+}
+.lab-stage {
+  grid-area: stage;
+}
+.lab-details {
+  grid-area: details;
 }
 .lab-controls {
   display: flex;
@@ -2721,7 +2734,7 @@ svg {
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
-.lab-workspace {
+.lab-stage {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2842,6 +2855,37 @@ svg {
 @media (max-width: 900px) {
   .lab {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "stage"
+      "controls"
+      "details";
+    gap: 16px;
+  }
+  .lab-stage {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    gap: 8px;
+    padding: 8px 0;
+    background: var(--bg);
+  }
+  .lab-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .lab-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .lab-toolbar button {
+    flex: 0 0 auto;
+  }
+  .lab-viewer {
+    height: min(300px, 34vh);
+  }
+  .lab-caption {
+    display: none;
   }
   .lab-details {
     grid-template-columns: 1fr;
