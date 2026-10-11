@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   Bookmark,
+  Hammer,
   Mountain,
   Plus,
   FlaskConical,
@@ -43,6 +44,12 @@ export function SiteHeader({
           >
             <Bookmark size={15} /> Saved
             {savedCount > 0 && <span className="nav-count">{savedCount}</span>}
+          </Link>
+          <Link
+            href="/make/crimp"
+            className={`nav-link ${pathname === "/make/crimp" ? "active" : ""}`}
+          >
+            <Hammer size={15} /> Crimp Lab
           </Link>
         </nav>
         <div className="header-actions">

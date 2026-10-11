@@ -30,6 +30,9 @@ keeps it current as work lands; add your own items freely.
 
 ## Things to try in a browser
 
+- **Crimp Lab on the live site** (`/make/crimp`): move a few sliders, try a
+  preset and "New variation", export an STL and open it in your slicer.
+
 - **Phone photo round trip.** Open `/upload` on the computer, press "Add
   photos from your phone", scan with the phone, take a photo, confirm it
   appears on the computer within a few seconds. Then the same from a

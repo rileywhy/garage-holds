@@ -2605,3 +2605,245 @@ svg {
 .feedback-sent p {
   margin: 0;
 }
+
+/* Crimp Lab: controls on the left, generated hold on the right. */
+.lab-page {
+  max-width: 1288px;
+}
+.lab {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 28px;
+  margin-top: 28px;
+  align-items: start;
+}
+.lab-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--paper);
+}
+.lab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.lab-field select,
+.lab-field input[type="number"],
+.lab-number input {
+  border: 1px solid var(--input-line);
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: var(--subtle-bg);
+  color: var(--ink);
+}
+.lab-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.lab-tabs button {
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.lab-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.lab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lab-panel[hidden] {
+  display: none;
+}
+.lab-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.lab-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lab-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.lab-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.lab-number input {
+  width: 72px;
+  padding: 4px 6px;
+  text-align: right;
+}
+.lab-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.lab-hint {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.lab-seed-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lab-seed-row input {
+  width: 110px;
+}
+.lab-settings-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.lab-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.lab-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.lab-toolbar button {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lab-toolbar button[aria-pressed="true"] {
+  background: var(--selection);
+  border-color: var(--accent);
+}
+.lab-toolbar-end {
+  margin-left: auto;
+}
+.lab-viewer {
+  width: 100%;
+  height: min(520px, 60vh);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--visual-bg);
+  border: 1px solid var(--line);
+}
+.lab-viewer canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.lab-caption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+.lab-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.lab-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lab-card h3 {
+  font-size: 13px;
+}
+.lab-profile {
+  width: 100%;
+  height: auto;
+  font-size: 11px;
+  fill: var(--muted);
+}
+.lab-profile-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.lab-profile-body {
+  fill: var(--pale);
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.lab-profile-wall {
+  stroke: var(--muted);
+  stroke-width: 3;
+}
+.lab-profile-dimension {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.lab-profile-label {
+  fill: var(--accent);
+}
+.lab-metrics {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.lab-metrics div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.lab-metrics dt {
+  color: var(--muted);
+}
+.lab-metrics dd {
+  margin: 0;
+  text-align: right;
+}
+.lab-status {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 2.6em;
+}
+.lab-status.error {
+  color: var(--error-ink);
+}
+@media (max-width: 900px) {
+  .lab {
+    grid-template-columns: 1fr;
+  }
+  .lab-details {
+    grid-template-columns: 1fr;
+  }
+}

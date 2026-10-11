@@ -1,6 +1,6 @@
 # Crimp Lab
 
-A local crimp design tool for Garage Holds. It starts with a rounded board crimp (22 mm nominal edge depth, 5 mm lip radius) and can make small flat edges, curved incut crimps, and sloping rails. Python owns the geometry; a small browser GUI gives it an interactive Three.js preview. No Blender, desktop GUI framework, accounts, or hosted services are required.
+The crimp generator behind `/make/crimp` on the site, and a local design tool. It starts with a rounded board crimp (22 mm nominal edge depth, 5 mm lip radius) and can make small flat edges, curved incut crimps, and sloping rails. Python owns the geometry; a small browser GUI gives it an interactive Three.js preview. No Blender, desktop GUI framework, accounts, or hosted services are required.
 
 ## Run on Windows
 
@@ -57,4 +57,18 @@ The files in the original `ai hold models` and `hold models` folders were review
 .\tools\crimp-generator\.venv\Scripts\python.exe -m unittest discover -s tools/crimp-generator/tests -v
 ```
 
-When this moves onto the site, keep the parameter contract and Python geometry engine, run generation in a bounded worker, and integrate the viewer with React. The local server is deliberately separate from that future service; it should not be exposed publicly.
+## On the site
+
+`api/crimp.py` at the repository root is a Vercel Python function that
+imports this folder's `geometry.py` and `parameters.py` unchanged. GET
+returns the schema; POST takes `{"action": "preview" | "stl" | "validate",
+"parameters": {...}}`. The React page in `src/features/crimp-lab` is a port
+of `web/`, so a settings file saved by either loads in the other. Vercel
+installs the root `requirements.txt` (a copy of this folder's) at build
+time; keep the two files identical.
+
+For `next dev`, run `.venv/bin/python serve_api.py` here and set
+`CRIMP_API_URL=http://127.0.0.1:8766` in `.env.local`; Next forwards
+`/api/crimp` to it. `tests/test_vercel_api.py` covers the hosted handler.
+The local GUI server (`server.py`) stays loopback-only and is not part of
+the deployment.

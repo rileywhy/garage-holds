@@ -42,9 +42,9 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 
 Eight sample entries use SVG illustrations and fictional metadata. They contain no printable files or fabricated community reviews.
 
-## Local crimp generator
+## Crimp Lab
 
-[Crimp Lab](tools/crimp-generator/README.md) is a separate Python geometry tool with a local browser GUI. It starts with a rounded board crimp, offers grip/shape/screw controls and four presets, shows an interactive 3D preview and centre side profile, and exports STL plus editable JSON settings. On Windows, run `.\tools\crimp-generator\run.ps1` after installing the project's npm dependencies. It is not connected to the hosted library yet.
+[Crimp Lab](tools/crimp-generator/README.md) is a parametric crimp generator: edge depth, incut, lip rounding, body shape, seeded variation, and screw holes, with a live 3D preview, a centre profile, and STL plus editable JSON export. The geometry is Python (`tools/crimp-generator`); on the site it runs as a Vercel Python function (`api/crimp.py`) behind `/make/crimp`, and locally the same engine has its own browser GUI (`server.py`) or serves the hosted route for `next dev` (`serve_api.py`). Generated holds reach the library only when someone uploads them.
 
 ## Shared library
 
@@ -66,6 +66,8 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/components`: shared UI and library state.
 - `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.
 - `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy, plus the server-only admin client used to record verified files.
+- `src/features/crimp-lab`: the Crimp Lab page: controls from the Python schema, the Three.js viewer, and the profile drawing.
+- `api/crimp.py`: the hosted generator, a Vercel Python function sharing `tools/crimp-generator`.
 - `tests`: domain behavior tests; `tests/integration` runs the row-level security policies with two users on the local Supabase stack.
 - `supabase/migrations`: the schema, applied in order by the Supabase CLI. `supabase/config.toml` configures the local stack; `src/lib/supabase/database.types.ts` is generated from it with `npm run db:types`.
 
