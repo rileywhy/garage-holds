@@ -83,3 +83,12 @@ keeps it current as work lands; add your own items freely.
 - Google sign-in: is the Google Cloud OAuth client done, and is the
   consent screen still in "Testing" (only listed test users can sign in)?
 - Laptop RAM, and whether Docker Desktop is installed yet.
+
+## Later, when you say so
+
+- **Tidy the repo layout.** Claude's plan: split `src/features/holds` into
+  `holds` and `stl-preview`; split `src/features/uploads` into `uploads`,
+  `phone-handoff`, `photos`, and `storage`; break `globals.css` into one
+  file per feature; add a one-line-per-folder map to the README. Files
+  move, no logic changes. Do it after the copy pass so the two don't
+  collide.
