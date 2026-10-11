@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Trash2, X } from "lucide-react";
@@ -18,14 +18,98 @@ import {
 } from "@/features/uploads/photo-actions";
 import { uploadAll } from "@/features/uploads/put-files";
 import { deleteDesign, removePhoto, updateDesign } from "./design-actions";
-import { MAX_PHOTOS } from "./validation";
+import { readDesignInput } from "./design-form";
+import { MAX_PHOTOS, validateDesign } from "./validation";
 import type { Hold } from "./types";
 
+// One Save for everything: the details, then any photos waiting in the
+// list, whether chosen from this computer or sent from a phone. Photo
+// removal is immediate, since it is confirmed on its own.
 export function EditDesignForm({ hold }: { hold: Hold }) {
-  const [state, action, pending] = useActionState(
-    updateDesign.bind(null, hold.id),
-    { errors: [] },
-  );
+  const router = useRouter();
+  const [files, setFiles] = useState<File[]>([]);
+  const [selected, setSelected] = useState<PhonePhoto[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const room = Math.max(0, MAX_PHOTOS - hold.photos.length);
+  const chosen = files.length + selected.length;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const form = new FormData(event.currentTarget);
+    const issues = validateDesign(readDesignInput(form));
+    if (chosen > room)
+      issues.push(
+        `A design can have up to ${MAX_PHOTOS} photos; you can add ${room} more.`,
+      );
+    if (issues.length) {
+      setErrors(issues);
+      return;
+    }
+    setSaving(true);
+    setErrors([]);
+    const saved = await updateDesign(hold.id, form);
+    if (saved.errors.length) {
+      setSaving(false);
+      setErrors(saved.errors);
+      return;
+    }
+    const problems = await addPhotos();
+    if (problems.length) {
+      // The details are saved and any photos that made it are shown; the
+      // rest can be chosen again.
+      setSaving(false);
+      setErrors(problems);
+      router.refresh();
+      return;
+    }
+    router.push(`/holds/${hold.id}`);
+    router.refresh();
+  }
+
+  // Computer files go up through signed PUTs and are verified; phone photos
+  // are already in the inbox and only need attaching. Both lists are cleared
+  // afterwards so a retry never adds the same photo twice.
+  async function addPhotos() {
+    const problems: string[] = [];
+    if (files.length) {
+      const start = await startPhotoUpload(
+        hold.id,
+        files.map((file) => ({
+          kind: "photo",
+          name: file.name,
+          bytes: file.size,
+          type: file.type,
+        })),
+      );
+      if ("errors" in start) problems.push(...start.errors);
+      else {
+        await uploadAll(
+          start.uploads.map((upload, index) => ({
+            url: upload.url,
+            file: files[index],
+          })),
+        );
+        const finished = await finishPhotoUpload(
+          hold.id,
+          start.uploads.map((upload) => upload.fileId),
+        );
+        problems.push(...finished.errors);
+      }
+    }
+    if (selected.length) {
+      const result = await attachPhonePhotos(
+        hold.id,
+        selected.map((photo) => photo.id),
+      );
+      if ("errors" in result) problems.push(...result.errors);
+    }
+    setFiles([]);
+    setSelected([]);
+    return problems;
+  }
+
   return (
     <main className="main-container form-page">
       <Link href={`/holds/${hold.id}`} className="back-link">
@@ -35,37 +119,49 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
         <p className="eyebrow">EDIT DESIGN</p>
         <h1>{hold.title}</h1>
         <p>
-          Update the details other makers see. Files and publication state stay
-          as they are.
+          Update the details other makers see, and add or remove photos. Model
+          files and publication state stay as they are.
         </p>
       </div>
       <form
-        action={action}
+        onSubmit={submit}
         className="upload-form"
         aria-label="Edit design details"
-        aria-busy={pending}
+        aria-busy={saving}
         noValidate
       >
-        <fieldset className="upload-fields" disabled={pending}>
+        <fieldset className="upload-fields" disabled={saving}>
           <DesignFields defaults={hold} creator={hold.creator} />
         </fieldset>
+        <PhotoSection
+          hold={hold}
+          room={room}
+          files={files}
+          onFiles={setFiles}
+          selected={selected}
+          onSelected={setSelected}
+          disabled={saving}
+        />
         <div className="upload-errors" aria-label="Edit errors">
-          <FieldErrors errors={state.errors} />
+          <FieldErrors errors={errors} />
         </div>
-        <PhotoSection hold={hold} />
         <div className="form-submit-row">
-          <p>Changes are visible as soon as they save.</p>
+          <p>
+            {chosen
+              ? `Saves your changes and adds ${chosen} ${chosen === 1 ? "photo" : "photos"}.`
+              : "Changes are visible as soon as they save."}
+          </p>
           <button
             type="submit"
             className="button button-dark"
-            disabled={pending}
+            disabled={saving}
           >
-            {pending ? (
+            {saving ? (
               <LoaderCircle size={17} className="spin" />
             ) : (
               <Check size={17} />
             )}{" "}
-            {pending ? "Saving…" : "Save changes"}
+            {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
       </form>
@@ -125,18 +221,28 @@ function DeleteSection({ hold }: { hold: Hold }) {
   );
 }
 
-// Photos can be removed, and added from this computer or a phone, after
-// publishing. Model files cannot be replaced yet.
-function PhotoSection({ hold }: { hold: Hold }) {
+// Current photos with removal, plus the two ways to add more. Chosen photos
+// wait in their lists until the form is saved.
+function PhotoSection({
+  hold,
+  room,
+  files,
+  onFiles,
+  selected,
+  onSelected,
+  disabled,
+}: {
+  hold: Hold;
+  room: number;
+  files: File[];
+  onFiles: (files: File[]) => void;
+  selected: PhonePhoto[];
+  onSelected: (photos: PhonePhoto[]) => void;
+  disabled: boolean;
+}) {
   const router = useRouter();
-  const [files, setFiles] = useState<File[]>([]);
-  const [selected, setSelected] = useState<PhonePhoto[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [added, setAdded] = useState(0);
-  const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const room = Math.max(0, MAX_PHOTOS - hold.photos.length);
-  const chosen = files.length + selected.length;
 
   async function remove(photoId: string, label: string) {
     if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
@@ -151,73 +257,15 @@ function PhotoSection({ hold }: { hold: Hold }) {
     router.refresh();
   }
 
-  // Computer files go up through signed PUTs and are verified; phone photos
-  // are already in the inbox and only need attaching. Both are cleared after
-  // an attempt so a retry never adds the same photo twice.
-  async function add() {
-    if (chosen > room) {
-      setErrors([
-        `A design can have up to ${MAX_PHOTOS} photos; you can add ${room} more.`,
-      ]);
-      return;
-    }
-    setSaving(true);
-    setErrors([]);
-    const problems: string[] = [];
-    let count = 0;
-    if (files.length) {
-      const start = await startPhotoUpload(
-        hold.id,
-        files.map((file) => ({
-          kind: "photo",
-          name: file.name,
-          bytes: file.size,
-          type: file.type,
-        })),
-      );
-      if ("errors" in start) {
-        setSaving(false);
-        setErrors(start.errors);
-        return;
-      }
-      await uploadAll(
-        start.uploads.map((upload, index) => ({
-          url: upload.url,
-          file: files[index],
-        })),
-      );
-      const finished = await finishPhotoUpload(
-        hold.id,
-        start.uploads.map((upload) => upload.fileId),
-      );
-      count += finished.added;
-      problems.push(...finished.errors);
-    }
-    if (selected.length) {
-      const result = await attachPhonePhotos(
-        hold.id,
-        selected.map((photo) => photo.id),
-      );
-      if ("errors" in result) problems.push(...result.errors);
-      else count += result.added;
-    }
-    setSaving(false);
-    setAdded((total) => total + count);
-    setErrors(problems);
-    setFiles([]);
-    setSelected([]);
-    if (count) router.refresh();
-  }
-
   return (
     <section className="form-section" aria-labelledby="edit-photos-heading">
       <h2 id="edit-photos-heading">Photos</h2>
       <p className="small-note">
         {hold.photos.length
-          ? `${hold.photos.length} of 6 photos. Remove one with its ✕. `
+          ? `${hold.photos.length} of ${MAX_PHOTOS} photos. Remove one with its ✕. `
           : "No photos yet. "}
         {room
-          ? `Add up to ${room} more from this computer or your phone; they appear after the current ones.`
+          ? `Add up to ${room} more from this computer or your phone; they are added when you save and appear after the current ones.`
           : "This design has all the photos it can hold."}
       </p>
       {hold.photos.length > 0 && (
@@ -241,7 +289,7 @@ function PhotoSection({ hold }: { hold: Hold }) {
                   type="button"
                   className="icon-button"
                   aria-label={`Remove ${label}`}
-                  disabled={saving || removing !== null}
+                  disabled={disabled || removing !== null}
                   onClick={() => remove(photo.id, label)}
                 >
                   {removing === photo.id ? (
@@ -260,40 +308,18 @@ function PhotoSection({ hold }: { hold: Hold }) {
           <FilePicker
             kind="photos"
             compact
-            disabled={saving}
+            disabled={disabled}
             files={files}
-            onChange={setFiles}
+            onChange={onFiles}
             accept="image/jpeg,image/png,image/webp"
           />
           <PhonePhotoPicker
             designId={hold.id}
             selected={selected}
-            onChange={setSelected}
-            disabled={saving}
+            onChange={onSelected}
+            disabled={disabled}
           />
-          {chosen > 0 && (
-            <button
-              type="button"
-              className="button button-dark"
-              disabled={saving}
-              onClick={add}
-            >
-              {saving ? (
-                <LoaderCircle size={17} className="spin" />
-              ) : (
-                <Check size={17} />
-              )}{" "}
-              {saving
-                ? "Adding…"
-                : `Add ${chosen} ${chosen === 1 ? "photo" : "photos"}`}
-            </button>
-          )}
         </>
-      )}
-      {added > 0 && (
-        <p className="small-note" role="status">
-          {added} {added === 1 ? "photo" : "photos"} added.
-        </p>
       )}
       <FieldErrors errors={errors} />
     </section>

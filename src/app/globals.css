@@ -1343,6 +1343,10 @@ svg {
   border-radius: 8px;
   overflow: hidden;
 }
+/* The design page shows the whole photo; cards crop to a centred 4:3. */
+.detail-main-visual .hold-photo {
+  object-fit: contain;
+}
 .detail-main-visual .illustration-label {
   font-size: 10px;
   bottom: 16px;

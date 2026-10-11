@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createSupabaseAdminClient,
@@ -17,10 +16,10 @@ export interface EditDesignState {
 }
 
 // Metadata only: files and publication state are untouched. Row-level
-// security limits the update to the owner's own row.
+// security limits the update to the owner's own row. The form adds any
+// chosen photos after this and then navigates, so there is no redirect.
 export async function updateDesign(
   designId: string,
-  _previous: EditDesignState,
   formData: FormData,
 ): Promise<EditDesignState> {
   const input = readDesignInput(formData);
@@ -63,7 +62,7 @@ export async function updateDesign(
   revalidatePath("/");
   revalidatePath(`/holds/${designId}`);
   revalidatePath("/designs");
-  redirect(`/holds/${designId}`);
+  return { errors: [] };
 }
 
 export type DeleteDesignResult = { deleted: true } | { error: string };
