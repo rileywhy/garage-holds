@@ -91,7 +91,7 @@ export function CatalogBrowser({
                 with potential.
               </>
             ) : (
-              <>3d grips for your board</>
+              <>3d grips for your home wall</>
             )}
           </h1>
           {savedOnly && (
