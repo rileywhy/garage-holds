@@ -1,3 +1,14 @@
 {
-  "crons": [{ "path": "/api/sweep", "schedule": "0 4 * * *" }]
+  "crons": [
+    {
+      "path": "/api/sweep",
+      "schedule": "0 4 * * *"
+    }
+  ],
+  "functions": {
+    "api/crimp.py": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
 }
