@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Crimp Lab | Garage Holds</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three.module.js" } }
+    </script>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <span class="wordmark">garage holds</span><span class="divider">/</span
+        ><span>crimp lab</span>
+      </div>
+      <span class="local-label">LOCAL DESIGN TOOL</span>
+    </header>
+    <main>
+      <aside class="controls-panel" aria-label="Crimp controls">
+        <div class="intro">
+          <p class="eyebrow">SHAPE YOUR NEXT EDGE</p>
+          <h1>A crimp, your way.</h1>
+          <p>Start rounded. Find the curve, bite, and feel you want.</p>
+        </div>
+        <label class="preset-label" for="preset">Starting point</label>
+        <select id="preset"></select>
+        <div class="tabs" role="tablist" aria-label="Design controls">
+          <button
+            type="button"
+            id="tab-grip"
+            role="tab"
+            aria-selected="true"
+            aria-controls="controls-grip"
+            data-group="Grip"
+          >
+            Grip
+          </button>
+          <button
+            type="button"
+            id="tab-shape"
+            role="tab"
+            aria-selected="false"
+            aria-controls="controls-shape"
+            tabindex="-1"
+            data-group="Shape"
+          >
+            Shape
+          </button>
+          <button
+            type="button"
+            id="tab-mounting"
+            role="tab"
+            aria-selected="false"
+            aria-controls="controls-mounting"
+            tabindex="-1"
+            data-group="Mounting"
+          >
+            Mounting
+          </button>
+        </div>
+        <div id="control-groups"></div>
+        <div class="settings-actions">
+          <button type="button" id="save-settings" disabled>
+            Save settings</button
+          ><label class="file-button" for="load-settings"
+            >Load settings<input
+              type="file"
+              id="load-settings"
+              accept=".json,application/json"
+          /></label>
+        </div>
+        <p class="prototype-note">
+          Geometry prototype. Mesh checks confirm a closed shape, not a printed
+          hold’s strength.
+        </p>
+      </aside>
+      <section class="workspace" aria-label="Model preview">
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow">LIVE PREVIEW</p>
+            <h2>See the edge.</h2>
+          </div>
+          <button type="button" id="reset">Reset design</button>
+        </div>
+        <div class="viewer-card">
+          <div class="view-toolbar" role="group" aria-label="Preview angle">
+            <button type="button" data-view="three-quarter" aria-pressed="true">
+              3D
+            </button>
+            <button type="button" data-view="side" aria-pressed="false">
+              Side
+            </button>
+            <button type="button" data-view="angled-side" aria-pressed="false">
+              Angled side
+            </button>
+            <button type="button" data-view="top" aria-pressed="false">
+              Above
+            </button>
+            <button type="button" data-view="front" aria-pressed="false">
+              Front
+            </button>
+            <button type="button" id="fit" class="fit-button">Fit view</button>
+          </div>
+          <div
+            id="viewer"
+            role="img"
+            aria-label="Interactive 3D crimp preview. Drag to rotate; scroll to zoom."
+          ></div>
+          <div class="viewer-caption">
+            <span>Drag to rotate · scroll to zoom</span
+            ><span>Flat back on the wall plane</span>
+          </div>
+        </div>
+        <div class="details-grid">
+          <section class="profile-card">
+            <div class="section-title">
+              <h3>Side profile</h3>
+              <span>Centre of hold</span>
+            </div>
+            <svg
+              id="profile"
+              viewBox="0 0 480 230"
+              role="img"
+              aria-label="Centre cross-section of the crimp, with the wall on the left"
+            ></svg>
+          </section>
+          <section class="export-card">
+            <h3>Your model</h3>
+            <dl id="metrics">
+              <div>
+                <dt>Dimensions</dt>
+                <dd>—</dd>
+              </div>
+              <div>
+                <dt>Mesh</dt>
+                <dd>Preparing…</dd>
+              </div>
+            </dl>
+            <p id="status" role="status" aria-live="polite">
+              Loading generator…
+            </p>
+            <button type="button" id="export" class="primary-button" disabled>
+              Export STL <span aria-hidden="true">↗</span>
+            </button>
+            <p class="export-note">
+              Millimetres · flat back · original geometry
+            </p>
+          </section>
+        </div>
+      </section>
+    </main>
+    <template id="control-template"
+      ><div class="control">
+        <div class="control-heading">
+          <label></label>
+          <div class="number-wrap"><input type="number" /><span></span></div>
+        </div>
+        <input type="range" />
+        <p></p></div
+    ></template>
+  </body>
+</html>

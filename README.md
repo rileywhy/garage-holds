@@ -21,7 +21,7 @@ npm test
 npm run build
 ```
 
-GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
+GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the crimp generator's Python tests and the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
 ## What works
 
@@ -41,6 +41,10 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Upload validation explains missing fields beside the submit button, including the 20-character description minimum. It preserves the form and avoids the browser's automatic jump to an invalid field.
 
 Eight sample entries use SVG illustrations and fictional metadata. They contain no printable files or fabricated community reviews.
+
+## Local crimp generator
+
+[Crimp Lab](tools/crimp-generator/README.md) is a separate Python geometry tool with a local browser GUI. It starts with a rounded board crimp, offers grip/shape/screw controls and four presets, shows an interactive 3D preview and centre side profile, and exports STL plus editable JSON settings. On Windows, run `.\tools\crimp-generator\run.ps1` after installing the project's npm dependencies. It is not connected to the hosted library yet.
 
 ## Shared library
 
