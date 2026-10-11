@@ -1394,6 +1394,32 @@ svg {
   height: 100%;
   cursor: zoom-in;
 }
+.detail-extra-photos .detail-model-tile {
+  height: 115px;
+  border: 1px solid var(--line);
+  background: var(--visual-bg);
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.detail-extra-photos .detail-model-tile:hover,
+.detail-extra-photos .detail-model-tile[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.detail-extra-photos .detail-model-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .gallery-caption {
   display: flex;
   justify-content: space-between;
@@ -2174,7 +2200,8 @@ svg {
   .saved-hero-icon svg {
     width: 38px;
   }
-  .detail-extra-photos img {
+  .detail-extra-photos img,
+  .detail-extra-photos .detail-model-tile {
     height: 100px;
   }
 }

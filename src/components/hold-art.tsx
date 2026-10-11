@@ -182,6 +182,15 @@ export function HoldIllustration({
   );
 }
 
+// The model file the browser can render, if any.
+export function previewModel(hold: Hold) {
+  return hold.files.find(
+    (file) => file.extension.toLowerCase() === "stl" && file.url,
+  );
+}
+
+// A photo by index, or the 3D preview when the index is past the photos
+// (cards cycle through photos and then the model).
 export function HoldVisual({
   hold,
   large = false,
@@ -191,7 +200,7 @@ export function HoldVisual({
   large?: boolean;
   photoIndex?: number;
 }) {
-  const stl = hold.files.find((file) => file.extension.toLowerCase() === "stl");
+  const stl = previewModel(hold);
   const photo = hold.photos[photoIndex];
   return photo ? (
     <PhotoImage
@@ -203,7 +212,7 @@ export function HoldVisual({
     />
   ) : hold.isSample ? (
     <HoldIllustration hold={hold} large={large} />
-  ) : stl && stl.url ? (
+  ) : stl ? (
     <StlPreview file={stl} title={hold.title} showAngles={large} />
   ) : (
     <div className="image-placeholder no-photo-visual">

@@ -56,8 +56,8 @@ keeps it current as work lands; add your own items freely.
 - **Second-account test, remaining half.** From the incognito account,
   save the published design. As the owner, edit one word of its
   description and remove a photo. Claude can confirm both from the data.
-- **Mobile and both themes** on the catalog, a design page, the upload
-  page, and the edit page.
+- **Mobile and both themes** on the catalog, a design page (tap the
+  thumbnails and the "3D preview" tile), the upload page, and the edit page.
 - **Send one feedback message** from the footer after the webhook is set,
   to see the ping arrive.
 

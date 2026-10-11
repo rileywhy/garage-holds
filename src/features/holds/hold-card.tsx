@@ -6,7 +6,7 @@ import { ArrowUpRight, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { Hold, Review } from "./types";
 import { reviewSummary } from "./catalog";
 import { formatProblemGrade, GRADE_BOARD_ANGLE } from "./grades";
-import { HoldVisual } from "@/components/hold-art";
+import { HoldVisual, previewModel } from "@/components/hold-art";
 import { SaveButton } from "@/components/save-button";
 
 export function HoldCard({
@@ -23,8 +23,11 @@ export function HoldCard({
   actions?: ReactNode;
 }) {
   const [selectedPhoto, setSelectedPhoto] = useState(0);
-  const photoCount = hold.photos.length;
+  // Photos first, then the 3D preview of the model when there is one.
+  const photoCount =
+    hold.photos.length + (hold.photos.length && previewModel(hold) ? 1 : 0);
   const photoIndex = photoCount ? selectedPhoto % photoCount : 0;
+  const showingModel = photoIndex >= hold.photos.length;
   const summary = reviewSummary(reviews, hold.id);
   return (
     <article className="hold-card">
@@ -37,7 +40,7 @@ export function HoldCard({
             <button
               type="button"
               className="card-photo-arrow previous"
-              aria-label={`Previous photo of ${hold.title}`}
+              aria-label={`Previous view of ${hold.title}`}
               onClick={() =>
                 setSelectedPhoto(
                   (current) => (current + photoCount - 1) % photoCount,
@@ -49,7 +52,7 @@ export function HoldCard({
             <button
               type="button"
               className="card-photo-arrow next"
-              aria-label={`Next photo of ${hold.title}`}
+              aria-label={`Next view of ${hold.title}`}
               onClick={() =>
                 setSelectedPhoto((current) => (current + 1) % photoCount)
               }
@@ -61,8 +64,10 @@ export function HoldCard({
               aria-live="polite"
               aria-atomic="true"
             >
-              <span className="sr-only">Photo </span>
-              {photoIndex + 1} / {photoCount}
+              <span className="sr-only">
+                {showingModel ? "3D preview, view " : "Photo "}
+              </span>
+              {showingModel ? "3D" : `${photoIndex + 1} / ${photoCount}`}
               <span className="sr-only"> of {hold.title}</span>
             </span>
           </>
