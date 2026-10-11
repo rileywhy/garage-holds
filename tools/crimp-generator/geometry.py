@@ -298,11 +298,18 @@ def build(p: Parameters, quality: str = "preview") -> Model:
 def _screw_positions(
     p: Parameters, solid: manifold.Manifold, seat_top: float
 ) -> list[tuple[float, float]]:
-    """Fit a centred row, respecting both the recesses and adjacent gaps."""
-    contours = solid.slice(seat_top + 0.5).to_polygons()
-    angles = np.linspace(0, 2 * math.pi, 32, endpoint=False)
+    """Fit a centred row: the widest span first, then the highest row that
+    clears the lip and still has material all round every recess. The row
+    drops as far as it must when a deep edge or incut thins the top of the
+    body, instead of refusing the shape."""
     radius = p.head_diameter / 2 + 0.75
-    offsets = radius * np.column_stack((np.cos(angles), np.sin(angles)))
+    # Where a recess centre may sit: the body's slice at the seat, inset by
+    # the recess radius, so a centre inside it has a full margin of material.
+    room = (
+        solid.slice(seat_top + 0.5)
+        .offset(-radius, manifold.JoinType.Round, 2.0, 32)
+        .to_polygons()
+    )
     # Large lip fillets reach lower down the front. Keep the entire head
     # recess below the fillet tangent, rather than cutting into the grip.
     _, _, outer, lip_radius = cross_section(p)
@@ -317,6 +324,7 @@ def _screw_positions(
     end_center = _end_center_y(p)
 
     def hole_height(x):
+        """The highest the row may sit at this x, following bow and ends."""
         half = p.width / 2
         # Check the head's full horizontal span, including the rounded ends.
         edge_x = abs(x) + radius if lip_start >= end_center else max(0, abs(x) - radius)
@@ -332,31 +340,46 @@ def _screw_positions(
     spans = (
         np.arange(preferred_span, minimum_span - 1e-9, -1)
         if p.auto_spacing
-        else [p.screw_spacing]
+        else np.array([float(p.screw_spacing)])
     )
+    # Candidate rows in order of preference: wider spans first, then the
+    # smallest drop below the lip-limited height. All are tested at once.
+    drops = np.arange(0, p.body_height + 1e-9, 0.5)
+    rows = []
     for span in spans:
-        positions = [
-            (x, hole_height(x)) for x in np.linspace(-span / 2, span / 2, p.screw_count)
-        ]
-        if all(
-            _inside_contours(x + dx, y + dy, contours)
-            for x, y in positions
-            for dx, dy in offsets
-        ):
-            return positions
+        xs = np.linspace(-span / 2, span / 2, p.screw_count)
+        tops = np.array([hole_height(x) for x in xs])
+        for drop in drops:
+            rows.append(np.column_stack((xs, tops - drop)))
+    if rows and room:
+        centres = np.vstack(rows)
+        fits = _inside_mask(centres, room).reshape(len(rows), p.screw_count).all(axis=1)
+        if fits.any():
+            row = rows[int(np.argmax(fits))]
+            return [(float(x), float(y)) for x, y in row]
     raise ValueError(
         "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
     )
 
 
-def _inside_contours(x: float, y: float, contours) -> bool:
-    """Even/odd point containment for Manifold's planar slice polygons."""
-    inside = False
+def _inside_mask(points: np.ndarray, contours) -> np.ndarray:
+    """Even/odd containment of many points in Manifold's slice polygons."""
+    x, y = points[:, 0], points[:, 1]
+    inside = np.zeros(len(points), dtype=bool)
     for contour in contours:
-        for i, a in enumerate(contour):
-            b = contour[i - 1]
-            if (a[1] > y) != (b[1] > y):
-                crossing = (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]
-                if x < crossing:
-                    inside = not inside
+        a = np.asarray(contour, dtype=float)
+        b = np.roll(a, 1, axis=0)
+        for (ax, ay), (bx, by) in zip(a, b):
+            crosses = (ay > y) != (by > y)
+            if not crosses.any():
+                continue
+            crossing = (bx - ax) * (y[crosses] - ay) / (by - ay) + ax
+            hits = np.zeros(len(points), dtype=bool)
+            hits[crosses] = x[crosses] < crossing
+            inside ^= hits
     return inside
+
+
+def _inside_contours(x: float, y: float, contours) -> bool:
+    """One point; see _inside_mask."""
+    return bool(_inside_mask(np.array([[x, y]], dtype=float), contours)[0])

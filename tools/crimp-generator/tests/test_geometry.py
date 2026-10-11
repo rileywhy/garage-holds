@@ -109,6 +109,20 @@ class GeometryTests(unittest.TestCase):
             with self.subTest(parameters=p):
                 self.assert_solid(build(p))
 
+    def test_rows_drop_to_fit_deep_edges_and_incuts(self):
+        # The default row sits just below the body's midline...
+        plain = build(Parameters())
+        self.assertAlmostEqual(plain.screws[1][1], -Parameters().body_height * 0.02)
+        # ...and a deep, steep edge that used to be refused now gets its row
+        # lower down the body where the recesses fit, at the same span.
+        steep = build(Parameters(edge_depth=35.5, incut=35, lip_radius=4.5))
+        self.assert_solid(steep)
+        self.assertEqual(len(steep.screws), 3)
+        self.assertAlmostEqual(steep.screws[-1][0] - steep.screws[0][0], 60)
+        self.assertLess(steep.screws[1][1], plain.screws[1][1] - 5)
+        exported = build(Parameters(edge_depth=35.5, incut=35, lip_radius=4.5), "export")
+        self.assertEqual(exported.screws, steep.screws)
+
     def test_holes_cross_the_back_and_remove_volume(self):
         drilled = build(Parameters())
         undrilled = build(Parameters(screws=False))
