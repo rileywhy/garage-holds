@@ -33,7 +33,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - Photo-free designs show an automatically generated STL thumbnail in the library and on detail pages. Photos take priority when provided.
 - STL covers start with a low side angle to show the lip and incut. Detail pages offer Side, Other side, End, Other end, and Overview angles. A broad flat outer face is used as a likely mounting surface; irregular meshes fall back to Z-up. Orientation is a best-effort guess, and alternate views help when it guesses incorrectly.
 - Save designs to your account and leave one editable review per design with printing settings, material, post-processing, and a suggested problem grade at 40°.
-- Responsive layouts and keyboard-accessible forms.
+- Responsive layouts and keyboard-accessible forms. A generated sitemap and robots file, and Open Graph link previews with the design's first photo.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
 - Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure, and a failed upload leaves no half-finished draft behind.
 - Upload validation explains missing fields beside the submit button, including the 20-character description minimum. It preserves the form and avoids the browser's automatic jump to an invalid field.

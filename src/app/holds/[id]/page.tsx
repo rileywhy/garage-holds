@@ -18,9 +18,26 @@ async function loadHold(id: string): Promise<Hold | null> {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hold = await loadHold((await params).id);
-  return hold && hold.status === "published"
-    ? { title: hold.title, description: hold.description }
-    : { title: "Hold design", robots: { index: false, follow: false } };
+  if (!hold || hold.status !== "published")
+    return { title: "Hold design", robots: { index: false, follow: false } };
+  // The preview image is a signed URL that expires after an hour, which is
+  // enough for the first fetch a chat or social site makes when a link is
+  // posted. Sample designs have illustrations rather than photos.
+  const image = hold.photos[0]?.url;
+  const description = `${hold.type} · ${hold.size} · ${hold.mount}. ${hold.description}`;
+  return {
+    title: hold.title,
+    description: hold.description,
+    alternates: { canonical: `/holds/${hold.id}` },
+    openGraph: {
+      type: "article",
+      title: hold.title,
+      description,
+      url: `/holds/${hold.id}`,
+      ...(image ? { images: [{ url: image, alt: hold.title }] } : {}),
+    },
+    twitter: { card: image ? "summary_large_image" : "summary" },
+  };
 }
 
 export default async function HoldPage({ params }: Props) {

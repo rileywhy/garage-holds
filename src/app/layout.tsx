@@ -5,15 +5,29 @@ import { AccountMenu } from "@/features/auth/account-menu";
 import { getCurrentUser } from "@/features/auth/current-user";
 import { listSavedIds } from "@/features/holds/repository";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
+const DESCRIPTION =
+  "Discover and share 3D printable climbing holds for home walls and training boards. Browse STL files by hold type, size, mounting, material, and suggested grade at 40°.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "3D Printable Climbing Holds & STL Files | Garage Holds",
     template: "%s | Garage Holds",
   },
-  description:
-    "Discover and share 3D printable climbing holds for home walls and training boards. Browse STL files by hold type, size, mounting, material, and suggested grade at 40°.",
+  description: DESCRIPTION,
+  // Link previews in chats and on social sites. Design pages add their own
+  // title, description, and photo.
+  openGraph: {
+    siteName: "Garage Holds",
+    type: "website",
+    title: "3D Printable Climbing Holds & STL Files",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: { card: "summary" },
 };
 
 export default async function RootLayout({
