@@ -117,6 +117,50 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(len(drilled.screws), 3)
         self.assertAlmostEqual(drilled.screws[-1][0] - drilled.screws[0][0], 60)
 
+    def test_deep_rounded_incuts_have_no_corner_wings_above_the_shelf(self):
+        cases = [
+            Parameters(edge_depth=31, incut=40, lip_radius=7.25),
+            Parameters(
+                edge_depth=40,
+                incut=40,
+                lip_radius=20,
+                body_height=70,
+                end_rounding=20,
+            ),
+            Parameters(
+                edge_depth=60,
+                incut=40,
+                lip_radius=15,
+                body_height=100,
+                end_rounding=25,
+            ),
+        ]
+        for p in cases:
+            slope = math.tan(math.radians(p.incut))
+            shelf_at_wall = p.body_height / 2 - (p.edge_depth + 6) * slope
+            for quality in ("preview", "export"):
+                for screws in (False, True):
+                    with self.subTest(parameters=p, quality=quality, screws=screws):
+                        model = build(replace(p, screws=screws), quality)
+                        self.assert_solid(model)
+                        vertices = model.mesh.vertices
+                        # The shelf plane bounds the entire hold. The old end
+                        # tips rose above it, creating the pointed corner wings.
+                        above_shelf = vertices[:, 1] - slope * vertices[:, 2]
+                        self.assertLessEqual(above_shelf.max(), shelf_at_wall + 1e-5)
+                        back = vertices[np.isclose(vertices[:, 2], 0)]
+                        self.assertGreaterEqual(
+                            back[:, 1].min(), -p.body_height / 2 - 1e-5
+                        )
+                        self.assertLessEqual(back[:, 1].max(), shelf_at_wall + 1e-5)
+                        if screws:
+                            self.assertEqual(len(model.screws), 3)
+            preview, exported = build(p), build(p, "export")
+            self.assertEqual(preview.screws, exported.screws)
+            self.assertAlmostEqual(
+                preview.mesh.volume / exported.mesh.volume, 1, delta=0.01
+            )
+
     def test_automatic_spacing_does_not_shift_between_preview_and_export(self):
         p = Parameters(width=50, end_rounding=15, taper=25, edge_depth=12, lip_radius=2)
         preview, exported = build(p), build(p, "export")

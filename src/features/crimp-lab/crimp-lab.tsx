@@ -459,6 +459,12 @@ export function CrimpLab() {
             >
               40° standard
             </button>
+            <button
+              type="button"
+              onClick={() => viewer.current?.setBoardSideView()}
+            >
+              Exact side
+            </button>
             <p id="board-angle-hint">From vertical · 0° is upright</p>
           </div>
         )}

@@ -159,6 +159,16 @@ def cross_section(
     return profile, inner, outer, round(used[2], 2)
 
 
+def _end_center_y(p: Parameters) -> float:
+    """Round each end towards the midpoint of the actual mounting face.
+
+    With a deep incut, the shelf reaches the wall below Y=0. Collapsing the
+    ends to the origin then pulls them above the shelf into pointed wings.
+    The back-face midpoint stays inside the body for every valid profile.
+    """
+    return -(p.edge_depth + 6) * math.tan(math.radians(p.incut)) / 2
+
+
 def _loft(
     p: Parameters, quality: str
 ) -> tuple[trimesh.Trimesh, np.ndarray, tuple, tuple, float]:
@@ -167,6 +177,7 @@ def _loft(
     segments, along = (6, 40) if quality == "preview" else (16, 100)
     profile, inner, outer, lip_radius = cross_section(p, segments)
     half, rounding = p.width / 2, p.end_rounding
+    end_center = _end_center_y(p)
     core = half - rounding
     cap_angles = np.linspace(0, math.pi / 2, 2 * segments + 2)[1:-1]
     x_values = np.concatenate(
@@ -193,7 +204,7 @@ def _loft(
         u = x / half
         cap = math.sqrt(max(0, 1 - (max(0, abs(x) - core) / rounding) ** 2))
         yz = profile.copy()
-        yz[:, 0] *= cap
+        yz[:, 0] = end_center + (yz[:, 0] - end_center) * cap
         yz[:, 1] *= cap * (1 - p.taper / 100 * u)
         yz[:, 0] += p.bow * (1 - u * u)
         # Seeds vary the number, position and balance of broad body folds.
@@ -206,7 +217,7 @@ def _loft(
         strength = 0.3 if fold >= 0 else 0.15
         yz[:, 1] *= 1 + p.character * strength * fold * weight
         rings.append(np.column_stack((np.full(len(profile), x), yz)))
-    vertices = np.vstack(([[-half, 0, 0]], *rings, [[half, 0, 0]]))
+    vertices = np.vstack(([[-half, end_center, 0]], *rings, [[half, end_center, 0]]))
     count, ring_count = len(profile), len(rings)
     faces = []
     for j in range(count):
@@ -303,16 +314,18 @@ def _screw_positions(
         incoming[0] * outgoing[1] - incoming[1] * outgoing[0], incoming @ outgoing
     )
     lip_start = outer[0] - incoming[0] * lip_radius * math.tan(abs(turn) / 2)
+    end_center = _end_center_y(p)
 
     def hole_height(x):
         half = p.width / 2
         # Check the head's full horizontal span, including the rounded ends.
-        edge_x = abs(x) + radius if lip_start >= 0 else max(0, abs(x) - radius)
+        edge_x = abs(x) + radius if lip_start >= end_center else max(0, abs(x) - radius)
         cap = math.sqrt(
             max(0, 1 - (max(0, edge_x - (half - p.end_rounding)) / p.end_rounding) ** 2)
         )
         bow = p.bow * (1 - (x / half) ** 2)
-        return min(-p.body_height * 0.02, lip_start * cap - radius) + bow
+        lip_y = end_center + (lip_start - end_center) * cap
+        return min(-p.body_height * 0.02, lip_y - radius) + bow
 
     minimum_span = (p.screw_count - 1) * (p.head_diameter + 1.5)
     preferred_span = max(p.width * 0.6, minimum_span)

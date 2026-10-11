@@ -100,7 +100,9 @@ export class Viewer {
     this.model.add(this.mesh);
     geometry.computeBoundingBox();
     this.board.fitToHold(geometry.boundingBox!);
-    if (first || fit || this.view === "board") this.setView(this.view);
+    // Replacing geometry must not reset the user's orbit, pan, or zoom.
+    if (first) this.setView(this.view);
+    else if (fit) this.fit();
     this.render();
   }
 
@@ -111,11 +113,22 @@ export class Viewer {
     this.grid.visible = view !== "board";
     if (view === "board") mountOnBoard(this.model, this.boardAngle);
     else this.model.rotation.set(-Math.PI / 2, 0, 0);
+    this.pointCamera(new THREE.Vector3(...VIEWS[view]));
+  }
+
+  // Look along the board's width, with world-up kept vertical.
+  setBoardSideView() {
+    if (this.view !== "board") return;
+    this.pointCamera(new THREE.Vector3(1, 0, 0));
+  }
+
+  private pointCamera(direction: THREE.Vector3) {
     if (!this.mesh) return;
     const box = this.viewBounds();
     const centre = box.getCenter(new THREE.Vector3());
-    const direction = new THREE.Vector3(...VIEWS[view]).normalize();
-    this.camera.position.copy(centre).addScaledVector(direction, 300);
+    this.camera.position
+      .copy(centre)
+      .addScaledVector(direction.normalize(), 300);
     this.controls.target.copy(centre);
     this.camera.lookAt(centre);
     this.controls.update();
@@ -124,7 +137,10 @@ export class Viewer {
 
   setBoardAngle(angle: number) {
     this.boardAngle = angle;
-    if (this.view === "board") this.setView("board");
+    if (this.view === "board") {
+      mountOnBoard(this.model, angle);
+      this.render();
+    }
   }
 
   private viewBounds() {

@@ -45,6 +45,10 @@ Edge depth is the nominal outward distance between the inner shelf and outer lip
 
 The shelf continues in one plane to the mounting back, avoiding a second rounded ridge behind the lip. Arc and rounded-end sampling are finer for smooth previews and exports. Preview normals preserve sharp hole/back edges without shading ridges from uneven Boolean triangles.
 
+Rounded ends close towards the midpoint of the mounting face, so deep incuts
+stay below the shelf instead of pulling the corners up into pointed wings.
+Screw recess clearance follows the same end shape in previews and exports.
+
 The engine lofts circularly rounded cross-sections through rounded ends. Manifold performs solid Boolean subtraction for through holes, 90° countersinks, and straight head recesses. Recesses must fit inside a body slice with a small geometric margin. Exports must have closed, consistently wound meshes with positive volume. These are geometry checks; they do not establish the strength of a printed hold, an adequate screw seat for a load, or suitable printer/material settings. This prototype needs physical design review and testing before use.
 
 The files in the original `ai hold models` and `hold models` folders were reviewed as references. This tool uses a new geometry implementation and does not require or copy their models.
@@ -80,5 +84,8 @@ the deployment.
 The site's **Board preview** shows the hold mounted on a small section of board
 from beside it. It starts at 40° overhang, measured from vertical (0° is upright),
 and lets you preview 0–70°. The panel and hold tilt together; switching back to
-the other views returns to the print-bed orientation. This is a viewing setting
+the other views returns to the print-bed orientation. Shape and board-angle edits
+keep your camera orientation, pan, and zoom; **Exact side** gives a true side-on
+view of the mounted hold. Presets and loaded settings refit the model while keeping
+the viewing direction. This is a viewing setting
 and does not change the generated mesh, exported STL, or saved design parameters.
