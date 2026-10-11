@@ -32,3 +32,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  ownership:
+    name: Ownership tests on a local Supabase stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Docker is preinstalled on the runner. Studio and image resizing are
+      # not needed to exercise the database policies.
+      - run: npx supabase start -x studio,imgproxy
+      - run: npm run test:integration
+      - name: Generated types match the migrations
+        run: |
+          npm run db:types
+          git diff --exit-code -- src/lib/supabase/database.types.ts
+      - if: always()
+        run: npx supabase stop --no-backup

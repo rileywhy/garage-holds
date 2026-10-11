@@ -21,7 +21,7 @@ npm test
 npm run build
 ```
 
-GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`). `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
+GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
 ## What works
 
@@ -58,7 +58,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/components`: shared UI and library state.
 - `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.
 - `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy, plus the server-only admin client used to record verified files.
-- `tests`: domain behavior tests.
+- `tests`: domain behavior tests; `tests/integration` runs the row-level security policies with two users on the local Supabase stack.
 - `supabase/migrations`: the schema, applied in order by the Supabase CLI. `supabase/config.toml` configures the local stack; `src/lib/supabase/database.types.ts` is generated from it with `npm run db:types`.
 
 ## Accounts
@@ -71,12 +71,11 @@ The intended hosted stack is Next.js, Supabase Postgres/Auth, and Cloudflare R2.
 
 See [the implementation plan](docs/next-milestone.md) for the first complete hosted flow, focused cleanup, and ownership tests, and [docs/hosted-setup.md](docs/hosted-setup.md) for the external configuration.
 
-1. Integration tests for row-level security against a local Supabase stack (Docker) in CI: two users, one cannot read the other's drafts or change their designs.
-2. "My designs" page with metadata editing; delete and file replacement later.
-3. Reconcile abandoned drafts and failed uploads with object storage; sweep orphaned R2 objects.
-4. Moderation/reporting, pagination, and search in the database before public launch.
-5. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
-6. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.
+1. Reconcile abandoned drafts and failed uploads with object storage; sweep orphaned R2 objects.
+2. Delete and file replacement for a creator's own designs.
+3. Moderation/reporting, pagination, and search in the database before public launch.
+4. Extend static STL previews with interactive viewing and more formats when needed. Geometry processing can use a Python worker when justified.
+5. Introduce Stripe Connect/Billing and access entitlements when bundles and subscriptions are in scope.
 
 The schema has not had a production security audit. Edits, deletion, revisions, paid downloads, subscriptions, and interactive 3D viewing are not implemented.
 
