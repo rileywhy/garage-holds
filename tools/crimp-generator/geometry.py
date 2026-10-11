@@ -5,7 +5,7 @@ The mounting/print face stays on Z=0. No GUI, filesystem, or server state.
 """
 
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 
 import manifold3d as manifold
 import numpy as np
@@ -23,12 +23,17 @@ class Model:
     grip_outer: tuple[float, float]
     lip_radius: float
     seat_depth: float
+    # The settings actually built, and the ones the generator changed to
+    # make the shape work (see build): the exported design carries these.
+    parameters: Parameters
+    adjusted: dict = field(default_factory=dict)
 
     def preview(self) -> dict:
         return dict(
             material_grams=estimate_material(self.mesh),
             lip_radius=self.lip_radius,
             seat_depth=self.seat_depth,
+            adjusted=self.adjusted,
             vertices=np.round(self.mesh.vertices, 5).tolist(),
             faces=self.mesh.faces.tolist(),
             profile=np.round(self.profile, 5).tolist(),
@@ -259,8 +264,59 @@ def _solid(mesh: trimesh.Trimesh) -> manifold.Manifold:
     return solid
 
 
+# Body height grows by this much per attempt when the screws need room,
+# by at most BODY_GROWTH before the seat is allowed to drop further.
+BODY_STEP = 3.0
+BODY_GROWTH = 30.0
+BODY_MAX = 150.0
+
+
+def minimum_body_height(p: Parameters) -> float:
+    """The least body height that keeps the shelf above the lower body
+    with a few millimetres to spare, for this depth and incut."""
+    if p.incut <= 0:
+        return 0.0
+    # The shelf runs on to the wall, 6 mm behind the inner grip corner.
+    return math.ceil((p.edge_depth + 6) * math.tan(math.radians(p.incut)) + 8)
+
+
+class _NoRoomForScrews(ValueError):
+    pass
+
+
 def build(p: Parameters, quality: str = "preview") -> Model:
+    """Builds the shape, growing the body height when that is what it takes:
+    first to keep the shelf above the body, then until the screw recesses
+    fit. The settings used come back on the model, with what changed."""
     p = parse_parameters(asdict(p))
+    requested = p.body_height
+    start = max(p.body_height, min(BODY_MAX, minimum_body_height(p)))
+    heights = np.arange(start, min(BODY_MAX, start + BODY_GROWTH) + 1e-9, BODY_STEP)
+    # A taller body is preferred to a shallow seat: the seat may drop to
+    # half its target first, and only once the body has grown as far as it
+    # will may it go lower still.
+    floors = [max(3.0, seat_height(p) / 2), 0.5] if p.auto_seat else [0.5]
+    model = None
+    for floor in floors:
+        for height in heights:
+            p = replace(p, body_height=float(height))
+            try:
+                model = _build(p, quality, floor)
+                break
+            except _NoRoomForScrews:
+                continue
+        if model:
+            break
+    if model is None:
+        raise ValueError(
+            "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
+        )
+    if p.body_height != requested:
+        model.adjusted["body_height"] = p.body_height
+    return model
+
+
+def _build(p: Parameters, quality: str, seat_floor: float = 0.5) -> Model:
     mesh, profile, inner, outer, lip_radius = _loft(p, quality)
     solid = _solid(mesh)
     if mesh.bounds[0, 2] < -1e-6:
@@ -280,7 +336,9 @@ def build(p: Parameters, quality: str = "preview") -> Model:
         # An automatic seat is as high as the recesses allow: start at the
         # share of the depth and come down until the row fits.
         seats = (
-            np.arange(seat, 0.5 - 1e-9, -0.5) if p.auto_seat else np.array([seat])
+            np.arange(seat, seat_floor - 1e-9, -0.5)
+            if p.auto_seat
+            else np.array([seat])
         )
         for seat in seats:
             screws = _screw_positions(
@@ -289,9 +347,7 @@ def build(p: Parameters, quality: str = "preview") -> Model:
             if screws:
                 break
         else:
-            raise ValueError(
-                "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
-            )
+            raise _NoRoomForScrews()
         seat = float(seat)
         seat_top = seat + cone_height
         for x, hole_y in screws:
@@ -311,7 +367,7 @@ def build(p: Parameters, quality: str = "preview") -> Model:
         )
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("The generated mesh did not pass the closed-solid checks.")
-    return Model(mesh, profile, screws, inner, outer, lip_radius, seat)
+    return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p)
 
 
 def _screw_candidates(p: Parameters) -> np.ndarray:
@@ -370,11 +426,12 @@ def _screw_positions(
     radius = p.head_diameter / 2 + 0.75
     # Where a recess centre may sit: the body's slice at the seat, inset by
     # the recess radius, so a centre inside it has a full margin of material.
-    room = (
-        solid.slice(seat_top + 0.5)
-        .offset(-radius, manifold.JoinType.Round, 2.0, 32)
-        .to_polygons()
-    )
+    section = solid.slice(seat_top + 0.5)
+    if section.is_empty():
+        raise ValueError(
+            "The screw seat is above the top of the body. Lower the seat or deepen the edge."
+        )
+    room = section.offset(-radius, manifold.JoinType.Round, 2.0, 32).to_polygons()
     if not room or not len(candidates):
         return []
     centres = candidates.reshape(-1, 2)

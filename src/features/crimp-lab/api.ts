@@ -40,6 +40,9 @@ export interface Preview {
   material_grams: [number, number];
   // Where the countersink starts above the wall, as used (auto or by hand).
   seat_depth: number;
+  // Settings the generator changed to make the shape work, e.g. a taller
+  // body so the screws fit. The design's parameters already include them.
+  adjusted: Record<string, number>;
   triangles: number;
   screw_spacing: number | null;
   // The lip radius actually used: smaller than asked when the edge is short.

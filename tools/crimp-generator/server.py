@@ -126,7 +126,8 @@ class Handler(BaseHTTPRequestHandler):
                 body = (
                     model.mesh.export(file_type="stl")
                     if self.path == "/api/stl"
-                    else model.preview() | dict(design=design_document(p))
+                    else model.preview()
+                    | dict(design=design_document(model.parameters))
                 )
             if self.path == "/api/stl":
                 filename = f"crimp-{p.edge_depth:g}mm-{p.incut:g}deg.stl"

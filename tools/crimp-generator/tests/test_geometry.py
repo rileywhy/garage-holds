@@ -161,6 +161,26 @@ class GeometryTests(unittest.TestCase):
         self.assertGreaterEqual(lowered.seat_depth, 0.5)
         self.assertEqual(build(deep, "export").seat_depth, lowered.seat_depth)
 
+    def test_body_grows_instead_of_failing(self):
+        self.assertEqual(build(Parameters()).adjusted, {})
+        # A deep, steep, rounded edge on the default body had no room for
+        # the screws at any seat: the body grows until they fit.
+        tall = build(Parameters(edge_depth=40, incut=40, lip_radius=20))
+        self.assert_solid(tall)
+        self.assertGreater(tall.adjusted["body_height"], 48)
+        self.assertEqual(tall.parameters.body_height, tall.adjusted["body_height"])
+        self.assertEqual(
+            build(Parameters(edge_depth=40, incut=40, lip_radius=20), "export").adjusted,
+            tall.adjusted,
+        )
+        # An incut that would fold the shelf below the body raises it first.
+        folded = build(Parameters(edge_depth=30, incut=60, screws=False))
+        self.assert_solid(folded)
+        self.assertGreaterEqual(
+            folded.parameters.body_height, 36 * math.tan(math.radians(60)) + 8
+        )
+        self.assertEqual(folded.preview()["adjusted"], folded.adjusted)
+
     def test_holes_cross_the_back_and_remove_volume(self):
         drilled = build(Parameters())
         undrilled = build(Parameters(screws=False))
@@ -189,12 +209,16 @@ class GeometryTests(unittest.TestCase):
         ]
         for p in cases:
             slope = math.tan(math.radians(p.incut))
-            shelf_at_wall = p.body_height / 2 - (p.edge_depth + 6) * slope
             for quality in ("preview", "export"):
                 for screws in (False, True):
                     with self.subTest(parameters=p, quality=quality, screws=screws):
                         model = build(replace(p, screws=screws), quality)
                         self.assert_solid(model)
+                        # The body may have grown to seat the screws.
+                        built = model.parameters
+                        shelf_at_wall = (
+                            built.body_height / 2 - (built.edge_depth + 6) * slope
+                        )
                         vertices = model.mesh.vertices
                         # The shelf plane bounds the entire hold. The old end
                         # tips rose above it, creating the pointed corner wings.
@@ -202,7 +226,7 @@ class GeometryTests(unittest.TestCase):
                         self.assertLessEqual(above_shelf.max(), shelf_at_wall + 1e-5)
                         back = vertices[np.isclose(vertices[:, 2], 0)]
                         self.assertGreaterEqual(
-                            back[:, 1].min(), -p.body_height / 2 - 1e-5
+                            back[:, 1].min(), -built.body_height / 2 - 1e-5
                         )
                         self.assertLessEqual(back[:, 1].max(), shelf_at_wall + 1e-5)
                         if screws:
@@ -223,7 +247,7 @@ class GeometryTests(unittest.TestCase):
     def test_manual_mounting_is_respected_or_rejected(self):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)
-        with self.assertRaisesRegex(ValueError, "recess does not fit"):
+        with self.assertRaisesRegex(ValueError, "seat is above the top"):
             build(Parameters(auto_seat=False, seat_depth=30))
         with self.assertRaisesRegex(ValueError, "screws closer"):
             build(Parameters(width=50, auto_spacing=False))
@@ -234,7 +258,10 @@ class GeometryTests(unittest.TestCase):
         p = Parameters(edge_depth=35, incut=35, body_height=30, screws=False)
         model = build(p)
         self.assert_solid(model)
-        self.assertLess(model.lip_radius, p.lip_radius)
+        # (The body grows to keep the shelf above it, which also makes room
+        # for the lip; the rounding is never more than asked.)
+        self.assertGreater(model.parameters.body_height, 30)
+        self.assertLessEqual(model.lip_radius, p.lip_radius)
         self.assertGreater(model.lip_radius, 0)
         self.assertEqual(model.preview()["lip_radius"], model.lip_radius)
         small = build(Parameters(edge_depth=4, lip_radius=20, screws=False))

@@ -124,7 +124,19 @@ async function preview() {
     currentDesign = data.design;
     $("#export").disabled = false;
     $("#save-settings").disabled = false;
-    status("Preview is current. Export builds a finer version of this shape.");
+    // The generator may have changed a setting to make the shape work; the
+    // sliders follow, and this preview already shows the result.
+    const changed = Object.keys(data.adjusted || {});
+    if (changed.length) {
+      Object.assign(parameters, data.adjusted);
+      $("#preset").value = "Custom";
+      refreshWidgets();
+    }
+    status(
+      data.adjusted?.body_height !== undefined
+        ? `Preview is current. Body height raised to ${data.adjusted.body_height} mm so the screws fit.`
+        : "Preview is current. Export builds a finer version of this shape.",
+    );
   } catch (error) {
     if (error.name !== "AbortError" && request === sequence)
       status(`${error.message} Showing the last valid model.`, true);

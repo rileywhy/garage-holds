@@ -36,6 +36,10 @@ const CUSTOM = "Custom";
 export function CrimpLab() {
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
+  // Each edit bumps the revision, which is what triggers a preview; the
+  // ref holds the latest parameters for that effect to read.
+  const [revision, setRevision] = useState(0);
+  const latest = useRef<Parameters>({});
   const [preset, setPreset] = useState("");
   const [group, setGroup] = useState<Group>("Grip");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -57,8 +61,9 @@ export function CrimpLab() {
   useEffect(() => {
     loadSchema()
       .then((loaded) => {
+        latest.current = { ...loaded.defaults };
+        setParameters(latest.current);
         setSchema(loaded);
-        setParameters({ ...loaded.defaults });
         setPreset(Object.keys(loaded.presets)[0] ?? CUSTOM);
       })
       .catch((error: Error) =>
@@ -93,7 +98,7 @@ export function CrimpLab() {
       try {
         const response = await post(
           "preview",
-          parameters,
+          latest.current,
           controller.current.signal,
         );
         const data = (await response.json()) as Preview;
@@ -102,11 +107,26 @@ export function CrimpLab() {
         fitNext.current = false;
         setPreview(data);
         setDesign(data.design);
+        // The generator may have changed a setting to make the shape work;
+        // the sliders follow, and this preview already shows the result.
+        const changed = Object.keys(data.adjusted);
+        if (changed.length) {
+          latest.current = { ...latest.current, ...data.adjusted };
+          setParameters(latest.current);
+          setPreset(CUSTOM);
+        }
+        const notes = [
+          data.adjusted.body_height !== undefined
+            ? `Body height raised to ${data.adjusted.body_height} mm so the screws fit.`
+            : "",
+          data.lip_radius < Number(data.design.parameters.lip_radius)
+            ? `The edge only has room for ${data.lip_radius} mm of lip rounding; deepen the edge or raise the body for more.`
+            : "",
+        ].filter(Boolean);
         setStatus({
-          text:
-            data.lip_radius < Number(data.design.parameters.lip_radius)
-              ? `Preview is current. The edge only has room for ${data.lip_radius} mm of lip rounding; deepen the edge or raise the body for more.`
-              : "Preview is current. Export builds a finer version of this shape.",
+          text: notes.length
+            ? `Preview is current. ${notes.join(" ")}`
+            : "Preview is current. Export builds a finer version of this shape.",
           error: false,
         });
       } catch (error) {
@@ -119,7 +139,7 @@ export function CrimpLab() {
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [schema, parameters]);
+  }, [schema, revision]);
 
   // Every edit goes through here so the stale design is cleared (export
   // disabled) and the status says a preview is on its way.
@@ -128,7 +148,9 @@ export function CrimpLab() {
       setPreset(presetName);
       setDesign(null);
       setStatus({ text: "Updating preview…", error: false });
-      setParameters(next);
+      latest.current = next(latest.current);
+      setParameters(latest.current);
+      setRevision((current) => current + 1);
     },
     [],
   );

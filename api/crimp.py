@@ -64,7 +64,9 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
                 )
             else:
                 model = build(p, "preview")
-                self.send(200, model.preview() | dict(design=design_document(p)))
+                self.send(
+                    200, model.preview() | dict(design=design_document(model.parameters))
+                )
         except (ValueError, TypeError, json.JSONDecodeError) as error:
             self.send(400, dict(error=str(error)))
         except Exception:
