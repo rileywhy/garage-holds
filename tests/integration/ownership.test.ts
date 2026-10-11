@@ -133,7 +133,7 @@ describe("drafts", () => {
 });
 
 describe("files and publication", () => {
-  test("users cannot register files themselves", async () => {
+  test("users cannot register or remove files themselves", async () => {
     const { error } = await owner.client.from("design_files").insert({
       design_id: designId,
       kind: "model",
@@ -143,6 +143,11 @@ describe("files and publication", () => {
       bytes: 10,
     });
     assert.equal(error?.code, RLS_VIOLATION);
+    const removed = await owner.client
+      .from("design_files")
+      .delete()
+      .eq("design_id", designId);
+    assert.equal(removed.error?.code, RLS_VIOLATION);
   });
 
   test("publishing is refused until a model file is verified", async () => {
