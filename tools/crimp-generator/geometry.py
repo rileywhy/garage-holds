@@ -11,7 +11,7 @@ import manifold3d as manifold
 import numpy as np
 import trimesh
 
-from parameters import Parameters, parse_parameters
+from parameters import Parameters, parse_parameters, seat_height
 
 
 @dataclass
@@ -22,11 +22,13 @@ class Model:
     grip_inner: tuple[float, float]
     grip_outer: tuple[float, float]
     lip_radius: float
+    seat_depth: float
 
     def preview(self) -> dict:
         return dict(
             material_grams=estimate_material(self.mesh),
             lip_radius=self.lip_radius,
+            seat_depth=self.seat_depth,
             vertices=np.round(self.mesh.vertices, 5).tolist(),
             faces=self.mesh.faces.tolist(),
             profile=np.round(self.profile, 5).tolist(),
@@ -266,22 +268,39 @@ def build(p: Parameters, quality: str = "preview") -> Model:
             "Body character crosses the flat back. Reduce body character or taper, or deepen the edge."
         )
     screws = []
+    seat = seat_height(p)
     if p.screws:
         cone_height = (p.head_diameter - p.shank_diameter) / 2
-        seat_top = p.seat_depth + cone_height
         # Resolve mounting on the same mesh for both qualities. Otherwise a
         # finer rounded end can shift automatic spacing between preview/STL.
         mounting_solid = (
             _solid(_loft(p, "preview")[0]) if quality == "export" else solid
         )
-        screws = _screw_positions(p, mounting_solid, seat_top)
+        candidates = _screw_candidates(p)
+        # An automatic seat is as high as the recesses allow: start at the
+        # share of the depth and come down until the row fits.
+        seats = (
+            np.arange(seat, 0.5 - 1e-9, -0.5) if p.auto_seat else np.array([seat])
+        )
+        for seat in seats:
+            screws = _screw_positions(
+                p, mounting_solid, seat + cone_height, candidates
+            )
+            if screws:
+                break
+        else:
+            raise ValueError(
+                "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
+            )
+        seat = float(seat)
+        seat_top = seat + cone_height
         for x, hole_y in screws:
             shank = manifold.Manifold.cylinder(
-                p.seat_depth + 1, p.shank_diameter / 2, circular_segments=48
+                seat + 1, p.shank_diameter / 2, circular_segments=48
             ).translate((x, hole_y, -1))
             cone = manifold.Manifold.cylinder(
                 cone_height, p.shank_diameter / 2, p.head_diameter / 2, 48
-            ).translate((x, hole_y, p.seat_depth))
+            ).translate((x, hole_y, seat))
             bore = manifold.Manifold.cylinder(
                 float(mesh.bounds[1, 2]) + 1, p.head_diameter / 2, circular_segments=48
             ).translate((x, hole_y, seat_top))
@@ -292,24 +311,14 @@ def build(p: Parameters, quality: str = "preview") -> Model:
         )
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("The generated mesh did not pass the closed-solid checks.")
-    return Model(mesh, profile, screws, inner, outer, lip_radius)
+    return Model(mesh, profile, screws, inner, outer, lip_radius, seat)
 
 
-def _screw_positions(
-    p: Parameters, solid: manifold.Manifold, seat_top: float
-) -> list[tuple[float, float]]:
-    """Fit a centred row: the widest span first, then the highest row that
-    clears the lip and still has material all round every recess. The row
-    drops as far as it must when a deep edge or incut thins the top of the
-    body, instead of refusing the shape."""
+def _screw_candidates(p: Parameters) -> np.ndarray:
+    """Every row worth trying, in order of preference: wider spans first,
+    then the smallest drop below the lip-limited height. Shape (rows,
+    holes, 2) of x and y centres."""
     radius = p.head_diameter / 2 + 0.75
-    # Where a recess centre may sit: the body's slice at the seat, inset by
-    # the recess radius, so a centre inside it has a full margin of material.
-    room = (
-        solid.slice(seat_top + 0.5)
-        .offset(-radius, manifold.JoinType.Round, 2.0, 32)
-        .to_polygons()
-    )
     # Large lip fillets reach lower down the front. Keep the entire head
     # recess below the fillet tangent, rather than cutting into the grip.
     _, _, outer, lip_radius = cross_section(p)
@@ -342,24 +351,38 @@ def _screw_positions(
         if p.auto_spacing
         else np.array([float(p.screw_spacing)])
     )
-    # Candidate rows in order of preference: wider spans first, then the
-    # smallest drop below the lip-limited height. All are tested at once.
     drops = np.arange(0, p.body_height + 1e-9, 0.5)
     rows = []
     for span in spans:
         xs = np.linspace(-span / 2, span / 2, p.screw_count)
         tops = np.array([hole_height(x) for x in xs])
-        for drop in drops:
-            rows.append(np.column_stack((xs, tops - drop)))
-    if rows and room:
-        centres = np.vstack(rows)
-        fits = _inside_mask(centres, room).reshape(len(rows), p.screw_count).all(axis=1)
-        if fits.any():
-            row = rows[int(np.argmax(fits))]
-            return [(float(x), float(y)) for x, y in row]
-    raise ValueError(
-        "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
+        ys = tops[None, :] - drops[:, None]
+        rows.append(np.stack((np.broadcast_to(xs, ys.shape), ys), axis=2))
+    return np.concatenate(rows) if rows else np.zeros((0, p.screw_count, 2))
+
+
+def _screw_positions(
+    p: Parameters, solid: manifold.Manifold, seat_top: float, candidates: np.ndarray
+) -> list[tuple[float, float]]:
+    """The first candidate row whose recesses all sit inside the body at
+    the seat, or an empty list. The row drops as far as it must when a
+    deep edge or incut thins the top of the body."""
+    radius = p.head_diameter / 2 + 0.75
+    # Where a recess centre may sit: the body's slice at the seat, inset by
+    # the recess radius, so a centre inside it has a full margin of material.
+    room = (
+        solid.slice(seat_top + 0.5)
+        .offset(-radius, manifold.JoinType.Round, 2.0, 32)
+        .to_polygons()
     )
+    if not room or not len(candidates):
+        return []
+    centres = candidates.reshape(-1, 2)
+    fits = _inside_mask(centres, room).reshape(len(candidates), -1).all(axis=1)
+    if not fits.any():
+        return []
+    row = candidates[int(np.argmax(fits))]
+    return [(float(x), float(y)) for x, y in row]
 
 
 def _inside_mask(points: np.ndarray, contours) -> np.ndarray:

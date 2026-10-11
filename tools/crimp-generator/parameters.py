@@ -23,7 +23,24 @@ class Parameters:
     screw_spacing: float = 60
     shank_diameter: float = 5.5
     head_diameter: float = 11
-    seat_depth: float = 4
+    # The seat follows the edge depth (see seat_height) unless auto_seat is
+    # off, in which case seat_depth is used as given.
+    auto_seat: bool = True
+    seat_depth: float = 10
+
+
+# With the seat this far into the body, measured as a share of the body's
+# projection from the wall, the floor under the screw head stays solid and
+# the recess above it stays short. 10 mm on the default 28 mm crimp.
+SEAT_SHARE = 0.36
+
+
+def seat_height(p: "Parameters") -> float:
+    """Where the countersink starts, above the wall."""
+    if not p.auto_seat:
+        return p.seat_depth
+    projection = p.edge_depth + 6
+    return min(30.0, max(0.5, round(SEAT_SHARE * projection * 2) / 2))
 
 
 # The GUI reads this schema instead of keeping its own copy of limits/defaults.
@@ -176,14 +193,14 @@ CONTROLS = [
         max=30,
         step=0.5,
         unit="mm",
-        help="Distance from the flat back to the start of the countersink. Checked for geometric fit, not load capacity.",
+        help="Distance from the flat back to the start of the countersink. More leaves a thicker floor under the screw head. Checked for geometric fit, not load capacity.",
     ),
 ]
 
 PRESETS = {
     "Rounded board crimp": Parameters(),
     "Small flat edge": Parameters(
-        edge_depth=10, incut=0, lip_radius=2, body_height=42, seat_depth=3
+        edge_depth=10, incut=0, lip_radius=2, body_height=42
     ),
     "Curved incut": Parameters(
         edge_depth=24,
@@ -192,7 +209,6 @@ PRESETS = {
         bow=7,
         taper=15,
         character=0.35,
-        seat_depth=7,
     ),
     "Sloping rail": Parameters(
         width=125,
@@ -226,7 +242,7 @@ def parse_parameters(values: dict) -> Parameters:
             raise ValueError(
                 f"{control['label']} must be between {control['min']} and {control['max']} {control['unit']}."
             )
-    for key in ("screws", "auto_spacing"):
+    for key in ("screws", "auto_spacing", "auto_seat"):
         if not isinstance(parsed[key], bool):
             raise ValueError("Screw holes and automatic spacing must be on or off.")
     if parsed["screw_count"] != int(parsed["screw_count"]):

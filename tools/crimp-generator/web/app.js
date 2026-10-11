@@ -9,6 +9,7 @@ let config,
   sequence = 0,
   fitNext = true;
 let currentDesign = null;
+let lastPreview = null;
 const widgets = new Map();
 
 function status(message, error = false) {
@@ -41,13 +42,16 @@ function refreshWidgets() {
   $("#screws").checked = parameters.screws;
   $("#auto-spacing").checked = parameters.auto_spacing;
   $("#auto-spacing").disabled = !parameters.screws;
+  $("#auto-seat").checked = parameters.auto_seat;
+  $("#auto-seat").disabled = !parameters.screws;
   $("#seed").value = parameters.seed;
   for (const control of config.controls.filter(
     (item) => item.group === "Mounting",
   )) {
     const disabled =
       !parameters.screws ||
-      (control.key === "screw_spacing" && parameters.auto_spacing);
+      (control.key === "screw_spacing" && parameters.auto_spacing) ||
+      (control.key === "seat_depth" && parameters.auto_seat);
     widgets.get(control.key).number.disabled = disabled;
     widgets.get(control.key).slider.disabled = disabled;
   }
@@ -93,6 +97,7 @@ async function preview() {
     const data = await response.json();
     if (request !== sequence) return;
     viewer.update(data, fitNext);
+    lastPreview = data;
     fitNext = false;
     drawProfile($("#profile"), data, settings);
     const rows = [
@@ -101,6 +106,8 @@ async function preview() {
       ["Mesh", `${data.triangles.toLocaleString()} triangles · closed`],
       ["Screw holes", `${data.screws.length}`],
     ];
+    if (data.screws.length)
+      rows.push(["Screw seat", `${data.seat_depth} mm above the wall`]);
     if (data.screw_spacing !== null)
       rows.push(["Centre spacing", `${data.screw_spacing} mm across width`]);
     $("#metrics").replaceChildren(
@@ -179,6 +186,23 @@ function createControls() {
       });
       automatic.append(autoCheckbox, "Space screws to fit the body");
       panel.append(automatic);
+      const seated = document.createElement("label"),
+        seatCheckbox = document.createElement("input");
+      seated.className = "mount-toggle";
+      seatCheckbox.type = "checkbox";
+      seatCheckbox.id = "auto-seat";
+      seatCheckbox.addEventListener("change", () => {
+        parameters.auto_seat = seatCheckbox.checked;
+        // Turning it off starts from the seat in use, so the slider does
+        // not jump.
+        if (!seatCheckbox.checked && lastPreview)
+          parameters.seat_depth = lastPreview.seat_depth;
+        $("#preset").value = "Custom";
+        refreshWidgets();
+        dirty();
+      });
+      seated.append(seatCheckbox, "Seat the screws for the edge depth");
+      panel.append(seated);
     }
     for (const control of config.controls.filter(
       (item) => item.group === group,
@@ -324,13 +348,12 @@ async function main() {
         );
       // Designs saved before the count control had exactly two holes.
       const saved = design.parameters;
-      if (
-        saved &&
-        typeof saved === "object" &&
-        !Array.isArray(saved) &&
-        !("screw_count" in saved)
-      )
-        saved.screw_count = 2;
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+        // Older files: two holes before the count control, and a seat set
+        // by hand before the automatic one.
+        if (!("screw_count" in saved)) saved.screw_count = 2;
+        if (!("auto_seat" in saved)) saved.auto_seat = false;
+      }
       const checked = await post("/api/validate", saved);
       const data = await checked.json();
       $("#preset").value = "Custom";

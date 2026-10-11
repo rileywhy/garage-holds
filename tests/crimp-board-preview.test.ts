@@ -110,6 +110,7 @@ function preview(width: number): Preview {
     dimensions: [width, 48, 22],
     volume_cm3: 1,
     material_grams: [1, 2],
+    seat_depth: 10,
     triangles: faces.length,
     screw_spacing: null,
     lip_radius: 5,

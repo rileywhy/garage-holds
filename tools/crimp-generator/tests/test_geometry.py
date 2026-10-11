@@ -10,7 +10,13 @@ import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import _inside_contours, _solid, build, cross_section, estimate_material
-from parameters import PRESETS, Parameters, design_document, parse_parameters
+from parameters import (
+    PRESETS,
+    Parameters,
+    design_document,
+    parse_parameters,
+    seat_height,
+)
 
 
 class GeometryTests(unittest.TestCase):
@@ -119,9 +125,41 @@ class GeometryTests(unittest.TestCase):
         self.assert_solid(steep)
         self.assertEqual(len(steep.screws), 3)
         self.assertAlmostEqual(steep.screws[-1][0] - steep.screws[0][0], 60)
-        self.assertLess(steep.screws[1][1], plain.screws[1][1] - 5)
+        self.assertLessEqual(steep.screws[1][1], plain.screws[1][1])
+        # With the seat set low by hand the top of the body is thin there,
+        # and the row has to come well down.
+        low_seat = build(
+            Parameters(
+                edge_depth=35.5, incut=35, lip_radius=4.5, auto_seat=False, seat_depth=4
+            )
+        )
+        self.assertLess(low_seat.screws[1][1], plain.screws[1][1] - 5)
         exported = build(Parameters(edge_depth=35.5, incut=35, lip_radius=4.5), "export")
         self.assertEqual(exported.screws, steep.screws)
+
+    def test_seat_follows_the_depth_unless_set_by_hand(self):
+        self.assertEqual(seat_height(Parameters()), 10)
+        self.assertEqual(seat_height(Parameters(edge_depth=10)), 6)
+        self.assertEqual(seat_height(Parameters(edge_depth=60)), 24)
+        self.assertEqual(seat_height(Parameters(auto_seat=False, seat_depth=4)), 4)
+        self.assertEqual(build(Parameters()).seat_depth, 10)
+        self.assertEqual(build(Parameters()).preview()["seat_depth"], 10)
+        by_hand = build(Parameters(auto_seat=False, seat_depth=4))
+        self.assertEqual(by_hand.seat_depth, 4)
+        # A higher seat leaves more body under the head: the drilled solid
+        # with the seat at 10 keeps more volume than with it at 4.
+        self.assertGreater(build(Parameters()).mesh.volume, by_hand.mesh.volume)
+        for name, preset in PRESETS.items():
+            with self.subTest(preset=name):
+                self.assert_solid(build(preset))
+        # Where the recesses cannot fit that high, the automatic seat comes
+        # down to the highest point they do, and says so.
+        deep = Parameters(edge_depth=40, incut=40, lip_radius=20, body_height=70)
+        lowered = build(deep)
+        self.assert_solid(lowered)
+        self.assertLess(lowered.seat_depth, seat_height(deep))
+        self.assertGreaterEqual(lowered.seat_depth, 0.5)
+        self.assertEqual(build(deep, "export").seat_depth, lowered.seat_depth)
 
     def test_holes_cross_the_back_and_remove_volume(self):
         drilled = build(Parameters())
@@ -186,7 +224,7 @@ class GeometryTests(unittest.TestCase):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)
         with self.assertRaisesRegex(ValueError, "recess does not fit"):
-            build(Parameters(seat_depth=30))
+            build(Parameters(auto_seat=False, seat_depth=30))
         with self.assertRaisesRegex(ValueError, "screws closer"):
             build(Parameters(width=50, auto_spacing=False))
 
@@ -308,7 +346,7 @@ class GeometryTests(unittest.TestCase):
                 screw_count=2,
                 shank_diameter=1,
                 head_diameter=3,
-                seat_depth=0.5,
+                auto_seat=False, seat_depth=0.5,
             )
         )
         large = build(
@@ -323,7 +361,7 @@ class GeometryTests(unittest.TestCase):
                 screw_spacing=260,
                 shank_diameter=12,
                 head_diameter=25,
-                seat_depth=30,
+                auto_seat=False, seat_depth=30,
             )
         )
         self.assert_solid(small)
@@ -342,7 +380,7 @@ class GeometryTests(unittest.TestCase):
                 screw_spacing=260,
                 shank_diameter=1,
                 head_diameter=3,
-                seat_depth=0.5,
+                auto_seat=False, seat_depth=0.5,
             )
         )
         self.assert_solid(deep)
@@ -393,6 +431,7 @@ class ParameterTests(unittest.TestCase):
             {"unknown": 1},
             {"screws": 1},
             {"auto_spacing": 0},
+            {"auto_seat": "yes"},
             {"screw_count": 0},
             {"screw_count": 1},
             {"screw_count": 7},

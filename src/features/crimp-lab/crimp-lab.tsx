@@ -237,7 +237,8 @@ export function CrimpLab() {
   const disabledFor = (control: Control) =>
     control.group === "Mounting" &&
     (!screws ||
-      (control.key === "screw_spacing" && Boolean(parameters.auto_spacing)));
+      (control.key === "screw_spacing" && Boolean(parameters.auto_spacing)) ||
+      (control.key === "seat_depth" && Boolean(parameters.auto_seat)));
 
   return (
     <div className="lab">
@@ -322,6 +323,26 @@ export function CrimpLab() {
                       }
                     />
                     Space screws to fit the body
+                  </label>
+                  <label className="lab-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(parameters.auto_seat)}
+                      disabled={!screws}
+                      onChange={(event) => {
+                        // Turning it off starts from the seat in use, so the
+                        // slider does not jump.
+                        const seat = preview?.seat_depth;
+                        edit((current) => ({
+                          ...current,
+                          auto_seat: event.target.checked,
+                          ...(event.target.checked || seat === undefined
+                            ? {}
+                            : { seat_depth: seat }),
+                        }));
+                      }}
+                    />
+                    Seat the screws for the edge depth
                   </label>
                 </>
               )}
@@ -509,6 +530,12 @@ export function CrimpLab() {
                   label="Mesh"
                   value={`${preview.triangles.toLocaleString()} triangles · closed`}
                 />
+                {preview.screws.length > 0 && (
+                  <Metric
+                    label="Screw seat"
+                    value={`${preview.seat_depth} mm above the wall`}
+                  />
+                )}
                 <Metric
                   label="Screw holes"
                   value={String(preview.screws.length)}

@@ -38,6 +38,8 @@ export interface Preview {
   dimensions: number[];
   volume_cm3: number;
   material_grams: [number, number];
+  // Where the countersink starts above the wall, as used (auto or by hand).
+  seat_depth: number;
   triangles: number;
   screw_spacing: number | null;
   // The lip radius actually used: smaller than asked when the edge is short.
@@ -89,8 +91,10 @@ export function parseDesignFile(text: string): Parameters {
     Array.isArray(design.parameters)
   )
     throw new Error("This file is not a Crimp Lab settings file.");
-  // Designs saved before the count control had exactly two holes.
+  // Designs saved before the count control had exactly two holes, and
+  // ones saved before the automatic seat chose their seat by hand.
   const saved = { ...design.parameters };
   if (!("screw_count" in saved)) saved.screw_count = 2;
+  if (!("auto_seat" in saved)) saved.auto_seat = false;
   return saved;
 }
