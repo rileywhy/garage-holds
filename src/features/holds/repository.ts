@@ -15,8 +15,11 @@ import type { Hold, Review } from "./types";
 // Reads go through the user's own client, so row-level security decides what
 // is visible: published designs for everyone, drafts only for their owner.
 
-const DESIGN_SELECT = "*, profiles(display_name), design_files(*)";
-const REVIEW_SELECT = "*, profiles(display_name)";
+// Profiles are named through their foreign key: bookmarks also connect designs
+// and profiles, and PostgREST refuses an ambiguous embed.
+const DESIGN_SELECT =
+  "*, profiles!designs_owner_id_fkey(display_name), design_files(*)";
+const REVIEW_SELECT = "*, profiles!reviews_author_id_fkey(display_name)";
 
 async function client() {
   return isSupabaseConfigured() ? createSupabaseServerClient() : null;
