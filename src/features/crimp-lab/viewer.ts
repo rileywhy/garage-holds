@@ -2,12 +2,13 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Preview } from "./api";
+import { BoardPanel, DEFAULT_BOARD_ANGLE, mountOnBoard } from "./board-preview";
 
-// The interactive preview: an orthographic camera around the generated
-// mesh, shown as it would sit on a print bed. Ported from the local tool.
+// The interactive preview: an orthographic camera around the generated mesh,
+// shown on a print bed or mounted on an adjustable board.
 
 export type ViewName =
-  "three-quarter" | "side" | "angled-side" | "top" | "front";
+  "three-quarter" | "side" | "angled-side" | "top" | "front" | "board";
 
 const VIEWS: Record<ViewName, [number, number, number]> = {
   "three-quarter": [1, 0.7, 1.1],
@@ -15,6 +16,7 @@ const VIEWS: Record<ViewName, [number, number, number]> = {
   "angled-side": [1, 0.04, -0.1],
   top: [0, 1, 0.001],
   front: [0, 0.2, 1],
+  board: [1, 0.08, 0.28],
 };
 
 export class Viewer {
@@ -24,6 +26,11 @@ export class Viewer {
   private controls: OrbitControls;
   private material: THREE.MeshStandardMaterial;
   private mesh: THREE.Mesh | null = null;
+  private model = new THREE.Group();
+  private board: BoardPanel;
+  private grid: THREE.GridHelper;
+  private boardAngle = DEFAULT_BOARD_ANGLE;
+  private boardLight = new THREE.DirectionalLight(0xffeadd, 1.8);
   private resizeObserver: ResizeObserver;
   private aspect = 1;
   private halfHeight = 60;
@@ -50,14 +57,20 @@ export class Viewer {
     const rim = new THREE.DirectionalLight(0xcbc0ff, 1.8);
     rim.position.set(80, 50, -100);
     this.scene.add(rim);
-    const grid = new THREE.GridHelper(
+    this.boardLight.position.set(80, -60, 120);
+    this.boardLight.visible = false;
+    this.scene.add(this.boardLight);
+    this.grid = new THREE.GridHelper(
       300,
       30,
       dark ? 0x5b5469 : 0xb9b4a8,
       dark ? 0x3d3947 : 0xd8d3c7,
     );
-    grid.position.y = -0.3;
-    this.scene.add(grid);
+    this.grid.position.y = -0.3;
+    this.scene.add(this.grid);
+    this.board = new BoardPanel(dark);
+    this.model.add(this.board.mesh);
+    this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({
       color: 0xc9b9a5,
       roughness: 0.68,
@@ -78,23 +91,28 @@ export class Viewer {
     // shading ridges along small fillets; sharp back/hole edges stay crisp.
     const geometry = toCreasedNormals(indexed, Math.PI / 3);
     indexed.dispose();
-    // Display as on a print bed; the Python mesh and STL keep their axes.
-    geometry.rotateX(-Math.PI / 2);
     const first = !this.mesh;
     if (this.mesh) {
-      this.scene.remove(this.mesh);
+      this.model.remove(this.mesh);
       this.mesh.geometry.dispose();
     }
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.scene.add(this.mesh);
-    if (first || fit) this.setView(this.view);
+    this.model.add(this.mesh);
+    geometry.computeBoundingBox();
+    this.board.fitToHold(geometry.boundingBox!);
+    if (first || fit || this.view === "board") this.setView(this.view);
     this.render();
   }
 
   setView(view: ViewName) {
     this.view = view;
+    this.board.mesh.visible = view === "board";
+    this.boardLight.visible = view === "board";
+    this.grid.visible = view !== "board";
+    if (view === "board") mountOnBoard(this.model, this.boardAngle);
+    else this.model.rotation.set(-Math.PI / 2, 0, 0);
     if (!this.mesh) return;
-    const box = new THREE.Box3().setFromObject(this.mesh);
+    const box = this.viewBounds();
     const centre = box.getCenter(new THREE.Vector3());
     const direction = new THREE.Vector3(...VIEWS[view]).normalize();
     this.camera.position.copy(centre).addScaledVector(direction, 300);
@@ -104,9 +122,22 @@ export class Viewer {
     this.fit();
   }
 
+  setBoardAngle(angle: number) {
+    this.boardAngle = angle;
+    if (this.view === "board") this.setView("board");
+  }
+
+  private viewBounds() {
+    this.model.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(this.mesh!);
+    if (this.view === "board")
+      bounds.union(new THREE.Box3().setFromObject(this.board.mesh));
+    return bounds;
+  }
+
   fit() {
     if (!this.mesh) return;
-    const box = new THREE.Box3().setFromObject(this.mesh);
+    const box = this.viewBounds();
     const centre = box.getCenter(new THREE.Vector3());
     const direction = this.camera.position
       .clone()
@@ -123,7 +154,7 @@ export class Viewer {
 
   private framedHeight() {
     if (!this.mesh) return 60;
-    const box = new THREE.Box3().setFromObject(this.mesh);
+    const box = this.viewBounds();
     const centre = box.getCenter(new THREE.Vector3());
     this.camera.updateMatrixWorld(true);
     const right = new THREE.Vector3().setFromMatrixColumn(
@@ -173,6 +204,9 @@ export class Viewer {
     this.controls.dispose();
     this.mesh?.geometry.dispose();
     this.material.dispose();
+    this.board.dispose();
+    this.grid.geometry.dispose();
+    (this.grid.material as THREE.Material).dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

@@ -76,3 +76,9 @@ For `next dev`, run `.venv/bin/python serve_api.py` here and set
 `/api/crimp` to it. `tests/test_vercel_api.py` covers the hosted handler.
 The local GUI server (`server.py`) stays loopback-only and is not part of
 the deployment.
+
+The site's **Board preview** shows the hold mounted on a small section of board
+from beside it. It starts at 40° overhang, measured from vertical (0° is upright),
+and lets you preview 0–70°. The panel and hold tilt together; switching back to
+the other views returns to the print-bed orientation. This is a viewing setting
+and does not change the generated mesh, exported STL, or saved design parameters.

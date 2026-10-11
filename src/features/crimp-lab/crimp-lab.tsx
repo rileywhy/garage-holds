@@ -15,11 +15,13 @@ import {
 } from "./api";
 import { Profile } from "./profile";
 import { Viewer, type ViewName } from "./viewer";
+import { DEFAULT_BOARD_ANGLE, MAX_BOARD_ANGLE } from "./board-preview";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
 const VIEW_LABELS: Record<ViewName, string> = {
   "three-quarter": "3D",
+  board: "Board preview",
   side: "Side",
   "angled-side": "Angled side",
   top: "Above",
@@ -44,6 +46,7 @@ export function CrimpLab() {
   });
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewName>("three-quarter");
+  const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
   const viewerBox = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -144,7 +147,15 @@ export function CrimpLab() {
   function reset() {
     if (!schema) return;
     fitNext.current = true;
+    setBoardAngle(DEFAULT_BOARD_ANGLE);
+    viewer.current?.setBoardAngle(DEFAULT_BOARD_ANGLE);
     edit(() => ({ ...schema.defaults }), Object.keys(schema.presets)[0]);
+  }
+
+  function changeBoardAngle(angle: number) {
+    if (!Number.isFinite(angle) || angle < 0 || angle > MAX_BOARD_ANGLE) return;
+    setBoardAngle(angle);
+    viewer.current?.setBoardAngle(angle);
   }
 
   function variation(seed: number) {
@@ -418,6 +429,39 @@ export function CrimpLab() {
             <RotateCcw size={13} /> Reset
           </button>
         </div>
+        {view === "board" && (
+          <div className="lab-board-controls">
+            <label htmlFor="board-angle">Board angle</label>
+            <input
+              id="board-angle"
+              type="number"
+              min={0}
+              max={MAX_BOARD_ANGLE}
+              step={1}
+              value={boardAngle}
+              onChange={(event) => changeBoardAngle(event.target.valueAsNumber)}
+              aria-describedby="board-angle-hint"
+            />
+            <span>°</span>
+            <input
+              type="range"
+              min={0}
+              max={MAX_BOARD_ANGLE}
+              step={1}
+              value={boardAngle}
+              aria-label="Board angle slider"
+              aria-describedby="board-angle-hint"
+              onChange={(event) => changeBoardAngle(event.target.valueAsNumber)}
+            />
+            <button
+              type="button"
+              onClick={() => changeBoardAngle(DEFAULT_BOARD_ANGLE)}
+            >
+              40° standard
+            </button>
+            <p id="board-angle-hint">From vertical · 0° is upright</p>
+          </div>
+        )}
         <div
           ref={viewerBox}
           className="lab-viewer"
@@ -426,7 +470,11 @@ export function CrimpLab() {
         />
         <p className="lab-caption">
           <span>Drag to rotate · scroll to zoom</span>
-          <span>Flat back on the wall plane</span>
+          <span>
+            {view === "board"
+              ? `Mounted on a ${boardAngle}° board · side view`
+              : "Flat back on the wall plane"}
+          </span>
         </p>
       </section>
       <div className="lab-details">
