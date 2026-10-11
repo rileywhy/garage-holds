@@ -27,7 +27,7 @@ The viewer reuses the main project's installed Three.js package. The Python serv
 
 ## Designing a crimp
 
-- **Grip:** nominal edge depth, incut or slope, and lip radius. Positive incut raises the outer lip relative to the inner shelf. Negative values create a sloping contact surface.
+- **Grip:** nominal edge depth, incut or slope, and lip radius. Positive incut raises the outer lip relative to the inner shelf. Negative values create a sloping contact surface. Rounding larger than the grip face can hold shrinks to the largest radius that fits, and the preview reports the radius used.
 - **Shape:** width, body height, lower body rounding, rounded ends, curve across the width, left/right taper, and broad body character. The default stays clean. **New variation** or entering a seed starts with visible character (at least 1.4), varying the number, position, and balance of body folds. Dial character down for subtler results, or reset for the clean default. The same seed and settings reproduce the same shape; folds leave the contact surface and flat back unchanged.
 - **Mounting:** three screw holes by default, with a count control for one to six. Holes form an evenly spaced row; one hole goes in the centre. Turn mounting holes off for none. Automatic spacing starts around 60% of the width while leaving room between recesses. Turn it off to choose the span between the outermost centres yourself. Diameters and the countersink seat are independent controls. Actual count and spacing appear beside the preview. Loading older settings files without a count preserves their original two-hole layout.
 

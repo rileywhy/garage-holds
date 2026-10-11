@@ -48,7 +48,7 @@ class GeometryTests(unittest.TestCase):
         for incut in (-60, 0, 60):
             with self.subTest(incut=incut):
                 p = Parameters(incut=incut, lip_radius=2, body_height=150, screws=False)
-                _, inner, outer = cross_section(p)
+                _, inner, outer, _ = cross_section(p)
                 self.assertEqual(outer[1] - inner[1], p.edge_depth)
                 slope = (outer[0] - inner[0]) / p.edge_depth
                 self.assertAlmostEqual(math.degrees(math.atan(slope)), incut)
@@ -131,8 +131,24 @@ class GeometryTests(unittest.TestCase):
             build(Parameters(seat_depth=30))
         with self.assertRaisesRegex(ValueError, "screws closer"):
             build(Parameters(width=50, auto_spacing=False))
-        with self.assertRaisesRegex(ValueError, "too little gripping surface"):
-            build(Parameters(edge_depth=35, incut=35, body_height=30, screws=False))
+
+    def test_oversized_lip_rounding_shrinks_to_fit(self):
+        # A radius the grip face cannot hold rounds as far as it can instead
+        # of refusing, so slopey edges are reachable; the preview says so.
+        p = Parameters(edge_depth=35, incut=35, body_height=30, screws=False)
+        model = build(p)
+        self.assert_solid(model)
+        self.assertLess(model.lip_radius, p.lip_radius)
+        self.assertGreater(model.lip_radius, 0)
+        self.assertEqual(model.preview()["lip_radius"], model.lip_radius)
+        small = build(Parameters(edge_depth=4, lip_radius=20, screws=False))
+        self.assert_solid(small)
+        self.assertLess(small.lip_radius, 4)
+        self.assertEqual(build(Parameters()).lip_radius, Parameters().lip_radius)
+        # A sloping edge has room for the full rounding: a 20 mm sloper.
+        sloper = build(Parameters(lip_radius=20, incut=-30, screws=False))
+        self.assert_solid(sloper)
+        self.assertEqual(sloper.lip_radius, 20)
 
     def test_seeded_character_and_profile_match_the_mesh(self):
         p = Parameters(character=0.7, bow=7, screws=False)

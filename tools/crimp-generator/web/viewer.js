@@ -162,6 +162,14 @@ function svgElement(name, attributes, text) {
   return node;
 }
 
+// The lip rounds as far as the edge allows; say so when that is less than asked.
+function lipRadiusLabel(data, parameters) {
+  const fits = data.lip_radius;
+  return fits < parameters.lip_radius
+    ? `${parameters.lip_radius} mm lip radius (${fits} mm fits)`
+    : `${parameters.lip_radius} mm lip radius`;
+}
+
 export function drawProfile(svg, data, parameters) {
   svg.replaceChildren();
   const ys = data.profile.map((point) => point[0]);
@@ -260,7 +268,7 @@ export function drawProfile(svg, data, parameters) {
     svgElement(
       "text",
       { x: 240, y: 222, "text-anchor": "middle" },
-      `${parameters.incut}° incut · ${parameters.lip_radius} mm lip radius`,
+      `${parameters.incut}° incut · ${lipRadiusLabel(data, parameters)}`,
     ),
   );
 }

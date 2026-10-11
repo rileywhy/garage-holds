@@ -100,7 +100,10 @@ export function CrimpLab() {
         setPreview(data);
         setDesign(data.design);
         setStatus({
-          text: "Preview is current. Export builds a finer version of this shape.",
+          text:
+            data.lip_radius < Number(data.design.parameters.lip_radius)
+              ? `Preview is current. The edge only has room for ${data.lip_radius} mm of lip rounding; deepen the edge or raise the body for more.`
+              : "Preview is current. Export builds a finer version of this shape.",
           error: false,
         });
       } catch (error) {

@@ -87,6 +87,8 @@ export function Profile({
       </text>
       <text x={240} y={222} textAnchor="middle">
         {parameters.incut}° incut · {parameters.lip_radius} mm lip radius
+        {data.lip_radius < Number(parameters.lip_radius) &&
+          ` (${data.lip_radius} mm fits)`}
       </text>
     </svg>
   );

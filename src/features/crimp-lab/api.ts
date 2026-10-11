@@ -39,6 +39,8 @@ export interface Preview {
   volume_cm3: number;
   triangles: number;
   screw_spacing: number | null;
+  // The lip radius actually used: smaller than asked when the edge is short.
+  lip_radius: number;
   watertight: boolean;
   design: Design;
 }

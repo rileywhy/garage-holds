@@ -21,9 +21,11 @@ class Model:
     screws: list[tuple[float, float]]
     grip_inner: tuple[float, float]
     grip_outer: tuple[float, float]
+    lip_radius: float
 
     def preview(self) -> dict:
         return dict(
+            lip_radius=self.lip_radius,
             vertices=np.round(self.mesh.vertices, 5).tolist(),
             faces=self.mesh.faces.tolist(),
             profile=np.round(self.profile, 5).tolist(),
@@ -42,33 +44,46 @@ class Model:
 
 def _rounded_outline(
     points: np.ndarray, radii: list[float], segments: int
-) -> np.ndarray:
-    """Circular corner fillets and subdivided connecting lines, in Y/Z."""
-    starts, ends, arcs = [], [], []
+) -> tuple[np.ndarray, list[float]]:
+    """Circular corner fillets and subdivided connecting lines, in Y/Z.
+
+    Fillets that would overrun a side shrink to fit: each side keeps a sliver
+    of straight line, shared in proportion by the two corners on it, so a
+    big lip fillet can use nearly the whole grip face when the shelf fillet
+    beside it is small. The radii actually used are returned.
+    """
+    count = len(points)
+    incomings, outgoings, turns, wanted = [], [], [], []
     for index, point in enumerate(points):
-        before, after = points[index - 1], points[(index + 1) % len(points)]
+        before, after = points[index - 1], points[(index + 1) % count]
         incoming, outgoing = point - before, after - point
-        length_in, length_out = np.linalg.norm(incoming), np.linalg.norm(outgoing)
-        incoming, outgoing = incoming / length_in, outgoing / length_out
+        incoming = incoming / np.linalg.norm(incoming)
+        outgoing = outgoing / np.linalg.norm(outgoing)
         turn = math.atan2(
             incoming[0] * outgoing[1] - incoming[1] * outgoing[0], incoming @ outgoing
         )
-        radius = radii[index]
-        if radius == 0 or abs(turn) < 1e-8:
+        incomings.append(incoming)
+        outgoings.append(outgoing)
+        turns.append(turn)
+        wanted.append(
+            0 if radii[index] == 0 or abs(turn) < 1e-8 else radii[index] * math.tan(abs(turn) / 2)
+        )
+    scale = [1.0] * count
+    for index in range(count):
+        following = (index + 1) % count
+        room = 0.96 * np.linalg.norm(points[following] - points[index])
+        total = wanted[index] + wanted[following]
+        if total > room:
+            scale[index] = min(scale[index], room / total)
+            scale[following] = min(scale[following], room / total)
+    starts, ends, arcs, used = [], [], [], []
+    for index, point in enumerate(points):
+        incoming, outgoing, turn = incomings[index], outgoings[index], turns[index]
+        radius, distance = radii[index] * scale[index], wanted[index] * scale[index]
+        if distance == 0:
             start = end = point
             arc = point[None, :]
         else:
-            distance = radius * math.tan(abs(turn) / 2)
-            maximum = 0.44 * min(length_in, length_out)
-            if distance > maximum:
-                # Body/root fillets can shorten to fit; the grip fillet is
-                # validated separately so its stated radius remains exact.
-                if index == 2:
-                    raise ValueError(
-                        "This incut and lip radius leave too little gripping surface. Reduce rounding or incut, or increase body height."
-                    )
-                radius *= maximum / distance
-                distance = maximum
             start, end = point - incoming * distance, point + outgoing * distance
             normal = np.array([-incoming[1], incoming[0]]) * np.sign(turn)
             center = start + normal * radius
@@ -78,19 +93,23 @@ def _rounded_outline(
         starts.append(start)
         ends.append(end)
         arcs.append(arc)
+        used.append(radius)
     contour = []
     for index, arc in enumerate(arcs):
         contour.extend(arc)
-        end, following = ends[index], starts[(index + 1) % len(points)]
+        end, following = ends[index], starts[(index + 1) % count]
         if np.linalg.norm(end - following) > 1e-8:
             contour.extend(
                 end + (following - end) * t
                 for t in np.linspace(0, 1, segments + 1)[1:-1]
             )
-    return np.asarray(contour)
+    return np.asarray(contour), used
 
 
-def cross_section(p: Parameters, segments: int = 12) -> tuple[np.ndarray, tuple, tuple]:
+def cross_section(
+    p: Parameters, segments: int = 12
+) -> tuple[np.ndarray, tuple, tuple, float]:
+    """The centre outline plus the grip corners and the lip radius that fit."""
     support = 6.0
     projection = p.edge_depth + support
     outer = (p.body_height / 2, projection)
@@ -108,19 +127,22 @@ def cross_section(p: Parameters, segments: int = 12) -> tuple[np.ndarray, tuple,
             (inner[0], 0),
         ]
     )
-    profile = _rounded_outline(
+    profile, used = _rounded_outline(
         points, [0, p.body_rounding, p.lip_radius, 1.5, 0], segments
     )
-    return profile, inner, outer
+    # The lip rounds as far as the edge and body allow. A radius larger than
+    # the grip face can hold is reported back rather than refused, so very
+    # rounded, slopey edges are reachable from any starting point.
+    return profile, inner, outer, round(used[2], 2)
 
 
 def _loft(
     p: Parameters, quality: str
-) -> tuple[trimesh.Trimesh, np.ndarray, tuple, tuple]:
+) -> tuple[trimesh.Trimesh, np.ndarray, tuple, tuple, float]:
     if quality not in {"preview", "export"}:
         raise ValueError("Unknown mesh quality.")
     segments, along = (6, 40) if quality == "preview" else (16, 100)
-    profile, inner, outer = cross_section(p, segments)
+    profile, inner, outer, lip_radius = cross_section(p, segments)
     half, rounding = p.width / 2, p.end_rounding
     core = half - rounding
     cap_angles = np.linspace(0, math.pi / 2, segments + 2)[1:-1]
@@ -178,7 +200,13 @@ def _loft(
     # The displayed section must include the same bow and seeded folds as
     # the centre ring of the mesh, rather than showing its unmodified profile.
     profile = rings[len(rings) // 2][:, 1:]
-    return mesh, profile, (inner[0] + p.bow, inner[1]), (outer[0] + p.bow, outer[1])
+    return (
+        mesh,
+        profile,
+        (inner[0] + p.bow, inner[1]),
+        (outer[0] + p.bow, outer[1]),
+        lip_radius,
+    )
 
 
 def _solid(mesh: trimesh.Trimesh) -> manifold.Manifold:
@@ -197,7 +225,7 @@ def _solid(mesh: trimesh.Trimesh) -> manifold.Manifold:
 
 def build(p: Parameters, quality: str = "preview") -> Model:
     p = parse_parameters(asdict(p))
-    mesh, profile, inner, outer = _loft(p, quality)
+    mesh, profile, inner, outer, lip_radius = _loft(p, quality)
     solid = _solid(mesh)
     if mesh.bounds[0, 2] < -1e-6:
         raise ValueError(
@@ -230,7 +258,7 @@ def build(p: Parameters, quality: str = "preview") -> Model:
         )
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("The generated mesh did not pass the closed-solid checks.")
-    return Model(mesh, profile, screws, inner, outer)
+    return Model(mesh, profile, screws, inner, outer, lip_radius)
 
 
 def _screw_positions(
