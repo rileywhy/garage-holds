@@ -10,8 +10,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "tsx --test tests/*.test.ts",
+    "test:integration": "tsx --test tests/integration/*.test.ts",
     "format": "prettier --write src tests eslint.config.mjs next.config.ts tsconfig.json package.json README.md",
-    "format:check": "prettier --check src tests eslint.config.mjs next.config.ts tsconfig.json package.json README.md"
+    "format:check": "prettier --check src tests eslint.config.mjs next.config.ts tsconfig.json package.json README.md",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts && prettier --write src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
@@ -33,6 +38,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.0",
     "prettier": "^3.9.10",
+    "supabase": "^2.120.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   }

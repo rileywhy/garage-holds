@@ -122,8 +122,8 @@ async function toHolds(rows: DesignRow[]): Promise<Hold[]> {
   return rows.map((row) => designRowToHold(row, urls));
 }
 
-// The client is untyped (no generated Database types yet), so row shapes are
-// asserted here, next to the queries that produce them.
+// PostgREST embeds come back as the generated column types; the narrowed
+// domain row shapes are asserted here, next to the queries that produce them.
 function rows<T>(data: unknown): T[] {
   return (data ?? []) as T[];
 }

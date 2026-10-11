@@ -59,7 +59,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.
 - `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy, plus the server-only admin client used to record verified files.
 - `tests`: domain behavior tests.
-- `supabase/migrations`: the hosted schema, applied in order. `supabase/proposed-library.sql` is an unapplied draft of the remaining tables.
+- `supabase/migrations`: the schema, applied in order by the Supabase CLI. `supabase/config.toml` configures the local stack; `src/lib/supabase/database.types.ts` is generated from it with `npm run db:types`.
 
 ## Accounts
 

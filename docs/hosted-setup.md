@@ -107,24 +107,41 @@ Google Cloud console, in the project you intend to use.
      `/auth/callback`; Supabase talks to Google, then redirects to the app.
    - Copy the Client ID and Client Secret into the Supabase Google provider.
 
-## Applying migrations
+## Migrations and the Supabase CLI
 
-`supabase/migrations/*.sql` is the schema. `supabase/proposed-library.sql` is a
-draft and is not applied.
+`supabase/migrations/*.sql` is the schema. Files are named
+`<YYYYMMDDHHMMSS>_<name>.sql`, the Supabase CLI convention, and run in
+filename order. `supabase/config.toml` configures the local stack the CLI
+runs in Docker (`docs/local-stack.md`).
 
-Files are named `<YYYYMMDDHHMMSS>_<name>.sql`, the Supabase CLI convention, and
-run in filename order.
+The CLI is a dev dependency, so `npx supabase …` works after `npm ci` with no
+separate install. It needs a personal access token for the hosted project:
+`npx supabase login` stores one, or set `SUPABASE_ACCESS_TOKEN` (Account →
+Access Tokens in the dashboard). Both are secrets.
 
-Fastest for now: open the project's SQL editor
-(`https://supabase.com/dashboard/project/<project-ref>/sql/new`), paste one
-migration file, run it, and repeat for any later file, in order, once each.
+The first four migrations were pasted into the SQL editor by hand, so the
+hosted project does not know they ran. Do this once to adopt the CLI:
 
-Longer term the Supabase CLI applies them (`supabase link --project-ref <ref>`
-then `supabase db push`), and the same CLI runs the local Docker stack the
-ownership tests will use. When we switch to the CLI, any migration already
-applied by hand is recorded with
-`supabase migration repair --status applied <version>` so `db push` does not
-try to run it again.
+```sh
+npx supabase link --project-ref hbwvqjktqdxyspaqyshb   # asks for the database password
+npx supabase migration list --linked                   # local versions listed, remote column empty
+npx supabase migration repair --status applied \
+  20261010000000 20261011000000 20261012000000 20261013000000
+npx supabase migration list --linked                   # every version now in both columns
+npx supabase db push --dry-run                         # "Remote database is up to date."
+```
+
+From then on a new migration is a new file (`npx supabase migration new
+<name>` creates one with the right timestamp), applied with
+`npx supabase db push`. Never edit a migration that has been applied.
+
+`src/lib/supabase/database.types.ts` is generated, never hand-edited.
+`npm run db:types` regenerates it from the local stack; after a migration is
+pushed, confirm the hosted project agrees with
+`npx supabase gen types typescript --linked --schema public` (same output,
+run through `npx prettier --write`). Check `db.major_version` in
+`supabase/config.toml` against Project Settings → Infrastructure so the local
+Postgres matches the hosted one.
 
 ## What the app does with all this
 

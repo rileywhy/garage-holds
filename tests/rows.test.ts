@@ -28,7 +28,9 @@ const row: DesignRow = {
   texture_notes: "",
   post_processing: "",
   status: "published",
+  published_at: "2026-10-10T12:00:00.000Z",
   created_at: "2026-10-10T12:00:00.000Z",
+  updated_at: "2026-10-10T12:00:00.000Z",
   profiles: { display_name: "rileywhy" },
   design_files: [
     {
@@ -39,6 +41,8 @@ const row: DesignRow = {
       extension: "jpg",
       bytes: 2000,
       position: 1,
+      design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
+      created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
     },
     {
@@ -49,6 +53,8 @@ const row: DesignRow = {
       extension: "png",
       bytes: 1000,
       position: 0,
+      design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
+      created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
     },
     {
@@ -59,6 +65,8 @@ const row: DesignRow = {
       extension: "stl",
       bytes: 50000,
       position: 2,
+      design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
+      created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
     },
     {
@@ -69,6 +77,8 @@ const row: DesignRow = {
       extension: "3mf",
       bytes: 1,
       position: 3,
+      design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
+      created_at: "2026-10-10T12:00:00.000Z",
       status: "pending",
     },
   ],
@@ -113,6 +123,7 @@ test("missing profiles and reviews still render", () => {
     post_processing: "",
     problem_grade: null,
     created_at: "2026-10-10T12:00:00.000Z",
+    updated_at: "2026-10-10T12:00:00.000Z",
     profiles: null,
   });
   assert.equal(review.author, "Unknown maker");

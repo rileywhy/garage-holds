@@ -1,55 +1,35 @@
+import type { Tables } from "@/lib/supabase/database.types";
 import type { Hold, ModelFile, Photo, Review, SpecialProcess } from "./types";
 import type { License } from "./licenses";
 
 // Plain conversions between database rows and domain objects. No I/O here,
 // so the shapes stay testable without a database.
 
-export interface DesignRow {
-  id: string;
-  owner_id: string;
-  title: string;
-  description: string;
+// Columns come from the generated database types. Text columns that the
+// schema restricts with check constraints are narrowed to the domain unions
+// here, since the generator only sees `text`.
+export type DesignRow = Omit<
+  Tables<"designs">,
+  "hold_type" | "size" | "mounting" | "license" | "special_process" | "status"
+> & {
   hold_type: Hold["type"];
   size: Hold["size"];
   mounting: Hold["mount"];
-  problem_grade: number | null;
-  tags: string[];
   license: License;
-  material: string;
   special_process: SpecialProcess | null;
-  print_notes: string;
-  texture_notes: string;
-  post_processing: string;
   status: Hold["status"];
-  created_at: string;
   profiles: { display_name: string } | null;
   design_files: DesignFileRow[];
-}
+};
 
-export interface DesignFileRow {
-  id: string;
+export type DesignFileRow = Omit<Tables<"design_files">, "kind" | "status"> & {
   kind: "model" | "photo";
-  object_key: string;
-  name: string;
-  extension: string;
-  bytes: number;
-  position: number;
   status: "pending" | "ready";
-}
+};
 
-export interface ReviewRow {
-  id: string;
-  design_id: string;
-  author_id: string;
-  rating: number;
-  body: string;
-  material: string;
-  print_settings: string;
-  post_processing: string;
-  problem_grade: number | null;
-  created_at: string;
+export type ReviewRow = Tables<"reviews"> & {
   profiles: { display_name: string } | null;
-}
+};
 
 // Signed URLs are produced by the caller, keyed by file id, so this stays pure.
 export function designRowToHold(
