@@ -10,6 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const entries: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: "daily", priority: 1 },
+    { url: `${base}/make/crimp`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/make/sloper`, changeFrequency: "monthly", priority: 0.6 },
   ];
   const supabase = createSupabasePublicClient();
   if (!supabase) return entries;

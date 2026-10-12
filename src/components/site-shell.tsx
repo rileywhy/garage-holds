@@ -51,6 +51,12 @@ export function SiteHeader({
           >
             <Hammer size={15} /> Crimp Lab
           </Link>
+          <Link
+            href="/make/sloper"
+            className={`nav-link ${pathname === "/make/sloper" ? "active" : ""}`}
+          >
+            <FlaskConical size={15} /> sloper lab
+          </Link>
         </nav>
         <div className="header-actions">
           {account}

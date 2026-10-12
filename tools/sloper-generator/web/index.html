@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sloper Lab | Garage Holds</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three.module.js" } }
+    </script>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <span class="wordmark">garage holds</span><span class="divider">/</span
+        ><span>sloper lab</span>
+      </div>
+      <span class="local-label">local design tool</span>
+    </header>
+    <main>
+      <aside class="controls-panel" aria-label="Sloper controls">
+        <div class="intro">
+          <p class="eyebrow">a little less bite</p>
+          <h1>shape your sloper.</h1>
+          <p>
+            Start with a rounded board sloper. Stretch it, flatten it, or lean
+            into the slope.
+          </p>
+        </div>
+        <label class="preset-label" for="preset">starting point</label
+        ><select id="preset"></select>
+        <div class="tabs" role="tablist" aria-label="Design controls">
+          <button
+            type="button"
+            role="tab"
+            id="tab-grip"
+            aria-selected="true"
+            aria-controls="controls-grip"
+            data-group="Grip"
+          >
+            grip
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-shape"
+            aria-selected="false"
+            aria-controls="controls-shape"
+            tabindex="-1"
+            data-group="Shape"
+          >
+            shape
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-mounting"
+            aria-selected="false"
+            aria-controls="controls-mounting"
+            tabindex="-1"
+            data-group="Mounting"
+          >
+            mounting
+          </button>
+        </div>
+        <div id="control-groups"></div>
+        <div class="settings-actions">
+          <button type="button" id="save-settings" disabled>
+            save settings</button
+          ><label class="file-button" for="load-settings"
+            >load settings<input
+              type="file"
+              id="load-settings"
+              accept=".json,application/json"
+          /></label>
+        </div>
+        <p class="prototype-note">
+          Geometry prototype. A closed mesh does not verify a printed hold’s
+          strength.
+        </p>
+      </aside>
+      <section class="workspace" aria-label="Model preview">
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow">live preview</p>
+            <h2>find your slope.</h2>
+          </div>
+        </div>
+        <div class="viewer-card">
+          <div class="view-toolbar" role="group" aria-label="Preview angle">
+            <button type="button" data-view="three-quarter" aria-pressed="true">
+              3d
+            </button>
+            <button type="button" data-view="board" aria-pressed="false">
+              board preview
+            </button>
+            <button type="button" data-view="side" aria-pressed="false">
+              side
+            </button>
+            <button type="button" data-view="top" aria-pressed="false">
+              above
+            </button>
+            <button type="button" data-view="front" aria-pressed="false">
+              front
+            </button>
+            <button type="button" id="fit" class="fit-button">fit view</button>
+            <button type="button" id="reset">reset design</button>
+          </div>
+          <div class="board-controls" id="board-controls" hidden>
+            <label for="board-angle">board angle</label
+            ><input
+              type="number"
+              id="board-angle"
+              min="0"
+              max="70"
+              value="40"
+            />
+            <span>°</span>
+            <input
+              type="range"
+              id="board-slider"
+              aria-label="Board angle slider"
+              min="0"
+              max="70"
+              value="40"
+            />
+            <button type="button" id="standard">40° standard</button
+            ><button type="button" id="exact-side">exact side</button>
+            <p>from vertical · 0° is upright</p>
+          </div>
+          <div
+            id="viewer"
+            role="img"
+            aria-label="Interactive 3D sloper preview. Drag to rotate; scroll to zoom."
+          ></div>
+          <div class="viewer-caption">
+            <span>drag to rotate · scroll to zoom</span
+            ><span id="view-caption">flat back on the wall plane</span>
+          </div>
+        </div>
+      </section>
+      <div class="details-grid">
+        <section class="profile-card">
+          <div class="section-title">
+            <h3>side profile</h3>
+            <span>centre of hold</span>
+          </div>
+          <svg
+            id="profile"
+            viewBox="0 0 480 230"
+            role="img"
+            aria-label="Centre cross-section of the sloper, with the wall on the left"
+          ></svg>
+        </section>
+        <section class="export-card">
+          <h3>your model</h3>
+          <dl id="metrics"></dl>
+          <p id="status" role="status" aria-live="polite">loading generator…</p>
+          <button type="button" id="export" class="primary-button" disabled>
+            export STL <span aria-hidden="true">↗</span>
+          </button>
+          <p class="export-note">
+            25–40% infill · PETG at 1.27 g/cm³ · estimated 1.6 mm shell.
+            Excludes supports and waste; check your slicer.
+          </p>
+        </section>
+      </div>
+    </main>
+    <template id="control-template"
+      ><div class="control">
+        <div class="control-heading">
+          <label></label>
+          <div class="number-wrap"><input type="number" /><span></span></div>
+        </div>
+        <input type="range" />
+        <p></p></div
+    ></template>
+  </body>
+</html>

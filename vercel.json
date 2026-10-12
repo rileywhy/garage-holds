@@ -9,6 +9,10 @@
     "api/crimp.py": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/sloper.py": {
+      "maxDuration": 30,
+      "memory": 1024
     }
   }
 }
