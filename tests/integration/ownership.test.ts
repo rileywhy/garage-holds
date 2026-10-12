@@ -1,5 +1,6 @@
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
+import type { TablesInsert } from "../../src/lib/supabase/database.types";
 import {
   adminClient,
   anonymousClient,
@@ -56,7 +57,7 @@ describe("drafts", () => {
     assert.equal(method, "human-shaped");
     const absent = await owner.client
       .from("designs")
-      .insert({ ...missing, owner_id: owner.id });
+      .insert({ ...missing, owner_id: owner.id } as TablesInsert<"designs">);
     assert.equal(absent.error?.code, "23502");
     const invalid = await owner.client
       .from("designs")

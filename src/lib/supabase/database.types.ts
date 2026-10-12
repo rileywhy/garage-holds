@@ -98,6 +98,7 @@ export type Database = {
         Row: {
           created_at: string;
           description: string;
+          design_method: string;
           hold_type: string;
           id: string;
           license: string;
@@ -120,6 +121,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           description: string;
+          design_method: string;
           hold_type: string;
           id?: string;
           license: string;
@@ -141,6 +143,7 @@ export type Database = {
         Update: {
           created_at?: string;
           description?: string;
+          design_method?: string;
           hold_type?: string;
           id?: string;
           license?: string;
