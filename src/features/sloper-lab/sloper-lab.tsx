@@ -105,7 +105,10 @@ export function SloperLab() {
           await post("preview", latest.current, controller.current.signal)
         ).json()) as Preview;
         if (request !== sequence.current) return;
-        viewer.current?.setGeometry(previewGeometry(data), fitNext.current);
+        viewer.current?.setGeometry(
+          previewGeometry(data, true),
+          fitNext.current,
+        );
         fitNext.current = false;
         latest.current = { ...data.parameters };
         setParameters(latest.current);

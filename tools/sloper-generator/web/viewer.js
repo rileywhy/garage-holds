@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "/vendor/OrbitControls.js";
-import { toCreasedNormals } from "/vendor/BufferGeometryUtils.js";
+import {
+  mergeGeometries,
+  toCreasedNormals,
+} from "/vendor/BufferGeometryUtils.js";
 
 const VIEWS = {
   "three-quarter": [1, 0.7, 1.1],
@@ -57,14 +60,37 @@ export class Viewer {
   }
 
   update(data, fit = false) {
+    const back = [];
+    const surface = data.faces.filter((face) => {
+      if (face.every((i) => Math.abs(data.vertices[i][2]) < 1e-5)) {
+        back.push(face);
+        return false;
+      }
+      return true;
+    });
     const indexed = new THREE.BufferGeometry();
     indexed.setAttribute(
       "position",
       new THREE.Float32BufferAttribute(data.vertices.flat(), 3),
     );
-    indexed.setIndex(data.faces.flat());
-    const geometry = toCreasedNormals(indexed, Math.PI / 3);
+    indexed.setIndex(surface.flat());
+    let geometry = toCreasedNormals(indexed, Math.PI / 3);
     indexed.dispose();
+    if (back.length) {
+      const flat = new THREE.BufferGeometry();
+      flat.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(
+          back.flatMap((face) => face.flatMap((i) => data.vertices[i])),
+          3,
+        ),
+      );
+      flat.computeVertexNormals();
+      const merged = mergeGeometries([geometry, flat]);
+      geometry.dispose();
+      flat.dispose();
+      geometry = merged;
+    }
     const first = !this.mesh;
     if (this.mesh) {
       this.model.remove(this.mesh);
@@ -267,7 +293,7 @@ export function drawProfile(svg, data) {
     svgElement(
       "text",
       { x: 240, y: 222, "text-anchor": "middle" },
-      `${data.parameters.incut}° incut lift · ${data.parameters.projection} mm centre depth`,
+      `${data.parameters.incut}° lift · ${data.parameters.arc_wrap}° wrap · ${data.parameters.projection} mm depth`,
     ),
   );
 }

@@ -10,6 +10,7 @@ class Parameters:
     height: float = 85
     projection: float = 45
     incut: float = 35
+    arc_wrap: float = 0
     palm_curve: float = 25  # Legacy settings key; labelled "surface curve" in the GUI.
     slope: float = 12
     taper: float = 0
@@ -46,6 +47,16 @@ CONTROLS = [
         1,
         "°",
         "Raises the rounded surface as it projects from the wall. Higher is more positive, up to 45°. 0 keeps a plain dome.",
+    ),
+    control(
+        "arc_wrap",
+        "arc wrap",
+        "Grip",
+        0,
+        60,
+        1,
+        "°",
+        "Continues the rounded arc back toward the wall for more incut. 0 is a half dome; higher values wrap farther around and narrow the mounting face.",
     ),
     control(
         "projection",
@@ -95,7 +106,7 @@ CONTROLS = [
         240,
         1,
         "mm",
-        "Height of the oval mounting footprint. Incut lift can extend the hold above it; actual dimensions appear below.",
+        "Height before incut lift. Arc wrap narrows the mounting face; actual dimensions appear below.",
     ),
     control(
         "taper",
@@ -161,8 +172,14 @@ CONTROLS = [
 
 PRESETS = {
     "rounded board sloper": Parameters(),
-    "round dome": Parameters(
-        width=95, height=95, projection=48, palm_curve=0, slope=0, incut=0
+    "round ball": Parameters(
+        width=95,
+        height=95,
+        projection=78,
+        palm_curve=0,
+        slope=0,
+        incut=20,
+        arc_wrap=40,
     ),
     "broad sloper": Parameters(
         width=145, height=100, projection=42, palm_curve=75, slope=18, incut=45

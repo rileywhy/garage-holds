@@ -7,7 +7,7 @@ test("Sloper Lab settings preserve incut and restore old domes without lift", ()
     generator: "garage-holds-sloper",
     version: 1,
     units: "mm",
-    parameters: { width: 110, incut: 35 },
+    parameters: { width: 110, incut: 35, arc_wrap: 40 },
   };
   assert.deepEqual(
     parseDesignFile(JSON.stringify(document)),

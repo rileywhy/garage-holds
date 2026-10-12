@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   Box3,
   BoxGeometry,
+  DirectionalLight,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -78,7 +79,7 @@ function headlessViewer() {
     mesh: null,
     model,
     board,
-    boardLight: new Object3D(),
+    fillLight: new DirectionalLight(),
     grid: new Object3D(),
     material: new MeshStandardMaterial(),
     aspect: 800 / 600,

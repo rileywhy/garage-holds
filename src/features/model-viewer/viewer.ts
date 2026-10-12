@@ -36,7 +36,7 @@ export class Viewer {
   private board: BoardPanel;
   private grid: THREE.GridHelper;
   private boardAngle = DEFAULT_BOARD_ANGLE;
-  private boardLight = new THREE.DirectionalLight(0xffeadd, 1.8);
+  private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
   private resizeObserver: ResizeObserver;
   private aspect = 1;
   private halfHeight = 60;
@@ -67,9 +67,10 @@ export class Viewer {
     const rim = new THREE.DirectionalLight(0xcbc0ff, 1.8);
     rim.position.set(80, 50, -100);
     this.scene.add(rim);
-    this.boardLight.position.set(80, -60, 120);
-    this.boardLight.visible = false;
-    this.scene.add(this.boardLight);
+    // A soft fill reveals the rounded underside instead of leaving it dark
+    // when the hold is lying on the print bed. Mounted holds need more fill.
+    this.fillLight.position.set(80, -60, 120);
+    this.scene.add(this.fillLight);
     this.grid = new THREE.GridHelper(
       300,
       30,
@@ -110,7 +111,7 @@ export class Viewer {
   setView(view: ViewName) {
     this.view = view;
     this.board.mesh.visible = view === "board";
-    this.boardLight.visible = view === "board";
+    this.fillLight.intensity = view === "board" ? 1.8 : 1.2;
     this.grid.visible = view !== "board";
     if (view === "board") mountOnBoard(this.model, this.boardAngle);
     else this.model.rotation.set(-Math.PI / 2, 0, 0);

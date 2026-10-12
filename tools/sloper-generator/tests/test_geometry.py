@@ -67,11 +67,65 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_profile_matches_the_undrilled_mesh(self):
-        p = Parameters(character=1.1, seed=10, slope=24, taper=-35, screws=False)
+        p = Parameters(
+            character=1.1, seed=10, slope=24, taper=-35, screws=False, arc_wrap=40
+        )
         model = build(p)
         centre = model.mesh.vertices[np.abs(model.mesh.vertices[:, 0]) < 1e-6, 1:]
         for point in model.profile:
             self.assertLess(np.linalg.norm(centre - point, axis=1).min(), 1e-5)
+
+    def test_arc_wrap_continues_a_circle_beyond_its_widest_point(self):
+        # A radius-50 sphere cut 25 mm below its centre: 75 mm cap depth.
+        p = Parameters(
+            width=100,
+            height=100,
+            projection=75,
+            arc_wrap=30,
+            incut=0,
+            slope=0,
+            palm_curve=0,
+            screws=False,
+        )
+        model = build(p, "export")
+        self.assert_solid(model)
+        y, z = model.profile.T
+        np.testing.assert_allclose(y**2 + (z - 25) ** 2, 50**2, atol=1e-8)
+        self.assertAlmostEqual(
+            model.mesh.volume / (math.pi * 75**2 * 25), 1, delta=0.002
+        )
+        self.assertGreater(y.max(), abs(y[-1]) + 6)
+        # The upper return rises away from the wall: added incut with no lift.
+        self.assertGreater(y[-2], y[-1])
+        self.assertGreater(z[-2], z[-1])
+
+    def test_maximum_arc_wrap_keeps_all_screws_and_export_layout(self):
+        for count in (2, 3, 6):
+            with self.subTest(count=count):
+                p = Parameters(
+                    arc_wrap=60,
+                    incut=45,
+                    screw_count=count,
+                    width=40,
+                    height=40,
+                    projection=12,
+                    taper=-65,
+                    character=1.5,
+                    head_diameter=25,
+                    shank_diameter=12,
+                )
+                preview, exported = build(p), build(p, "export")
+                self.assert_solid(preview)
+                self.assert_solid(exported)
+                self.assertEqual(preview.parameters, exported.parameters)
+                self.assertEqual(preview.screws, exported.screws)
+                self.assertEqual(len(preview.screws), count)
+                self.assertEqual(
+                    len(_solid(exported.mesh).slice(0.1).to_polygons()), count + 1
+                )
+                self.assertAlmostEqual(
+                    preview.mesh.volume / exported.mesh.volume, 1, delta=0.01
+                )
 
     def test_incut_makes_the_surface_more_positive_on_a_40_degree_board(self):
         p = Parameters(screws=False)
@@ -207,6 +261,8 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(p.screw_count, 3)
         self.assertEqual(parse_parameters({"width": 1000}).width, 300)
         self.assertEqual(parse_parameters({"incut": 75}).incut, 45)
+        self.assertEqual(parse_parameters({"arc_wrap": 90}).arc_wrap, 60)
+        self.assertEqual(parse_parameters({"incut": 0}).arc_wrap, 0)
         for data in (
             [],
             {"width": True},

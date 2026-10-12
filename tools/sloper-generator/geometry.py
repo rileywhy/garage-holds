@@ -1,7 +1,7 @@
 """A rounded surface over an oval, closed by a flat mounting face.
 
 X across the board, Y up, Z out; the back is always Z=0. No HTTP or GUI state.
-The dome starts as a height field. A shear lifts its surface into an incut while
+The rounded cap can wrap past a half dome. A shear lifts it into an incut while
 keeping the back at Z=0. This invertible transform cannot fold the mesh.
 """
 
@@ -45,11 +45,20 @@ class Model:
         )
 
 
-def _surface(p, x, y):
+def _surface(p, x, y, returning=False):
     """x/y are normalised to the oval; slope is the centre tangent angle."""
     radial = np.minimum(1, np.sqrt(x * x + y * y))
     exponent = 2 + 4 * p.palm_curve / 100
     dome = np.sqrt(np.maximum(0, 1 - radial**exponent))
+    # Past the widest ring, follow the other half of the same rounded arc.
+    # Translate and scale the cap so its boundary stays at Z=0 and centre at
+    # the requested depth. At zero wrap this is the original half dome.
+    cap = (
+        -math.sqrt(max(0, 1 - math.cos(math.radians(p.arc_wrap)) ** exponent))
+        if p.arc_wrap
+        else 0
+    )
+    dome = (np.where(returning, -dome, dome) - cap) / (1 - cap)
     bias = (p.height / 2) * math.tan(math.radians(p.slope)) / p.projection
     depth = p.projection * dome * (1 - bias * y) * (1 - p.taper / 100 * x)
     if p.character:
@@ -65,12 +74,15 @@ def _surface(p, x, y):
 
 def _mesh(p, quality):
     radial_count, around = (24, 64) if quality == "preview" else (56, 160)
+    sweep = math.radians(90 + p.arc_wrap)
+    radial_count = math.ceil(radial_count * (90 + p.arc_wrap) / 90)
     angles = np.arange(around) * 2 * math.pi / around
     vertices = [[0, 0, float(_surface(p, 0, 0))]]
-    for radial in np.sin(np.linspace(0, math.pi / 2, radial_count + 1)[1:]):
+    for i, phi in enumerate(np.linspace(0, sweep, radial_count + 1)[1:]):
+        radial = math.sin(phi)
         x, y = radial * np.cos(angles), radial * np.sin(angles)
-        depth = _surface(p, x, y)
-        if radial == 1:
+        depth = _surface(p, x, y, returning=phi > math.pi / 2)
+        if i == radial_count - 1:
             depth[:] = 0  # Shared boundary: no epsilon-height rim.
         vertices.extend(np.column_stack((x * p.width / 2, y * p.height / 2, depth)))
     back = len(vertices)
@@ -91,8 +103,14 @@ def _mesh(p, quality):
     lift = math.tan(math.radians(p.incut))
     vertices[:, 1] += vertices[:, 2] * lift
     mesh = trimesh.Trimesh(vertices, faces, process=True)
-    y = np.sin(np.linspace(-math.pi / 2, math.pi / 2, 2 * radial_count + 1))
-    profile = np.column_stack((y * p.height / 2, _surface(p, np.zeros_like(y), y)))
+    phi = np.linspace(-sweep, sweep, 2 * radial_count + 1)
+    y = np.sin(phi)
+    profile = np.column_stack(
+        (
+            y * p.height / 2,
+            _surface(p, np.zeros_like(y), y, returning=np.abs(phi) > math.pi / 2),
+        )
+    )
     profile[[0, -1], 1] = 0
     profile[:, 0] += profile[:, 1] * lift
     return mesh, profile

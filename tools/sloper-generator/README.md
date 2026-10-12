@@ -18,7 +18,7 @@ The server binds only to this computer and serves an explicit asset list.
 
 ## Controls
 
-- **grip:** incut lift (0–45°), centre depth, surface curve (round dome to a broader
+- **grip:** incut lift (0–45°), arc wrap (0–60°), centre depth, surface curve (round dome to a broader
   flatter surface), and surface slope to fine-tune the dome's bias. Incut lift raises
   the rounded surface as it projects from the wall, so it can extend above the mounting
   footprint and offer a positive grip on an overhanging board. The lift angle
@@ -27,6 +27,10 @@ The server binds only to this computer and serves an explicit asset list.
   the shapes in sloper territory. Older settings above that limit clamp to 45°.
   No grade is inferred. Shallow holds can still limit
   surface slope, but incut lift retains its full range.
+  Arc wrap continues the rounded surface past its widest point and back toward the
+  wall, adding a rounded return rather than lifting the whole body. It narrows the
+  flat mounting face. Zero preserves the original half dome, including older saved
+  settings. **round ball** starts with a nearly spherical cap, 40° wrap and 20° lift.
 - **shape:** width, height, left/right depth taper, and seeded broad surface
   character. The footprint is always an oval. It is a new sloper surface, not
   a Crimp Lab preset: there is no shelf or sharp gripping lip.
@@ -54,7 +58,9 @@ as Crimp Lab. No supports or waste are included.
 ## Geometry and code
 
 Coordinates: X across, Y up, Z out of the board; the mounting face is Z=0.
-A smooth height field over an ellipse makes a closed, flat-backed solid.
+A rounded cap over an ellipse makes a closed, flat-backed solid. Arc wrap extends
+the polar sweep past 90°; both branches follow the same curve, translated and
+scaled to retain the requested centre depth and a flat back.
 An invertible shear `Y += Z * tan(incut)` lifts the rounded surface without moving
 the back or introducing folded faces. Surface curve controls radial curvature; slope biases depth vertically; taper
 biases it sideways. Seeded undulations keep positive depth and a flat back.

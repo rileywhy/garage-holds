@@ -32,8 +32,8 @@ export function Profile({ data }: { data: Preview }) {
         wall
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {data.parameters.incut}° incut lift · {data.parameters.projection} mm
-        centre depth
+        {data.parameters.incut}° lift · {data.parameters.arc_wrap}° wrap ·{" "}
+        {data.parameters.projection} mm depth
       </text>
     </svg>
   );
