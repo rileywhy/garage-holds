@@ -3028,22 +3028,68 @@ svg {
   font-size: 13px;
   line-height: 1.5;
 }
-.eyebrow-method {
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
+/* Square tags: "free grip" and the design method on the design page, the
+   HS badge on cards. A tag with data-tip explains itself at once on hover
+   or focus, instead of waiting on the browser's own tooltip delay. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--overlay);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none;
+}
+.tag-tip {
+  position: relative;
   cursor: help;
+}
+.tag-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  width: 260px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 5;
+}
+.tag-tip:hover::after,
+.tag-tip:focus-visible::after {
+  opacity: 1;
+}
+.eyebrow-tags {
+  letter-spacing: 0;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.eyebrow-tags .tag {
+  color: var(--accent);
 }
 .card-human-shaped {
   position: absolute;
   right: 14px;
   bottom: 14px;
-  padding: 5px 8px;
-  border-radius: 5px;
-  background: var(--overlay);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  font-size: 11px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: help;
+}
+.card-human-shaped::after {
+  left: auto;
+  right: 0;
+  top: auto;
+  bottom: calc(100% + 6px);
+  width: 160px;
 }

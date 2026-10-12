@@ -82,13 +82,14 @@ export function HoldCard({
           signedIn={signedIn}
         />
         {hold.designMethod === "human-shaped" && (
-          <abbr
-            className="card-human-shaped"
-            title="human shaped hold"
+          <span
+            className="tag tag-tip card-human-shaped"
+            data-tip="human shaped hold"
             aria-label="human shaped hold"
+            tabIndex={0}
           >
             HS
-          </abbr>
+          </span>
         )}
       </div>
       <div className="card-info">

@@ -58,17 +58,20 @@ export function HoldDetail({
           </div>
         </div>
         <div className="detail-summary">
-          <p className="eyebrow">
-            {hold.status === "draft"
-              ? "DRAFT · ONLY YOU CAN SEE THIS"
-              : "free grip"}
-            <span aria-hidden="true">·</span>
-            <abbr
-              className="eyebrow-method"
-              title={DESIGN_METHOD_NOTES[hold.designMethod].description}
+          <p className="eyebrow eyebrow-tags">
+            <span className="tag">
+              {hold.status === "draft"
+                ? "draft · only you can see this"
+                : "free grip"}
+            </span>
+            <span
+              className="tag tag-tip"
+              data-tip={DESIGN_METHOD_NOTES[hold.designMethod].description}
+              aria-label={`${DESIGN_METHOD_NOTES[hold.designMethod].label}. ${DESIGN_METHOD_NOTES[hold.designMethod].description}`}
+              tabIndex={0}
             >
               {DESIGN_METHOD_NOTES[hold.designMethod].label}
-            </abbr>
+            </span>
           </p>
           <h1>{hold.title}</h1>
           <p className="detail-creator">
