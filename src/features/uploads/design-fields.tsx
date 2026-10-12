@@ -13,6 +13,7 @@ import {
   type DesignInput,
 } from "@/features/holds/types";
 import { LicenseField } from "./license-field";
+import { DesignMethodField } from "./design-method-field";
 
 // The metadata sections shared by the upload and edit forms. The upload form
 // slots its file pickers in as section two; editing has no files section.
@@ -204,6 +205,7 @@ export function DesignFields({
             <p>Free downloads are the starting point for this library.</p>
           </div>
         </div>
+        <DesignMethodField />
         <LicenseField defaultValue={defaults?.license ?? ""} />
         {sharingConfirmation && (
           <label className="checkbox-row ownership-check">

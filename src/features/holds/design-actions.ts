@@ -42,6 +42,7 @@ export async function updateDesign(
       problem_grade: input.problemGrade,
       tags: input.tags,
       license: input.license,
+      design_method: input.designMethod,
       material: recipe.material,
       special_process: recipe.specialProcess,
       print_notes: recipe.notes,

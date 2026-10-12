@@ -33,6 +33,7 @@ before(async () => {
       size: "Medium",
       mounting: "Screw-on",
       license: "CC BY 4.0",
+      design_method: "human-shaped",
       material: "PETG",
     })
     .select("id")

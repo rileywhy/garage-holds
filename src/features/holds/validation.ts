@@ -2,6 +2,7 @@ import { isProblemGrade } from "./grades";
 import { LICENSES } from "./licenses";
 import {
   HOLD_SIZES,
+  DESIGN_METHODS,
   HOLD_TYPES,
   MOUNT_TYPES,
   SPECIAL_PROCESSES,
@@ -78,6 +79,10 @@ export function validateDesign(hold: DesignInput): string[] {
   const errors: string[] = [];
   if (hold.title.trim().length < 3 || hold.title.trim().length > 80)
     errors.push("Give your design a title between 3 and 80 characters.");
+  if (!DESIGN_METHODS.includes(hold.designMethod))
+    errors.push(
+      "Choose Human-shaped or Generated to tell us how the hold was shaped.",
+    );
   if (hold.description.trim().length < 20 || hold.description.length > 5000)
     errors.push("Add a description between 20 and 5,000 characters.");
   if (

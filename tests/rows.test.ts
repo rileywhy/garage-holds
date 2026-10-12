@@ -24,6 +24,7 @@ const row: DesignRow = {
   problem_grade: 5,
   tags: ["crimp", "board training"],
   license: "CC BY 4.0",
+  design_method: "human-shaped",
   material: "PETG-CF",
   special_process: null,
   print_notes: "0.2 mm layers, 4 walls.",
@@ -178,14 +179,23 @@ test("the design form reads into a DesignInput with trimmed, deduplicated tags",
   form.set("postProcessing", "");
   form.set("tags", "crimp, board training ,crimp,, edge");
   form.set("license", "CC BY 4.0");
+  form.set("designMethod", "human-shaped");
   const input = readDesignInput(form);
   assert.equal(input.title, "Mesa edge");
+  assert.equal(input.designMethod, "human-shaped");
   assert.equal(input.problemGrade, 5);
   assert.equal(input.recipes[0].specialProcess, null);
   assert.deepEqual(input.tags, ["crimp", "board training", "edge"]);
   assert.deepEqual(validateDesign(input), []);
   form.set("problemGrade", "");
   assert.equal(readDesignInput(form).problemGrade, null);
+  form.delete("designMethod");
+  assert.equal(readDesignInput(form).designMethod, "");
+  assert.ok(
+    validateDesign(readDesignInput(form)).some((error) =>
+      error.includes("Human-shaped or Generated"),
+    ),
+  );
 });
 
 test("photo sizes live beside the original under derived keys", () => {

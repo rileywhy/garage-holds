@@ -18,6 +18,7 @@ export function filterHolds(holds: Hold[], filters: HoldFilters): Hold[] {
       .toLowerCase();
     return (
       (!query || query.split(/\s+/).every((word) => search.includes(word))) &&
+      (!filters.designMethod || hold.designMethod === filters.designMethod) &&
       (!filters.types.length || filters.types.includes(hold.type)) &&
       (!filters.sizes.length || filters.sizes.includes(hold.size)) &&
       (!filters.mounts.length || filters.mounts.includes(hold.mount)) &&
@@ -44,6 +45,7 @@ export function filterHolds(holds: Hold[], filters: HoldFilters): Hold[] {
 export function activeFilterCount(filters: HoldFilters): number {
   return (
     filters.types.length +
+    Number(Boolean(filters.designMethod)) +
     filters.sizes.length +
     filters.mounts.length +
     filters.materials.length +

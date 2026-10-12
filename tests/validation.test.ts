@@ -48,6 +48,27 @@ test("all sample entries satisfy domain constraints", () => {
     assert.deepEqual(validateDesign(hold), [], hold.id);
 });
 
+test("upload and edit require an explicit supported design method", () => {
+  for (const designMethod of ["human-shaped", "generated"] as const)
+    assert.deepEqual(validateDesign({ ...SAMPLE_HOLDS[0], designMethod }), []);
+  for (const designMethod of ["", "original", undefined]) {
+    const input = {
+      ...SAMPLE_HOLDS[0],
+      designMethod,
+    } as (typeof SAMPLE_HOLDS)[number];
+    assert.ok(
+      validateDesign(input).some((error) =>
+        error.includes("Human-shaped or Generated"),
+      ),
+    );
+    assert.ok(
+      validateUpload(input, [model], [], true).some((error) =>
+        error.includes("Human-shaped or Generated"),
+      ),
+    );
+  }
+});
+
 test("normal recipes need no special process or texture notes; texture notes have a limit", () => {
   const recipe: PrintRecipe = {
     material: "PETG",

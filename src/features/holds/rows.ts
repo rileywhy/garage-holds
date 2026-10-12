@@ -12,12 +12,19 @@ import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
 // here, since the generator only sees `text`.
 export type DesignRow = Omit<
   Tables<"designs">,
-  "hold_type" | "size" | "mounting" | "license" | "special_process" | "status"
+  | "hold_type"
+  | "size"
+  | "mounting"
+  | "license"
+  | "special_process"
+  | "status"
+  | "design_method"
 > & {
   hold_type: Hold["type"];
   size: Hold["size"];
   mounting: Hold["mount"];
   license: License;
+  design_method: Hold["designMethod"];
   special_process: SpecialProcess | null;
   status: Hold["status"];
   profiles: { display_name: string } | null;
@@ -87,6 +94,7 @@ export function designRowToHold(
     ],
     tags: row.tags,
     license: row.license,
+    designMethod: row.design_method,
     color: holdColor(row.id),
     photos,
     files,

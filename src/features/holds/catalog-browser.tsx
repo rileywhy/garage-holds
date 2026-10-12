@@ -154,6 +154,24 @@ export function CatalogBrowser({
                 </button>
               )}
             </div>
+            <fieldset className="filter-group">
+              <legend>Design method</legend>
+              <select
+                aria-label="Design method"
+                value={filters.designMethod}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    designMethod: event.target
+                      .value as HoldFilters["designMethod"],
+                  }))
+                }
+              >
+                <option value="">All designs</option>
+                <option value="human-shaped">Human-shaped (HS)</option>
+                <option value="generated">Generated</option>
+              </select>
+            </fieldset>
             {groups.map((group) => (
               <fieldset className="filter-group" key={group.key}>
                 <legend>{group.label}</legend>
