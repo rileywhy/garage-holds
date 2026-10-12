@@ -3,33 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import { FileBox } from "lucide-react";
 import { getStlThumbnail } from "./stl-thumbnail";
-import { STL_VIEWS, type StlView } from "./stl-views";
 
+// A card's one-off side view of the uploaded model, rendered to an image
+// once it scrolls near. The design page shows the interactive viewer instead
+// (stl-viewer.tsx).
 export function StlPreview({
   file,
   title,
-  showAngles = false,
 }: {
   file: { id: string; url: string };
   title: string;
-  showAngles?: boolean;
 }) {
   const { id: fileId, url } = file;
   const container = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<StlView>("side");
-  // The render result is tagged with the file and view it was made for, so a
-  // changed file or angle reads as "loading" without resetting state in the effect.
-  const key = `${fileId}:${view}`;
-  const [rendered, setRendered] = useState({ key, image: "", failed: false });
+  // The render result is tagged with the file it was made for, so a changed
+  // file reads as "loading" without resetting state in the effect.
+  const [rendered, setRendered] = useState({
+    fileId: "",
+    image: "",
+    failed: false,
+  });
   useEffect(() => {
     let active = true;
     const load = () => {
-      getStlThumbnail({ id: fileId, url }, view)
+      getStlThumbnail({ id: fileId, url })
         .then((image) => {
-          if (active) setRendered({ key, image, failed: false });
+          if (active) setRendered({ fileId, image, failed: false });
         })
         .catch(() => {
-          if (active) setRendered({ key, image: "", failed: true });
+          if (active) setRendered({ fileId, image: "", failed: true });
         });
     };
     const observer = new IntersectionObserver(
@@ -46,10 +48,9 @@ export function StlPreview({
       active = false;
       observer.disconnect();
     };
-  }, [fileId, url, view, key]);
+  }, [fileId, url]);
   const { image, failed } =
-    rendered.key === key ? rendered : { image: "", failed: false };
-  const label = STL_VIEWS.find((option) => option.id === view)!.label;
+    rendered.fileId === fileId ? rendered : { image: "", failed: false };
   return (
     <div className="stl-preview" ref={container}>
       <div className="stl-preview-canvas" aria-busy={!image && !failed}>
@@ -57,10 +58,10 @@ export function StlPreview({
           <>
             <img
               src={image}
-              alt={`STL preview of ${title}, ${label.toLowerCase()} view`}
+              alt={`STL preview of ${title}, side view`}
               className="stl-preview-image"
             />
-            <span className="illustration-label">STL preview · {label}</span>
+            <span className="illustration-label">STL preview</span>
           </>
         ) : (
           <div className="image-placeholder no-photo-visual">
@@ -76,25 +77,6 @@ export function StlPreview({
           </div>
         )}
       </div>
-      {showAngles && (
-        <div
-          className="stl-preview-angles"
-          role="group"
-          aria-label="STL preview angle"
-        >
-          {STL_VIEWS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-label={`Show ${option.label.toLowerCase()} view`}
-              aria-pressed={view === option.id}
-              onClick={() => setView(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -19,6 +19,8 @@ export function prepareStlGeometry(data: ArrayBuffer) {
     if (!Number.isFinite(radius) || radius <= 0)
       throw new Error("This STL has no visible shape.");
     geometry.scale(1 / radius, 1 / radius, 1 / radius);
+    // The file's own scale, so a viewer can show the hold at true size again.
+    geometry.userData.radius = radius;
     geometry.computeVertexNormals();
     return geometry;
   } catch (error) {

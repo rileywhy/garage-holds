@@ -9,7 +9,9 @@ import {
   Matrix4,
   type BufferGeometry,
 } from "three";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { prepareStlGeometry } from "../src/features/holds/stl-geometry";
+import { holdGeometry } from "../src/features/holds/stl-scene";
 import {
   getStlViewFrame,
   getStlViewDirection,
@@ -182,4 +184,42 @@ test("oversized and overly detailed STLs are rejected without changing upload su
   const data = new ArrayBuffer(84 + (MAX_STL_PREVIEW_TRIANGLES + 1) * 50);
   new DataView(data).setUint32(80, MAX_STL_PREVIEW_TRIANGLES + 1, true);
   assert.throws(() => prepareStlGeometry(data), /too detailed/);
+});
+
+test("the viewer stands an STL on its mounting face at the file's own size", () => {
+  const data = fixture("preview-shape.stl");
+  const original = Buffer.from(data).toString("base64");
+  const reference = new STLLoader().parse(data);
+  reference.computeBoundingSphere();
+  const geometry = holdGeometry(data);
+  try {
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    // Same size as the file, flat back on Z=0, centred across and up.
+    assert.ok(
+      Math.abs(
+        geometry.boundingSphere!.radius - reference.boundingSphere!.radius,
+      ) < 1e-3,
+    );
+    assert.ok(Math.abs(box.min.z) < 1e-6);
+    assert.ok(Math.abs(box.min.x + box.max.x) < 1e-6);
+    assert.ok(Math.abs(box.min.y + box.max.y) < 1e-6);
+    assert.ok(box.max.x - box.min.x >= box.max.y - box.min.y);
+    // The mounting face is the broad flat face on Z=0: most of the
+    // downward-facing area lies there.
+    const positions = geometry.getAttribute("position");
+    const normals = geometry.getAttribute("normal");
+    let down = 0;
+    let onBack = 0;
+    for (let i = 0; i < positions.count; i += 3) {
+      if (normals.getZ(i) > -0.99) continue;
+      down++;
+      if (positions.getZ(i) < 1e-3) onBack++;
+    }
+    assert.ok(down > 0 && onBack / down > 0.9);
+    assert.equal(Buffer.from(data).toString("base64"), original);
+  } finally {
+    geometry.dispose();
+    reference.dispose();
+  }
 });

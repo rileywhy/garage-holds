@@ -4,6 +4,7 @@ import { useId } from "react";
 import type { Hold, Illustration } from "@/features/holds/types";
 import { FileBox } from "lucide-react";
 import { StlPreview } from "@/features/holds/stl-preview";
+import { StlViewer } from "@/features/holds/stl-viewer";
 import { PhotoImage } from "./photo-image";
 
 const profiles: Record<Illustration, string> = {
@@ -190,7 +191,8 @@ export function previewModel(hold: Hold) {
 }
 
 // A photo by index, or the 3D preview when the index is past the photos
-// (cards cycle through photos and then the model).
+// (cards cycle through photos and then the model). The design page (large)
+// gets the interactive viewer; cards get a one-off thumbnail.
 export function HoldVisual({
   hold,
   large = false,
@@ -213,7 +215,11 @@ export function HoldVisual({
   ) : hold.isSample ? (
     <HoldIllustration hold={hold} large={large} />
   ) : stl ? (
-    <StlPreview file={stl} title={hold.title} showAngles={large} />
+    large ? (
+      <StlViewer file={stl} title={hold.title} />
+    ) : (
+      <StlPreview file={stl} title={hold.title} />
+    )
   ) : (
     <div className="image-placeholder no-photo-visual">
       <FileBox size={32} aria-hidden="true" />

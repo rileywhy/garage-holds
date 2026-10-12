@@ -1770,6 +1770,32 @@ svg {
   height: 100%;
   object-fit: contain;
 }
+/* The design page's interactive model view (stl-viewer.tsx). */
+.stl-viewer-canvas {
+  position: absolute;
+  inset: 0;
+}
+.stl-viewer-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+.stl-viewer-note {
+  position: absolute;
+  inset: 0;
+}
+.stl-viewer-angle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.stl-viewer-angle input[type="range"] {
+  width: 110px;
+  accent-color: var(--accent);
+}
 .no-photo-visual {
   flex-direction: column;
   gap: 10px;

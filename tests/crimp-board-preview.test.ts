@@ -11,12 +11,13 @@ import {
   Vector3,
 } from "three";
 import type { Preview } from "../src/features/crimp-lab/api";
-import { Viewer } from "../src/features/crimp-lab/viewer";
+import { Viewer } from "../src/features/model-viewer/viewer";
+import { previewGeometry } from "../src/features/crimp-lab/preview-geometry";
 import {
   BoardPanel,
   DEFAULT_BOARD_ANGLE,
   mountOnBoard,
-} from "../src/features/crimp-lab/board-preview";
+} from "../src/features/model-viewer/board-preview";
 
 test("40° means overhang from vertical, with the contact face pointing down and out", () => {
   const mounted = new Group();
@@ -71,7 +72,7 @@ function headlessViewer() {
   model.add(board.mesh);
   const viewer = Object.assign(Object.create(Viewer.prototype), {
     camera,
-    controls: { target, update() {} },
+    controls: { target, update() {}, autoRotate: false },
     renderer: { render() {}, setSize() {} },
     container: { clientWidth: 800, clientHeight: 600 },
     mesh: null,
@@ -127,7 +128,7 @@ function preview(width: number): Preview {
 
 test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", () => {
   const { viewer, camera, target, model } = headlessViewer();
-  viewer.update(preview(100));
+  viewer.setGeometry(previewGeometry(preview(100)));
   viewer.setView("board");
   // A user has orbited, panned, and zoomed away from the default view.
   target.set(15, 35, 25);
@@ -141,7 +142,7 @@ test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", (
     target: target.toArray(),
     projection: camera.projectionMatrix.toArray(),
   };
-  viewer.update(preview(180));
+  viewer.setGeometry(previewGeometry(preview(180)));
   viewer.setBoardAngle(55);
   assert.deepEqual(camera.position.toArray(), before.position);
   assert.deepEqual(camera.quaternion.toArray(), before.rotation);
@@ -151,7 +152,7 @@ test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", (
   assert.ok(Math.abs(model.rotation.x - (55 * Math.PI) / 180) < 1e-12);
 
   const direction = camera.position.clone().sub(target).normalize();
-  viewer.update(preview(250), true); // Preset/settings changes can refit.
+  viewer.setGeometry(previewGeometry(preview(250)), true); // Preset/settings changes can refit.
   assert.ok(
     camera.position.clone().sub(target).normalize().distanceTo(direction) <
       1e-12,
@@ -160,7 +161,7 @@ test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", (
 
 test("exact board side stays side-on after shape and board-angle changes", () => {
   const { viewer, camera, target } = headlessViewer();
-  viewer.update(preview(100));
+  viewer.setGeometry(previewGeometry(preview(100)));
   viewer.setView("board");
   viewer.setBoardSideView();
   const direction = camera.getWorldDirection(new Vector3());
@@ -168,7 +169,7 @@ test("exact board side stays side-on after shape and board-angle changes", () =>
   assert.equal(camera.position.y, target.y);
   assert.equal(camera.position.z, target.z);
   const rotation = camera.quaternion.toArray();
-  viewer.update(preview(160));
+  viewer.setGeometry(previewGeometry(preview(160)));
   viewer.setBoardAngle(70);
   assert.deepEqual(camera.quaternion.toArray(), rotation);
 });

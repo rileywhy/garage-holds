@@ -14,8 +14,16 @@ import {
   type Schema,
 } from "./api";
 import { Profile } from "./profile";
-import { Viewer, type ViewName } from "./viewer";
-import { DEFAULT_BOARD_ANGLE, MAX_BOARD_ANGLE } from "./board-preview";
+import {
+  Viewer,
+  isDarkTheme,
+  type ViewName,
+} from "@/features/model-viewer/viewer";
+import {
+  DEFAULT_BOARD_ANGLE,
+  MAX_BOARD_ANGLE,
+} from "@/features/model-viewer/board-preview";
+import { previewGeometry } from "./preview-geometry";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
@@ -77,11 +85,7 @@ export function CrimpLab() {
   useEffect(() => {
     const box = viewerBox.current;
     if (!box || viewer.current) return;
-    const dark =
-      document.documentElement.dataset.theme === "dark" ||
-      (!document.documentElement.dataset.theme &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    viewer.current = new Viewer(box, dark);
+    viewer.current = new Viewer(box, { dark: isDarkTheme() });
     return () => {
       viewer.current?.dispose();
       viewer.current = null;
@@ -103,7 +107,7 @@ export function CrimpLab() {
         );
         const data = (await response.json()) as Preview;
         if (request !== sequence.current) return;
-        viewer.current?.update(data, fitNext.current);
+        viewer.current?.setGeometry(previewGeometry(data), fitNext.current);
         fitNext.current = false;
         setPreview(data);
         setDesign(data.design);

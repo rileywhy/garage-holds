@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { Preview } from "./api";
 import { BoardPanel, DEFAULT_BOARD_ANGLE, mountOnBoard } from "./board-preview";
 
-// The interactive preview: an orthographic camera around the generated mesh,
-// shown on a print bed or mounted on an adjustable board.
+// The interactive preview shared by Crimp Lab and the design pages: an
+// orthographic camera around a hold, shown on a print bed or mounted on an
+// adjustable board. Geometry arrives in hold coordinates: X across the hold,
+// Y up the wall, Z out of the flat back, which sits on Z=0.
 
 export type ViewName =
   "three-quarter" | "side" | "angled-side" | "top" | "front" | "board";
@@ -18,6 +18,12 @@ const VIEWS: Record<ViewName, [number, number, number]> = {
   front: [0, 0.2, 1],
   board: [1, 0.08, 0.28],
 };
+
+export interface ViewerOptions {
+  dark: boolean;
+  // The hold's colour; Crimp Lab's print-coloured default when omitted.
+  color?: number;
+}
 
 export class Viewer {
   private renderer: THREE.WebGLRenderer;
@@ -35,11 +41,13 @@ export class Viewer {
   private aspect = 1;
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
+  private turning = 0;
 
   constructor(
     private container: HTMLElement,
-    dark: boolean,
+    options: ViewerOptions,
   ) {
+    const { dark } = options;
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(dark ? 0x303039 : 0xeeece5);
@@ -50,6 +58,8 @@ export class Viewer {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
     this.controls.addEventListener("change", () => this.render());
+    // The first touch ends the slow turn; the hold is then where it was left.
+    this.controls.addEventListener("start", () => this.setTurning(false));
     this.scene.add(new THREE.HemisphereLight(0xece8ff, 0x3f3a47, 2.2));
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
     key.position.set(-60, 130, 80);
@@ -72,7 +82,7 @@ export class Viewer {
     this.model.add(this.board.mesh);
     this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({
-      color: 0xc9b9a5,
+      color: options.color ?? 0xc9b9a5,
       roughness: 0.68,
     });
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -80,17 +90,9 @@ export class Viewer {
     this.resize();
   }
 
-  update(data: Preview, fit = false) {
-    const indexed = new THREE.BufferGeometry();
-    indexed.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(data.vertices.flat(), 3),
-    );
-    indexed.setIndex(data.faces.flat());
-    // Boolean cuts leave uneven triangles. Equal face weighting prevents
-    // shading ridges along small fillets; sharp back/hole edges stay crisp.
-    const geometry = toCreasedNormals(indexed, Math.PI / 3);
-    indexed.dispose();
+  // Shows a hold; the previous one's geometry is released. Replacing the
+  // shape must not reset the user's orbit, pan, or zoom unless asked (fit).
+  setGeometry(geometry: THREE.BufferGeometry, fit = false) {
     const first = !this.mesh;
     if (this.mesh) {
       this.model.remove(this.mesh);
@@ -100,7 +102,6 @@ export class Viewer {
     this.model.add(this.mesh);
     geometry.computeBoundingBox();
     this.board.fitToHold(geometry.boundingBox!);
-    // Replacing geometry must not reset the user's orbit, pan, or zoom.
     if (first) this.setView(this.view);
     else if (fit) this.fit();
     this.render();
@@ -120,6 +121,21 @@ export class Viewer {
   setBoardSideView() {
     if (this.view !== "board") return;
     this.pointCamera(new THREE.Vector3(1, 0, 0));
+  }
+
+  // A slow turntable, until the user takes hold of the view.
+  setTurning(on: boolean) {
+    if (on === this.controls.autoRotate) return;
+    this.controls.autoRotate = on;
+    this.controls.autoRotateSpeed = 1.2;
+    cancelAnimationFrame(this.turning);
+    if (!on) return;
+    const step = () => {
+      if (!this.controls.autoRotate) return;
+      this.controls.update();
+      this.turning = requestAnimationFrame(step);
+    };
+    this.turning = requestAnimationFrame(step);
   }
 
   private pointCamera(direction: THREE.Vector3) {
@@ -216,6 +232,7 @@ export class Viewer {
   }
 
   dispose() {
+    this.setTurning(false);
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.mesh?.geometry.dispose();
@@ -226,4 +243,13 @@ export class Viewer {
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
+}
+
+// The site's theme as the viewer should paint it: the toggle's choice,
+// else the system's.
+export function isDarkTheme() {
+  const theme = document.documentElement.dataset.theme;
+  return theme
+    ? theme === "dark"
+    : window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
