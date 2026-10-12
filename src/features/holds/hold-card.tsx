@@ -84,8 +84,8 @@ export function HoldCard({
         {hold.designMethod === "human-shaped" && (
           <abbr
             className="card-human-shaped"
-            title="Human-shaped — reported by the creator"
-            aria-label="Human-shaped"
+            title="human shaped hold"
+            aria-label="human shaped hold"
           >
             HS
           </abbr>

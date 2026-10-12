@@ -3028,6 +3028,11 @@ svg {
   font-size: 13px;
   line-height: 1.5;
 }
+.eyebrow-method {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
 .card-human-shaped {
   position: absolute;
   right: 14px;
@@ -3040,4 +3045,5 @@ svg {
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
+  cursor: help;
 }

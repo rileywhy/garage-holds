@@ -15,6 +15,7 @@ import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "./grades";
 import { formatBytes } from "./catalog";
 import { ReviewSection } from "@/features/reviews/review-section";
+import { DESIGN_METHOD_NOTES } from "./design-method";
 import type { Hold, Review } from "./types";
 
 export function HoldDetail({
@@ -61,6 +62,13 @@ export function HoldDetail({
             {hold.status === "draft"
               ? "DRAFT · ONLY YOU CAN SEE THIS"
               : "free grip"}
+            <span aria-hidden="true">·</span>
+            <abbr
+              className="eyebrow-method"
+              title={DESIGN_METHOD_NOTES[hold.designMethod].description}
+            >
+              {DESIGN_METHOD_NOTES[hold.designMethod].label}
+            </abbr>
           </p>
           <h1>{hold.title}</h1>
           <p className="detail-creator">
