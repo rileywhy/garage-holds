@@ -26,11 +26,11 @@ export const DESIGN_METHOD_NOTES: Record<
   "human-shaped": {
     label: "human shaped",
     description:
-      "Human shaped: the creator made the shape themselves, or made big changes to a generated shape. Reported by the creator.",
+      "Human shaped: the creator made the shape themselves, or made big changes to a generated shape.",
   },
   generated: {
     label: "generated",
     description:
-      "Generated: AI or a shape generator made most of the shape. The creator mainly adjusted settings or made small changes. Reported by the creator.",
+      "Generated: AI or a shape generator made most of the shape. The creator mainly adjusted settings or made small changes.",
   },
 };
