@@ -153,6 +153,7 @@ export const SAMPLE_HOLDS: Hold[] = designs.map((design, index) => ({
     ...(index === 1 ? ["salt annealing"] : []),
   ],
   license: "CC BY-NC 4.0",
+  designMethod: "human-shaped",
   color: design.color,
   photos: [],
   files: [],

@@ -28,6 +28,7 @@ const draftInput = {
   problem_grade: 5,
   tags: ["crimp"],
   license: "CC BY 4.0",
+  design_method: "human-shaped",
   material: "PETG-CF",
 };
 
@@ -50,6 +51,40 @@ after(async () => {
 });
 
 describe("drafts", () => {
+  test("new designs must choose a method and creators can change only their own", async () => {
+    const { design_method: method, ...missing } = draftInput;
+    assert.equal(method, "human-shaped");
+    const absent = await owner.client
+      .from("designs")
+      .insert({ ...missing, owner_id: owner.id });
+    assert.equal(absent.error?.code, "23502");
+    const invalid = await owner.client
+      .from("designs")
+      .insert({ ...draftInput, design_method: "original", owner_id: owner.id });
+    assert.equal(invalid.error?.code, CHECK_VIOLATION);
+    const created = await owner.client
+      .from("designs")
+      .insert({ ...draftInput, owner_id: owner.id })
+      .select("id")
+      .single();
+    assert.equal(created.error, null);
+    const id = created.data!.id;
+    const changed = await owner.client
+      .from("designs")
+      .update({ design_method: "generated" })
+      .eq("id", id)
+      .select("design_method")
+      .single();
+    assert.equal(changed.error, null);
+    assert.equal(changed.data?.design_method, "generated");
+    const forged = await other.client
+      .from("designs")
+      .update({ design_method: "human-shaped" })
+      .eq("id", id)
+      .select("id");
+    assert.equal(forged.error, null);
+    assert.deepEqual(forged.data, []);
+  });
   test("a design can only be created for oneself, and starts as a draft", async () => {
     const forged = await owner.client
       .from("designs")

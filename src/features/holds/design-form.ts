@@ -8,6 +8,7 @@ export function readDesignInput(form: FormData): DesignInput {
   const grade = text("problemGrade");
   return {
     title: text("title"),
+    designMethod: text("designMethod") as DesignInput["designMethod"],
     description: text("description"),
     type: text("type") as DesignInput["type"],
     size: text("size") as DesignInput["size"],

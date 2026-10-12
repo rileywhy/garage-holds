@@ -2996,3 +2996,48 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+.design-method-field {
+  border: 0;
+  padding: 0;
+  margin: 0 0 28px;
+}
+.design-method-field legend {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.design-method-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.design-method-option:has(input:checked) {
+  border-color: var(--accent);
+}
+.design-method-option input {
+  margin-top: 4px;
+}
+.design-method-option span span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.card-human-shaped {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: var(--overlay);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}

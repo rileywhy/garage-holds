@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { filterHolds, reviewSummary } from "../src/features/holds/catalog";
+import {
+  filterHolds,
+  reviewSummary,
+  activeFilterCount,
+} from "../src/features/holds/catalog";
 import { SAMPLE_HOLDS } from "./fixtures/sample-holds";
 import {
   DEFAULT_FILTERS,
@@ -8,6 +12,32 @@ import {
   type Hold,
   type Review,
 } from "../src/features/holds/types";
+
+test("design method filters combine with hold type and reset to all designs", () => {
+  const generated: Hold = {
+    ...SAMPLE_HOLDS[1],
+    id: "generated-edge",
+    designMethod: "generated",
+  };
+  const holds = [...SAMPLE_HOLDS, generated];
+  const filters = {
+    ...DEFAULT_FILTERS,
+    designMethod: "human-shaped" as const,
+    types: ["Crimp"] as Hold["type"][],
+  };
+  assert.deepEqual(
+    filterHolds(holds, filters).map((hold) => hold.id),
+    ["mesa-edge", "canyon-crimp"],
+  );
+  assert.equal(activeFilterCount(filters), 2);
+  assert.deepEqual(
+    filterHolds(holds, { ...filters, designMethod: "generated" }).map(
+      (hold) => hold.id,
+    ),
+    ["generated-edge"],
+  );
+  assert.equal(filterHolds(holds, DEFAULT_FILTERS).length, holds.length);
+});
 
 test("combines hold type, mounting, material, and suggested grade filters", () => {
   const matches = filterHolds(SAMPLE_HOLDS, {

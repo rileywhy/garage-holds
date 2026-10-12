@@ -81,6 +81,15 @@ export function HoldCard({
           saved={saved}
           signedIn={signedIn}
         />
+        {hold.designMethod === "human-shaped" && (
+          <abbr
+            className="card-human-shaped"
+            title="Human-shaped — reported by the creator"
+            aria-label="Human-shaped"
+          >
+            HS
+          </abbr>
+        )}
       </div>
       <div className="card-info">
         <div className="card-title-row">

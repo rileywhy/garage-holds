@@ -67,5 +67,11 @@ jobs:
         run: |
           npm run db:types
           git diff --exit-code -- src/lib/supabase/database.types.ts
+      - name: Save generated database types
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: src/lib/supabase/database.types.ts
       - if: always()
         run: npx supabase stop --no-backup

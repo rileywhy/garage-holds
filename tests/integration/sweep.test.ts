@@ -54,6 +54,7 @@ async function insertDesign(title: string, createdAt: Date) {
       size: "Medium",
       mounting: "Screw-on",
       license: "CC BY 4.0",
+      design_method: "human-shaped",
       material: "PETG",
       created_at: createdAt.toISOString(),
     })

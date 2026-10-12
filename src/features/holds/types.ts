@@ -19,6 +19,8 @@ export const SPECIAL_PROCESSES = [
   "Other (describe in notes)",
 ] as const;
 export type HoldType = (typeof HOLD_TYPES)[number];
+export const DESIGN_METHODS = ["human-shaped", "generated"] as const;
+export type DesignMethod = (typeof DESIGN_METHODS)[number];
 export type HoldSize = (typeof HOLD_SIZES)[number];
 export type MountType = (typeof MOUNT_TYPES)[number];
 export type SpecialProcess = (typeof SPECIAL_PROCESSES)[number];
@@ -63,6 +65,7 @@ export interface DesignInput {
   recipes: PrintRecipe[];
   tags: string[];
   license: License;
+  designMethod: DesignMethod;
 }
 
 export interface Hold extends DesignInput {
@@ -93,6 +96,7 @@ export interface Review {
 
 export interface HoldFilters {
   query: string;
+  designMethod: DesignMethod | "";
   types: HoldType[];
   sizes: HoldSize[];
   mounts: MountType[];
@@ -104,6 +108,7 @@ export interface HoldFilters {
 
 export const DEFAULT_FILTERS: HoldFilters = {
   query: "",
+  designMethod: "",
   types: [],
   sizes: [],
   mounts: [],
