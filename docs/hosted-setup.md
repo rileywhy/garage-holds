@@ -23,6 +23,14 @@ Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
 Settings → Environment Variables, followed by a redeploy. Secrets never go in
 chat, commits, or `NEXT_PUBLIC_*` names.
 
+The Supabase and R2 variables are set for both Production and Preview, so a
+push to any branch other than `main` gets its own preview URL showing the
+real pile. That is the way to try a change before it goes live: review on
+the preview, then merge to `main`. `CRON_SECRET` stays Production-only so
+previews never run the storage sweep. Signing in on a preview also needs
+`https://*-garage-holds.vercel.app/**` in Supabase's redirect allowlist
+(see Accounts below); browsing works without it.
+
 Reads and most writes run as the signed-in user, so row-level security decides
 what each person can see and change. The secret key is used for exactly one
 thing: recording that an uploaded object really exists in R2 with the declared
