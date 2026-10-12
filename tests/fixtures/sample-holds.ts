@@ -1,10 +1,11 @@
+// Fictional designs for the catalog and validation tests; the site itself
+// shows only uploaded designs.
 import {
   SPECIAL_PROCESSES,
   type Hold,
   type HoldType,
-  type Illustration,
   type MountType,
-} from "./types";
+} from "../../src/features/holds/types";
 
 const designs: {
   id: string;
@@ -13,7 +14,6 @@ const designs: {
   type: HoldType;
   mount: MountType;
   color: string;
-  illustration: Illustration;
   size: Hold["size"];
   problemGrade: number;
   material: string;
@@ -26,7 +26,6 @@ const designs: {
     type: "Jug",
     mount: "Bolt-on",
     color: "#d17c48",
-    illustration: "ripple",
     size: "Large",
     problemGrade: 3,
     material: "PETG",
@@ -40,7 +39,6 @@ const designs: {
     type: "Crimp",
     mount: "Screw-on",
     color: "#9aa883",
-    illustration: "edge",
     size: "Medium",
     problemGrade: 5,
     material: "PETG-CF",
@@ -54,7 +52,6 @@ const designs: {
     type: "Sloper",
     mount: "Bolt-on",
     color: "#d8b570",
-    illustration: "pebble",
     size: "Large",
     problemGrade: 5,
     material: "PETG",
@@ -68,7 +65,6 @@ const designs: {
     type: "Pinch",
     mount: "Dual mount",
     color: "#a595b2",
-    illustration: "pinch",
     size: "Medium",
     problemGrade: 6,
     material: "ASA",
@@ -82,7 +78,6 @@ const designs: {
     type: "Pocket",
     mount: "Bolt-on",
     color: "#86a7aa",
-    illustration: "pocket",
     size: "Medium",
     problemGrade: 4,
     material: "Nylon",
@@ -96,7 +91,6 @@ const designs: {
     type: "Foothold",
     mount: "Screw-on",
     color: "#c28277",
-    illustration: "foot",
     size: "Small",
     problemGrade: 5,
     material: "PETG-CF",
@@ -110,7 +104,6 @@ const designs: {
     type: "Crimp",
     mount: "Bolt-on",
     color: "#c09b76",
-    illustration: "edge",
     size: "Small",
     problemGrade: 7,
     material: "PETG",
@@ -124,7 +117,6 @@ const designs: {
     type: "Jug",
     mount: "Screw-on",
     color: "#a2b5a6",
-    illustration: "ripple",
     size: "Medium",
     problemGrade: 0,
     material: "PETG",
@@ -162,9 +154,7 @@ export const SAMPLE_HOLDS: Hold[] = designs.map((design, index) => ({
   ],
   license: "CC BY-NC 4.0",
   color: design.color,
-  illustration: design.illustration,
   photos: [],
   files: [],
   createdAt: `2026-10-${String(9 - index).padStart(2, "0")}T12:00:00.000Z`,
-  isSample: true,
 }));

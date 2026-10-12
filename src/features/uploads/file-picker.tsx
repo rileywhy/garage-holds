@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { FileBox, ImagePlus, UploadCloud, X } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
 import { formatBytes } from "@/features/holds/catalog";
 import { cropFile } from "./crop-file";
 import { PhotoCropper } from "./photo-cropper";
+
+// Tells chosen files apart before they have ids.
+export function fileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
 
 function PhotoThumbnail({ file }: { file: File }) {
   const url = useMemo(() => URL.createObjectURL(file), [file]);
@@ -20,6 +25,7 @@ export function FilePicker({
   accept,
   disabled = false,
   compact = false,
+  fileAction,
 }: {
   kind: "photos" | "models";
   files: File[];
@@ -28,6 +34,8 @@ export function FilePicker({
   disabled?: boolean;
   // Adding to an existing design: shorter copy, no first-photo plea.
   compact?: boolean;
+  // An extra control beside a file, such as the orientation of a model.
+  fileAction?: (file: File) => ReactNode;
 }) {
   const [dragging, setDragging] = useState(false);
   // Index of the photo open in the cropper, if any. Cropping is optional
@@ -36,7 +44,7 @@ export function FilePicker({
   const [cropError, setCropError] = useState("");
   const inputId = useId();
   const photos = kind === "photos";
-  const key = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+  const key = fileKey;
   function add(incoming: File[]) {
     if (disabled) return;
     const known = new Set(files.map(key));
@@ -135,6 +143,7 @@ export function FilePicker({
                   Crop
                 </button>
               )}
+              {fileAction?.(file)}
               <button
                 type="button"
                 className="icon-button"

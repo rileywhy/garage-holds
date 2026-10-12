@@ -14,7 +14,13 @@ import { FieldErrors } from "@/components/form-fields";
 import { readDesignInput } from "@/features/holds/design-form";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
 import { DesignFields } from "./design-fields";
-import { FilePicker } from "./file-picker";
+import { FilePicker, fileKey } from "./file-picker";
+import { OrientationDialog } from "@/features/holds/orientation-picker";
+import {
+  DEFAULT_ORIENTATION,
+  type Orientation,
+} from "@/features/holds/orientation";
+import { HOLD_COLORS } from "@/features/holds/colors";
 import { PhonePhotoPicker } from "./phone-photo-picker";
 import { abandonDraft, createDraft, finalizeDesign } from "./actions";
 import type { PhonePhoto } from "./phone-actions";
@@ -46,6 +52,11 @@ function UploadDesignForm({
   const [photos, setPhotos] = useState<File[]>([]);
   const [phonePhotos, setPhonePhotos] = useState<PhonePhoto[]>([]);
   const [models, setModels] = useState<File[]>([]);
+  // How each STL should face, by file key; set in the orientation dialog.
+  const [orientations, setOrientations] = useState<Record<string, Orientation>>(
+    {},
+  );
+  const [orienting, setOrienting] = useState<File | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [progress, setProgress] = useState<Progress>("");
   const busy = progress !== "";
@@ -120,6 +131,7 @@ function UploadDesignForm({
           name: file.name,
           bytes: file.size,
           type: file.type,
+          orientation: orientations[fileKey(file)] ?? DEFAULT_ORIENTATION,
         })),
         sharingPermission,
         phonePhotos.map((photo) => photo.id),
@@ -231,6 +243,21 @@ function UploadDesignForm({
                     accept={MODEL_EXTENSIONS.map(
                       (extension) => `.${extension}`,
                     ).join(",")}
+                    fileAction={(file) =>
+                      isStl(file) && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy || !!savedHold}
+                          onClick={() => setOrienting(file)}
+                        >
+                          {orientations[fileKey(file)] &&
+                          orientations[fileKey(file)] !== DEFAULT_ORIENTATION
+                            ? "Orientation set"
+                            : "Orientation"}
+                        </button>
+                      )
+                    }
                   />
                 </>
               }
@@ -253,6 +280,22 @@ function UploadDesignForm({
               </div>
             )}
           </fieldset>
+          {orienting && (
+            <OrientationDialog
+              source={{ key: fileKey(orienting), file: orienting }}
+              name={orienting.name}
+              value={orientations[fileKey(orienting)] ?? DEFAULT_ORIENTATION}
+              color={HOLD_COLORS[0]}
+              onCancel={() => setOrienting(null)}
+              onApply={(orientation) => {
+                setOrientations((current) => ({
+                  ...current,
+                  [fileKey(orienting)]: orientation,
+                }));
+                setOrienting(null);
+              }}
+            />
+          )}
           <div
             ref={errorRegion}
             tabIndex={-1}
@@ -367,6 +410,10 @@ function UploadDesignForm({
       </div>
     </main>
   );
+}
+
+function isStl(file: File) {
+  return file.name.toLowerCase().endsWith(".stl");
 }
 
 function PlusIcon() {

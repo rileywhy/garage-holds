@@ -14,13 +14,11 @@ import { submitReview, type ReviewFormState } from "./actions";
 
 export function ReviewSection({
   holdId,
-  isSample,
   reviews,
   signedIn,
   ownReview,
 }: {
   holdId: string;
-  isSample: boolean;
   reviews: Review[];
   signedIn: boolean;
   ownReview: Review | null;
@@ -54,7 +52,7 @@ export function ReviewSection({
             iteration.
           </p>
         </div>
-        {isSample ? null : signedIn ? (
+        {signedIn ? (
           <button
             className="button button-outline"
             onClick={() => setOpen((value) => !value)}
@@ -77,12 +75,6 @@ export function ReviewSection({
       {state.saved && !open && (
         <p className="success-box" role="status">
           Your review is published.
-        </p>
-      )}
-      {isSample && (
-        <p className="field-hint">
-          This is a sample design, so it can&apos;t be reviewed. Upload a real
-          design to collect feedback.
         </p>
       )}
       {open && (

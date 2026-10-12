@@ -53,6 +53,7 @@ export type Database = {
           kind: string;
           name: string;
           object_key: string;
+          orientation: string;
           position: number;
           status: string;
         };
@@ -66,6 +67,7 @@ export type Database = {
           kind: string;
           name: string;
           object_key: string;
+          orientation?: string;
           position?: number;
           status?: string;
         };
@@ -78,6 +80,7 @@ export type Database = {
           kind?: string;
           name?: string;
           object_key?: string;
+          orientation?: string;
           position?: number;
           status?: string;
         };

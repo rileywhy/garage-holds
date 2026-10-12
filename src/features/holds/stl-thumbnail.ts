@@ -1,18 +1,19 @@
 import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
-import type { StlView } from "./stl-views";
+import type { Orientation } from "./orientation";
 
 const thumbnails = new Map<string, string>();
 const pending = new Map<string, Promise<string>>();
 let queue: Promise<void> = Promise.resolve();
 const MAX_CACHED_THUMBNAILS = 32;
 
-// Fetches the STL from its signed URL; thumbnails are cached by file id, so a
-// refreshed URL for the same file never renders twice.
+// Fetches the STL from its signed URL; thumbnails are cached by file id,
+// orientation and colour, so a refreshed URL for the same file never
+// renders twice.
 export function getStlThumbnail(
-  file: { id: string; url: string },
-  view: StlView = "side",
+  file: { id: string; url: string; orientation: Orientation },
+  color: string,
 ): Promise<string> {
-  const key = `${file.id}:${view}`;
+  const key = `${file.id}:${file.orientation}:${color}`;
   const cached = thumbnails.get(key);
   if (cached) return Promise.resolve(cached);
   const existing = pending.get(key);
@@ -25,7 +26,7 @@ export function getStlThumbnail(
     if (bytes.byteLength > MAX_STL_PREVIEW_BYTES)
       throw new Error("This STL is too large for a browsing preview.");
     const { renderStlThumbnail } = await import("./stl-renderer");
-    const thumbnail = renderStlThumbnail(bytes, view);
+    const thumbnail = renderStlThumbnail(bytes, file.orientation, color);
     thumbnails.set(key, thumbnail);
     if (thumbnails.size > MAX_CACHED_THUMBNAILS)
       thumbnails.delete(thumbnails.keys().next().value!);

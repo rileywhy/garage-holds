@@ -3,7 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, LoaderCircle, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  FileBox,
+  LoaderCircle,
+  Trash2,
+  X,
+} from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
 import { PhotoImage } from "@/components/photo-image";
 import { DesignFields } from "@/features/uploads/design-fields";
@@ -20,7 +27,14 @@ import {
 } from "@/features/uploads/photo-actions";
 import { PhotoCropper } from "@/features/uploads/photo-cropper";
 import { uploadAll } from "@/features/uploads/put-files";
-import { deleteDesign, removePhoto, updateDesign } from "./design-actions";
+import {
+  deleteDesign,
+  removePhoto,
+  setFileOrientation,
+  updateDesign,
+} from "./design-actions";
+import { OrientationDialog } from "./orientation-picker";
+import { formatBytes } from "./catalog";
 import { readDesignInput } from "./design-form";
 import type { CropRect } from "@/features/uploads/crop";
 import { MAX_PHOTOS, validateDesign } from "./validation";
@@ -123,8 +137,9 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
         <p className="eyebrow">EDIT DESIGN</p>
         <h1>{hold.title}</h1>
         <p>
-          Update the details other makers see, and add or remove photos. Model
-          files and publication state stay as they are.
+          Update the details other makers see, add or remove photos, and set
+          which way a model faces. The files themselves and publication state
+          stay as they are.
         </p>
       </div>
       <form
@@ -146,6 +161,7 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
           onSelected={setSelected}
           disabled={saving}
         />
+        <ModelSection hold={hold} disabled={saving} />
         <div className="upload-errors" aria-label="Edit errors">
           <FieldErrors errors={errors} />
         </div>
@@ -221,6 +237,75 @@ function DeleteSection({ hold }: { hold: Hold }) {
         {deleting ? "Deleting…" : "Delete design"}
       </button>
       <FieldErrors errors={error ? [error] : []} />
+    </section>
+  );
+}
+
+// The model files as uploaded, with the orientation of each STL. A new
+// orientation is saved on its own, like a crop, since it is confirmed in
+// its dialog.
+function ModelSection({ hold, disabled }: { hold: Hold; disabled: boolean }) {
+  const router = useRouter();
+  const [orienting, setOrienting] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const open = hold.files.find((file) => file.id === orienting);
+
+  async function apply(fileId: string, orientation: string) {
+    setOrienting(null);
+    setSaving(fileId);
+    setError("");
+    const result = await setFileOrientation(hold.id, fileId, orientation);
+    setSaving(null);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <section className="form-section" aria-labelledby="edit-models-heading">
+      <h2 id="edit-models-heading">Model files</h2>
+      <p className="small-note">
+        If a model shows upside down or on its side, set its orientation. The
+        file itself is never changed; downloads stay as you made them.
+      </p>
+      <ul className="file-list" aria-label="Model files">
+        {hold.files.map((file) => (
+          <li key={file.id}>
+            <FileBox size={21} />
+            <span>
+              <strong title={file.name}>{file.name}</strong>
+              <small>
+                {formatBytes(file.bytes)}
+                {file.orientation !== "x,y,z" ? " · orientation set" : ""}
+              </small>
+            </span>
+            {file.extension.toLowerCase() === "stl" && file.url && (
+              <button
+                type="button"
+                className="text-button"
+                disabled={disabled || saving !== null}
+                onClick={() => setOrienting(file.id)}
+              >
+                {saving === file.id ? "Saving…" : "Orientation"}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <FieldErrors errors={error ? [error] : []} />
+      {open && (
+        <OrientationDialog
+          source={{ key: open.id, url: open.url }}
+          name={open.name}
+          value={open.orientation}
+          color={hold.color}
+          onCancel={() => setOrienting(null)}
+          onApply={(orientation) => apply(open.id, orientation)}
+        />
+      )}
     </section>
   );
 }

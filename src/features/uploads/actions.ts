@@ -14,6 +14,10 @@ import {
   photoContentType,
 } from "@/features/holds/rows";
 import { validateUpload } from "@/features/holds/validation";
+import {
+  DEFAULT_ORIENTATION,
+  isOrientation,
+} from "@/features/holds/orientation";
 import type { DesignInput } from "@/features/holds/types";
 import {
   asUploadFile as inboxAsUploadFile,
@@ -30,6 +34,8 @@ export interface UploadFileDescriptor {
   name: string;
   bytes: number;
   type: string;
+  // Models only: how previews turn the file (see holds/orientation.ts).
+  orientation?: string;
 }
 
 export interface PendingUpload {
@@ -74,6 +80,9 @@ export async function createDraft(
       errors.push(`${photo.name}: photos must be .jpg, .png, or .webp files.`);
   if (phonePhotos.length < phonePhotoIds.length)
     errors.push("Some phone photos are no longer available. Scan again.");
+  for (const model of models)
+    if (model.orientation !== undefined && !isOrientation(model.orientation))
+      errors.push(`${model.name}: the orientation is not valid.`);
   if (errors.length) return { errors };
 
   // The account's allowance, checked before anything is written. A refusal
@@ -132,6 +141,10 @@ export async function createDraft(
       bytes: file.bytes,
       position: index,
       status: "pending" as const,
+      orientation:
+        file.kind === "model" && file.orientation
+          ? file.orientation
+          : DEFAULT_ORIENTATION,
     };
   });
   const admin = createSupabaseAdminClient();

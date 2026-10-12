@@ -1,5 +1,4 @@
 import { CatalogBrowser } from "@/features/holds/catalog-browser";
-import { SAMPLE_HOLDS } from "@/features/holds/sample-data";
 import {
   listPublishedHolds,
   listReviews,
@@ -16,7 +15,7 @@ export default async function HomePage() {
   ]);
   return (
     <CatalogBrowser
-      holds={[...holds, ...SAMPLE_HOLDS]}
+      holds={holds}
       reviews={reviews}
       savedIds={savedIds}
       signedIn={user !== null}

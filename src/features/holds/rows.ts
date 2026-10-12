@@ -1,6 +1,8 @@
 import type { Tables } from "@/lib/supabase/database.types";
 import type { Hold, ModelFile, Photo, Review, SpecialProcess } from "./types";
 import type { License } from "./licenses";
+import { holdColor } from "./colors";
+import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
 
 // Plain conversions between database rows and domain objects. No I/O here,
 // so the shapes stay testable without a database.
@@ -59,6 +61,9 @@ export function designRowToHold(
       bytes: file.bytes,
       extension: file.extension,
       url: urls.get(file.id) ?? "",
+      orientation: isOrientation(file.orientation)
+        ? file.orientation
+        : DEFAULT_ORIENTATION,
     }));
   return {
     id: row.id,
@@ -82,12 +87,10 @@ export function designRowToHold(
     ],
     tags: row.tags,
     license: row.license,
-    color: "#a2b5a6",
-    illustration: "ripple",
+    color: holdColor(row.id),
     photos,
     files,
     createdAt: row.created_at,
-    isSample: false,
   };
 }
 

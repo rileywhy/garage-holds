@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FileBox } from "lucide-react";
 import { getStlThumbnail } from "./stl-thumbnail";
+import type { Orientation } from "./orientation";
 
 // A card's one-off side view of the uploaded model, rendered to an image
 // once it scrolls near. The design page shows the interactive viewer instead
@@ -10,28 +11,32 @@ import { getStlThumbnail } from "./stl-thumbnail";
 export function StlPreview({
   file,
   title,
+  color,
 }: {
-  file: { id: string; url: string };
+  file: { id: string; url: string; orientation: Orientation };
   title: string;
+  color: string;
 }) {
-  const { id: fileId, url } = file;
+  const { id: fileId, url, orientation } = file;
   const container = useRef<HTMLDivElement>(null);
-  // The render result is tagged with the file it was made for, so a changed
-  // file reads as "loading" without resetting state in the effect.
+  // The render result is tagged with what it was made for, so a changed
+  // file or orientation reads as "loading" without resetting state in the
+  // effect.
+  const key = `${fileId}:${orientation}:${color}`;
   const [rendered, setRendered] = useState({
-    fileId: "",
+    key: "",
     image: "",
     failed: false,
   });
   useEffect(() => {
     let active = true;
     const load = () => {
-      getStlThumbnail({ id: fileId, url })
+      getStlThumbnail({ id: fileId, url, orientation }, color)
         .then((image) => {
-          if (active) setRendered({ fileId, image, failed: false });
+          if (active) setRendered({ key, image, failed: false });
         })
         .catch(() => {
-          if (active) setRendered({ fileId, image: "", failed: true });
+          if (active) setRendered({ key, image: "", failed: true });
         });
     };
     const observer = new IntersectionObserver(
@@ -48,9 +53,9 @@ export function StlPreview({
       active = false;
       observer.disconnect();
     };
-  }, [fileId, url]);
+  }, [fileId, url, orientation, color, key]);
   const { image, failed } =
-    rendered.fileId === fileId ? rendered : { image: "", failed: false };
+    rendered.key === key ? rendered : { image: "", failed: false };
   return (
     <div className="stl-preview" ref={container}>
       <div className="stl-preview-canvas" aria-busy={!image && !failed}>

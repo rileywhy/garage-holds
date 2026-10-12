@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { filterHolds, reviewSummary } from "../src/features/holds/catalog";
-import { SAMPLE_HOLDS } from "../src/features/holds/sample-data";
+import { SAMPLE_HOLDS } from "./fixtures/sample-holds";
 import {
   DEFAULT_FILTERS,
   SPECIAL_PROCESSES,

@@ -73,23 +73,14 @@ export function HoldCard({
           </>
         )}
         <span className="card-label">
-          {hold.isSample
-            ? "SAMPLE"
-            : hold.status === "draft"
-              ? "DRAFT"
-              : "FREE"}
+          {hold.status === "draft" ? "DRAFT" : "FREE"}
         </span>
-        {!hold.isSample && (
-          <SaveButton
-            id={hold.id}
-            title={hold.title}
-            saved={saved}
-            signedIn={signedIn}
-          />
-        )}
-        {hold.isSample && (
-          <span className="illustration-label">Design illustration</span>
-        )}
+        <SaveButton
+          id={hold.id}
+          title={hold.title}
+          saved={saved}
+          signedIn={signedIn}
+        />
       </div>
       <div className="card-info">
         <div className="card-title-row">

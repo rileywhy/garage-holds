@@ -262,6 +262,8 @@ and request indexing for the home page.
   with "permission denied for table design_files".
 - `supabase/migrations/20261014000000_function_grants.sql` stops the
   sign-up trigger function being callable through the REST API.
+- `supabase/migrations/20261018000000_file_orientation.sql` stores how each
+  uploaded model faces in previews.
 - `supabase/migrations/20261015000000_phone_photos.sql` adds phone sessions
   and the photo inbox behind the QR code on the upload and edit pages. The
   phone page needs no sign-in; the unguessable session id is the credential,

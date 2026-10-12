@@ -36,7 +36,9 @@ export function PhotoGallery({ hold }: { hold: Hold }) {
             />
           </a>
         ) : (
-          model && <StlViewer file={model} title={hold.title} />
+          model && (
+            <StlViewer file={model} title={hold.title} color={hold.color} />
+          )
         )}
       </div>
       {(hold.photos.length > 1 || model) && (

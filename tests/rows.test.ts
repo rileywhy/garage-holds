@@ -46,6 +46,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      orientation: "x,y,z",
     },
     {
       id: "photo-1",
@@ -58,6 +59,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      orientation: "x,y,z",
     },
     {
       id: "model-1",
@@ -70,6 +72,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      orientation: "x,-y,-z",
     },
     {
       id: "model-pending",
@@ -82,6 +85,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "pending",
+      orientation: "x,y,z",
     },
   ],
 };
@@ -94,7 +98,8 @@ test("design rows become holds with ordered, verified files only", () => {
   const hold = designRowToHold(row, urls);
   assert.equal(hold.creator, "rileywhy");
   assert.equal(hold.ownerId, "user-1");
-  assert.equal(hold.isSample, false);
+  assert.match(hold.color, /^#[0-9a-f]{6}$/);
+  assert.equal(hold.files[0].orientation, "x,-y,-z");
   assert.deepEqual(
     hold.photos.map((photo) => photo.id),
     ["photo-1", "photo-2"],
@@ -107,6 +112,19 @@ test("design rows become holds with ordered, verified files only", () => {
   );
   assert.equal(hold.recipes[0].material, "PETG-CF");
   assert.deepEqual(validateDesign(hold), []);
+});
+
+test("a damaged orientation falls back to the file as it came", () => {
+  const damaged = {
+    ...row,
+    design_files: row.design_files.map((file) =>
+      file.id === "model-1" ? { ...file, orientation: "x,x,z" } : file,
+    ),
+  };
+  const hold = designRowToHold(damaged, new Map());
+  assert.equal(hold.files[0].orientation, "x,y,z");
+  // The colour follows the design, not the request.
+  assert.equal(hold.color, designRowToHold(row, new Map()).color);
 });
 
 test("missing profiles and reviews still render", () => {

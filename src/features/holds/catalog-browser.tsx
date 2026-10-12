@@ -51,8 +51,7 @@ export function CatalogBrowser({
     () => filterHolds(candidates, filters),
     [candidates, filters],
   );
-  const sampleCount = holds.filter((hold) => hold.isSample).length;
-  const realCount = holds.length - sampleCount;
+  const realCount = holds.length;
   const count = activeFilterCount(filters);
   function toggle<
     K extends "types" | "sizes" | "mounts" | "materials" | "specialProcesses",
@@ -127,7 +126,7 @@ export function CatalogBrowser({
           <span className="sample-note">
             {savedOnly
               ? "Saved to your account"
-              : `${realCount} ${realCount === 1 ? "design" : "designs"}${sampleCount ? ` · ${sampleCount} samples` : ""} · add yours to get started`}
+              : `${realCount} ${realCount === 1 ? "design" : "designs"} · add yours to get started`}
           </span>
         </div>
         <div className="catalog-layout">

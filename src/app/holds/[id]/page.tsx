@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SAMPLE_HOLDS } from "@/features/holds/sample-data";
 import { HoldDetail } from "@/features/holds/hold-detail";
 import {
   getHold,
@@ -13,7 +12,7 @@ import type { Hold } from "@/features/holds/types";
 type Props = { params: Promise<{ id: string }> };
 
 async function loadHold(id: string): Promise<Hold | null> {
-  return SAMPLE_HOLDS.find((hold) => hold.id === id) ?? (await getHold(id));
+  return getHold(id);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -22,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Hold design", robots: { index: false, follow: false } };
   // The preview image is a signed URL that expires after an hour, which is
   // enough for the first fetch a chat or social site makes when a link is
-  // posted. Sample designs have illustrations rather than photos.
+  // posted.
   const image = hold.photos[0]?.url;
   const description = `${hold.type} · ${hold.size} · ${hold.mount}. ${hold.description}`;
   return {
@@ -46,7 +45,7 @@ export default async function HoldPage({ params }: Props) {
   if (!hold) notFound();
   const user = await getCurrentUser();
   const [reviews, savedIds] = await Promise.all([
-    hold.isSample ? Promise.resolve([]) : listReviews(hold.id),
+    listReviews(hold.id),
     user ? listSavedIds() : Promise.resolve<string[]>([]),
   ]);
   return (

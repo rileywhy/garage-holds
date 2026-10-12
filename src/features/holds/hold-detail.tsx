@@ -45,31 +45,22 @@ export function HoldDetail({
           ) : (
             <div className="detail-main-visual">
               <HoldVisual hold={hold} large />
-              {hold.isSample && (
-                <span className="illustration-label">
-                  Sample design illustration
-                </span>
-              )}
             </div>
           )}
           <div className="gallery-caption">
             <span>
-              {hold.isSample
-                ? "Illustrative concept · no model files"
-                : hold.photos.length
-                  ? `${hold.photos.length} ${hold.photos.length === 1 ? "photo" : "photos"} · original model files`
-                  : "No photos · original model files"}
+              {hold.photos.length
+                ? `${hold.photos.length} ${hold.photos.length === 1 ? "photo" : "photos"} · original model files`
+                : "No photos · original model files"}
             </span>
             <span>{hold.license}</span>
           </div>
         </div>
         <div className="detail-summary">
           <p className="eyebrow">
-            {hold.isSample
-              ? "SAMPLE DESIGN"
-              : hold.status === "draft"
-                ? "DRAFT · ONLY YOU CAN SEE THIS"
-                : "free grip"}
+            {hold.status === "draft"
+              ? "DRAFT · ONLY YOU CAN SEE THIS"
+              : "free grip"}
           </p>
           <h1>{hold.title}</h1>
           <p className="detail-creator">
@@ -83,15 +74,13 @@ export function HoldDetail({
           </div>
           <p className="detail-description">{hold.description}</p>
           <div className="detail-actions">
-            {!hold.isSample && (
-              <SaveButton
-                id={hold.id}
-                title={hold.title}
-                saved={saved}
-                signedIn={signedIn}
-                labeled
-              />
-            )}
+            <SaveButton
+              id={hold.id}
+              title={hold.title}
+              saved={saved}
+              signedIn={signedIn}
+              labeled
+            />
             <a href="#files" className="button button-dark">
               View files <ArrowUpRight size={16} />
             </a>
@@ -121,11 +110,7 @@ export function HoldDetail({
               </span>
               <div>
                 <strong>at {GRADE_BOARD_ANGLE}°</strong>
-                <p>
-                  {hold.isSample
-                    ? "Sample recommendation"
-                    : "Creator’s suggested problem grade"}
-                </p>
+                <p>Creator’s suggested problem grade</p>
               </div>
             </div>
           )}
@@ -172,7 +157,6 @@ export function HoldDetail({
           </section>
           <ReviewSection
             holdId={hold.id}
-            isSample={hold.isSample}
             reviews={reviews}
             signedIn={signedIn}
             ownReview={ownReview}
@@ -213,32 +197,24 @@ export function HoldDetail({
                 ))}
               </ul>
             ) : (
-              <div className="sample-files">
-                <p>This sample has no downloadable model.</p>
-                <Link href="/upload">
-                  Upload your first design <ArrowUpRight size={14} />
-                </Link>
-              </div>
+              <p className="small-note">No model files yet.</p>
             )}
             <p className="field-hint">
-              {hold.files.length
-                ? "Download links are valid for an hour; reload the page for fresh ones."
-                : "Sample entries demonstrate browsing and filtering."}
+              Download links are valid for an hour; reload the page for fresh
+              ones.
             </p>
           </section>
           <section className="license-panel">
             <h3>Sharing & license</h3>
             <LicenseSummary license={hold.license} />
-            {!hold.isSample && (
-              <p className="detail-report">
-                <FeedbackWidget
-                  label="Report this design"
-                  icon="report"
-                  signedIn={signedIn}
-                  prefill={`Reporting "${hold.title}" (/holds/${hold.id}): `}
-                />
-              </p>
-            )}
+            <p className="detail-report">
+              <FeedbackWidget
+                label="Report this design"
+                icon="report"
+                signedIn={signedIn}
+                prefill={`Reporting "${hold.title}" (/holds/${hold.id}): `}
+              />
+            </p>
             {hold.tags.length > 0 && (
               <>
                 <h3 className="tags-heading">Design tags</h3>

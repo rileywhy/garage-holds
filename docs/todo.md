@@ -53,6 +53,9 @@ keeps it current as work lands; add your own items freely.
   design's edit page, where also adding a photo from the computer's files
   should work alongside it, and where "Crop" on an existing photo should
   save a cropped copy.
+- **Model orientation.** On the edit page of a design with an STL, press
+  "Orientation", flip the model over, and check the design page and its
+  card follow. Try the same on a fresh upload.
 - **Second-account test, remaining half.** From the incognito account,
   save the published design. As the owner, edit one word of its
   description and remove a photo. Claude can confirm both from the data.
@@ -71,7 +74,6 @@ keeps it current as work lands; add your own items freely.
 ## Content
 
 - **Seed the library** with your own holds: real recipes, photos on a wall.
-  The sample designs come out once a few real ones exist.
 - **Upload the two granite crimps** from `rileywhy/holdmaking` as the
   first real designs: run `generate_granite_crimps.py` there (the folder's
   README has the pip line), upload each `.stl` with `preview.png`, and use

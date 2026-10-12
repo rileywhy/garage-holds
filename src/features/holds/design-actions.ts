@@ -11,6 +11,7 @@ import { deletePhotoObjects } from "@/features/uploads/photo-sizes";
 import { readDesignInput } from "./design-form";
 import { getUserId } from "./repository";
 import { validateDesign } from "./validation";
+import { isOrientation } from "./orientation";
 
 export interface EditDesignState {
   errors: string[];
@@ -141,4 +142,46 @@ export async function removePhoto(
   revalidatePath(`/holds/${designId}`);
   revalidatePath(`/holds/${designId}/edit`);
   return { removed: true };
+}
+
+export type OrientationResult = { saved: true } | { error: string };
+
+// Stores how an uploaded model should face in previews, on the owner's own
+// design. File rows are server-owned, so ownership is checked with the
+// user's client first and the update goes through the admin client. The
+// file itself is untouched.
+export async function setFileOrientation(
+  designId: string,
+  fileId: string,
+  orientation: string,
+): Promise<OrientationResult> {
+  if (!isOrientation(orientation))
+    return { error: "That orientation is not valid." };
+  if (!isSupabaseAdminConfigured())
+    return { error: "Uploads aren't configured in this environment yet." };
+  const supabase = await createSupabaseServerClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { error: "Sign in to edit your design." };
+  const { data: file } = await supabase
+    .from("design_files")
+    .select("id, kind, designs!inner(owner_id)")
+    .eq("id", fileId)
+    .eq("design_id", designId)
+    .eq("designs.owner_id", userId)
+    .maybeSingle();
+  if (!file || file.kind !== "model")
+    return { error: "This model file could not be found." };
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("design_files")
+    .update({ orientation })
+    .eq("id", file.id);
+  if (error) {
+    console.error("orientation update failed", { designId, fileId, error });
+    return { error: "The orientation could not be saved. Try again." };
+  }
+  revalidatePath("/");
+  revalidatePath(`/holds/${designId}`);
+  revalidatePath(`/holds/${designId}/edit`);
+  return { saved: true };
 }

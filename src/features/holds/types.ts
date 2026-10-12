@@ -1,4 +1,5 @@
 import type { License } from "./licenses";
+import type { Orientation } from "./orientation";
 
 export const HOLD_TYPES = [
   "Jug",
@@ -21,8 +22,6 @@ export type HoldType = (typeof HOLD_TYPES)[number];
 export type HoldSize = (typeof HOLD_SIZES)[number];
 export type MountType = (typeof MOUNT_TYPES)[number];
 export type SpecialProcess = (typeof SPECIAL_PROCESSES)[number];
-export type Illustration =
-  "ripple" | "edge" | "pebble" | "pinch" | "pocket" | "foot";
 
 export interface ModelFile {
   id: string;
@@ -31,6 +30,8 @@ export interface ModelFile {
   extension: string;
   // Short-lived signed download URL; empty when storage is unavailable.
   url: string;
+  // How previews turn the model (see orientation.ts).
+  orientation: Orientation;
 }
 
 export interface Photo {
@@ -69,12 +70,11 @@ export interface Hold extends DesignInput {
   ownerId: string | null;
   creator: string;
   status: "draft" | "published";
+  // The print colour its previews are shown in (see colors.ts).
   color: string;
-  illustration: Illustration;
   photos: Photo[];
   files: ModelFile[];
   createdAt: string;
-  isSample: boolean;
 }
 
 export interface Review {

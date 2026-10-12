@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FileBox } from "lucide-react";
-import type { Viewer, ViewName } from "@/features/model-viewer/viewer";
+import type { ViewName } from "@/features/model-viewer/viewer";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
-import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
+import { useModelViewer } from "./use-model-viewer";
+import type { Orientation } from "./orientation";
 
 // The design page's model view: the uploaded STL turning slowly on a print
 // bed until the reader takes hold of it, with fixed angles and a mounted-on-
@@ -24,57 +25,25 @@ const VIEWS: { id: ViewName; label: string }[] = [
 export function StlViewer({
   file,
   title,
+  color,
 }: {
-  file: { id: string; url: string };
+  file: { id: string; url: string; orientation: Orientation };
   title: string;
+  color: string;
 }) {
-  const { id: fileId, url } = file;
   const container = useRef<HTMLDivElement>(null);
-  const viewer = useRef<Viewer | null>(null);
-  // Tagged with the file it was loaded for, so a changed file reads as
-  // "loading" without resetting state inside the effect.
-  const [loaded, setLoaded] = useState({ fileId: "", failed: false });
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
-
-  useEffect(() => {
-    const box = container.current;
-    if (!box) return;
-    let active = true;
-    let created: Viewer | null = null;
-    (async () => {
-      const [{ Viewer, isDarkTheme }, { holdGeometry }, response] =
-        await Promise.all([
-          import("@/features/model-viewer/viewer"),
-          import("./stl-scene"),
-          fetch(url),
-        ]);
-      if (!response.ok) throw new Error("Could not load this STL.");
-      const bytes = await response.arrayBuffer();
-      if (bytes.byteLength > MAX_STL_PREVIEW_BYTES)
-        throw new Error("This STL is too large for a browsing preview.");
-      const geometry = holdGeometry(bytes);
-      if (!active) {
-        geometry.dispose();
-        return;
-      }
-      created = new Viewer(box, { dark: isDarkTheme(), color: 0x9aa883 });
-      created.setGeometry(geometry);
-      created.setTurning(true);
-      viewer.current = created;
-      setLoaded({ fileId, failed: false });
-    })().catch(() => {
-      if (active) setLoaded({ fileId, failed: true });
-    });
-    return () => {
-      active = false;
-      viewer.current = null;
-      created?.dispose();
-    };
-  }, [fileId, url]);
-
-  const ready = loaded.fileId === fileId && !loaded.failed;
-  const failed = loaded.fileId === fileId && loaded.failed;
+  const { viewer, ready, failed } = useModelViewer(
+    container,
+    { key: file.id, url: file.url },
+    {
+      orientation: file.orientation,
+      color,
+      view: "three-quarter",
+      turning: true,
+    },
+  );
 
   const choose = (name: ViewName) => {
     setView(name);
