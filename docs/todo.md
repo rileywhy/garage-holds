@@ -10,7 +10,7 @@ keeps it current as work lands; add your own items freely.
   their smooth card sizes (new uploads make them on their own):
 
   ```sh
-  curl -H "Authorization: Bearer $CRON_SECRET" https://garage-holds.vercel.app/api/sweep
+  curl -H "Authorization: Bearer $CRON_SECRET" https://garageholds.com/api/sweep
   ```
 
   The response should show `photoSizes` of 3 or so. Until then those cards
@@ -31,12 +31,22 @@ keeps it current as work lands; add your own items freely.
 
 ## Domain and search
 
-- **Buy a domain** (`garageholds.com` if free; Cloudflare Registrar or
-  Porkbun sell near cost) and add it in Vercel → Settings → Domains,
-  setting the DNS records Vercel shows. Then tell Claude the name: the docs,
-  R2 CORS origins, and Supabase redirect URLs need it, and the sitemap
-  switches on its own.
-- **Google Search Console** once the domain is live: add the property,
+The site is at `https://garageholds.com` (bought through Vercel, www
+redirects to it). Two settings still name the old address and must be
+updated before the new one is announced:
+
+- **R2 CORS origins.** Cloudflare → R2 → `garage-holds` bucket → Settings →
+  CORS policy: add `"https://garageholds.com"` to `AllowedOrigins` (the full
+  policy is in `docs/hosted-setup.md` → "Cloudflare R2"). Until then STL
+  previews and uploads fail on the new address, while the old one keeps
+  working.
+- **Supabase redirect URLs.** Supabase → Authentication → URL Configuration:
+  set Site URL to `https://garageholds.com` and add
+  `https://garageholds.com/**` to the redirect URLs (keep the vercel.app
+  lines). Until then Google sign-in on the new address lands on the old one.
+  Then tell Claude, who will point `garage-holds.vercel.app` at the new
+  address so there is one address for search engines.
+- **Google Search Console**: add `https://garageholds.com` as a property,
   choose HTML-tag verification and paste the tag's `content` value to
   Claude to add to the site, submit `/sitemap.xml`, request indexing for
   the home page. See `docs/hosted-setup.md` → "Search engines".

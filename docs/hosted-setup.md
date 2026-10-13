@@ -5,19 +5,19 @@ each value goes. Nothing here is secret except where marked.
 
 ## Environment variables
 
-| Variable                               | Where it is used | Secret? | Where to find it                                                                                                                           |
-| -------------------------------------- | ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                                                                                  |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`)                                                    |
-| `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one                                                                |
-| `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                                                                      |
-| `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket                                                               |
-| `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                    |
-| `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                     |
-| `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                             |
-| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                              |
-| `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                  |
-| `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | Optional. The public origin for the sitemap and link previews once there is a custom domain; Vercel's own production URL is used otherwise |
+| Variable                               | Where it is used | Secret? | Where to find it                                                                                                                         |
+| -------------------------------------- | ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                                                                                |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`)                                                  |
+| `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one                                                              |
+| `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                                                                    |
+| `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket                                                             |
+| `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                  |
+| `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                   |
+| `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                           |
+| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                            |
+| `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                |
+| `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | The public origin for the sitemap and link previews: `https://garageholds.com` in Production. Vercel's own URL is used where it is unset |
 
 Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
 Settings → Environment Variables, followed by a redeploy. Secrets never go in
@@ -55,6 +55,7 @@ the upload form reports that uploads are not configured.
    [
      {
        "AllowedOrigins": [
+         "https://garageholds.com",
          "https://garage-holds.vercel.app",
          "http://127.0.0.1:3000"
        ],
@@ -74,12 +75,13 @@ without moving anything.
 Dashboard → Authentication.
 
 1. **URL Configuration**
-   - Site URL: the production URL once Vercel exists (for now `http://127.0.0.1:3000`).
+   - Site URL: `https://garageholds.com`.
    - Redirect URLs, one per line:
+     - `https://garageholds.com/**`
+     - `https://garage-holds.vercel.app/**`
+     - `https://*-garage-holds.vercel.app/**` (preview deployments)
      - `http://127.0.0.1:3000/**`
      - `http://localhost:3000/**`
-     - `https://<your-vercel-project>.vercel.app/**`
-     - `https://*-<your-vercel-team>.vercel.app/**` (preview deployments; optional)
 2. **Sign In / Providers → Email**
    - Enable the provider. Leave "Confirm email" on.
    - The app sends a one-time **code**, not a link, so the templates must
@@ -172,7 +174,7 @@ route answers 503 and nothing runs. To see what a sweep would do before the
 first real one:
 
 ```sh
-curl -H "Authorization: Bearer $CRON_SECRET" "https://garage-holds.vercel.app/api/sweep?dry=1"
+curl -H "Authorization: Bearer $CRON_SECRET" "https://garageholds.com/api/sweep?dry=1"
 ```
 
 The response counts abandoned drafts, stale phone sessions, their objects,
@@ -244,7 +246,7 @@ social sites.
 To get indexed, add the site as a property in Google Search Console
 (https://search.google.com/search-console), verify it with the HTML tag
 method (the tag goes in `src/app/layout.tsx` metadata, under
-`verification.google`), submit `https://garage-holds.vercel.app/sitemap.xml`,
+`verification.google`), submit `https://garageholds.com/sitemap.xml`,
 and request indexing for the home page.
 
 ## What the app does with all this
