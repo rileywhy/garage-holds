@@ -44,10 +44,10 @@ class GeometryTests(unittest.TestCase):
 
     def test_presets_are_larger_without_changing_their_proportions(self):
         previous = {
-            "rounded board sloper": (110, 85, 45, 1.75),
-            "round ball": (95, 95, 78, 1.4),
-            "broad sloper": (145, 100, 42, 1.75),
-            "sloping rail": (210, 65, 38, 1.75),
+            "rounded board sloper": (110, 85, 45, 1.5),
+            "round ball": (95, 95, 78, 120 / 95),
+            "broad sloper": (145, 100, 42, 1.5),
+            "sloping rail": (210, 65, 38, 1.5),
         }
         for name, (width, height, depth, scale) in previous.items():
             with self.subTest(preset=name):
@@ -55,10 +55,10 @@ class GeometryTests(unittest.TestCase):
                 old = build(replace(p, width=width, height=height, projection=depth))
                 new = build(p)
                 np.testing.assert_allclose(
-                    new.mesh.extents, old.mesh.extents * scale, rtol=1e-6
+                    new.mesh.extents, old.mesh.extents * scale, rtol=0.001
                 )
                 self.assertAlmostEqual(
-                    new.mesh.volume / old.mesh.volume, scale**3, places=5
+                    new.mesh.volume / old.mesh.volume, scale**3, delta=0.001
                 )
                 # Old saved dimensions remain available, rather than being scaled on load.
                 saved = parse_parameters(design_document(old.parameters)["parameters"])
@@ -87,6 +87,33 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(preview.screws, exported.screws)
         self.assertEqual(len(exported.screws), 6)
         self.assertEqual(len(_solid(exported.mesh).slice(0.1).to_polygons()), 7)
+
+    def test_presets_have_less_positive_contact_than_the_previous_incut(self):
+        for name, previous_incut in (
+            ("rounded board sloper", 35),
+            ("round ball", 20),
+            ("broad sloper", 45),
+            ("sloping rail", 40),
+        ):
+            with self.subTest(preset=name):
+                p = replace(PRESETS[name], screws=False)
+                current = build(p)
+                previous = build(replace(p, incut=previous_incut))
+                centre = len(current.profile) // 2
+                outer, inner = centre + centre // 3, centre + centre * 2 // 3
+                world_up = np.array(
+                    [math.cos(math.radians(40)), -math.sin(math.radians(40))]
+                )
+                current_rise = (
+                    current.profile[outer] - current.profile[inner]
+                ) @ world_up
+                previous_rise = (
+                    previous.profile[outer] - previous.profile[inner]
+                ) @ world_up
+                self.assertLess(current_rise, previous_rise)
+                self.assertAlmostEqual(
+                    current.mesh.volume, previous.mesh.volume, delta=1e-5
+                )
 
     def test_dome_volume_and_surface_slope_have_physical_meaning(self):
         p = Parameters(

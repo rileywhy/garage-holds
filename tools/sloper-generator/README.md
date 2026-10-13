@@ -2,8 +2,8 @@
 
 A separate, local sloper generator for trying shapes together before adding a
 site page. Start at **http://127.0.0.1:8770**. The default sits between a broad
-board sloper and a round dome: 192.5 × 148.75 mm footprint, 78.75 mm centre depth, a
-broad rounded surface, 35° incut lift, and three screws.
+board sloper and a round dome: 165 × 127.5 mm footprint, 67.5 mm centre depth, a
+broad rounded surface, 32.55° incut lift, and three screws.
 
 ```powershell
 .\tools\sloper-generator\run.ps1
@@ -18,8 +18,11 @@ The server binds only to this computer and serves an explicit asset list.
 
 ## Controls
 
-The round ball preset is 40% larger in each dimension than the original;
-the other presets are 75% larger. Size sliders retain their small-size minimums
+The round ball preset is 120 mm wide; the board sloper is 165 mm, the broad
+sloper 217.5 mm, and the rail 315 mm. These are smaller than the enlarged
+presets to use less material while retaining room to match. All presets have
+7% less incut lift than that enlarged set; this is a less positive shape,
+not a calibrated difficulty percentage. Size sliders retain their small-size minimums
 and now reach 525 mm wide, 420 mm high, and 175 mm deep. Loading saved settings
 retains their dimensions.
 
@@ -28,14 +31,14 @@ retains their dimensions.
   the rounded surface as it projects from the wall, so it can extend above the mounting
   footprint and offer a positive grip on an overhanging board. The lift angle
   describes this deformation; local contact angles also depend on surface curvature.
-  Zero retains the original dome. The default lift is 35° and the maximum is 45° to keep
+  Zero retains the original dome. The default lift is 32.55° and the maximum is 45° to keep
   the shapes in sloper territory. Older settings above that limit clamp to 45°.
   No grade is inferred. Shallow holds can still limit
   surface slope, but incut lift retains its full range.
   Arc wrap continues the rounded surface past its widest point and back toward the
   wall, adding a rounded return rather than lifting the whole body. It narrows the
   flat mounting face. Zero preserves the original half dome, including older saved
-  settings. **round ball** starts with a nearly spherical cap, 40° wrap and 20° lift.
+  settings. **round ball** starts with a nearly spherical cap, 40° wrap and 18.6° lift.
 - **shape:** width, height, left/right depth taper, and seeded broad surface
   character. The footprint is always an oval. It is a new sloper surface, not
   a Crimp Lab preset: there is no shelf or sharp gripping lip.

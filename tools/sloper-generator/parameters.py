@@ -10,10 +10,10 @@ MAX_PROJECTION = 175
 
 @dataclass(frozen=True)
 class Parameters:
-    width: float = 192.5
-    height: float = 148.75
-    projection: float = 78.75
-    incut: float = 35
+    width: float = 165
+    height: float = 127.5
+    projection: float = 67.5
+    incut: float = 32.55
     arc_wrap: float = 0
     palm_curve: float = 25  # Legacy settings key; labelled "surface curve" in the GUI.
     slope: float = 12
@@ -25,7 +25,7 @@ class Parameters:
     shank_diameter: float = 5.5
     head_diameter: float = 11
     auto_seat: bool = True
-    seat_depth: float = 28.4
+    seat_depth: float = 24.3
 
 
 def control(key, label, group, minimum, maximum, step, unit, help_text):
@@ -48,7 +48,7 @@ CONTROLS = [
         "Grip",
         0,
         45,
-        1,
+        0.05,
         "°",
         "Raises the rounded surface as it projects from the wall. Higher is more positive, up to 45°. 0 keeps a plain dome.",
     ),
@@ -177,19 +177,19 @@ CONTROLS = [
 PRESETS = {
     "rounded board sloper": Parameters(),
     "round ball": Parameters(
-        width=133,
-        height=133,
-        projection=109.2,
+        width=120,
+        height=120,
+        projection=98.5,
         palm_curve=0,
         slope=0,
-        incut=20,
+        incut=18.6,
         arc_wrap=40,
     ),
     "broad sloper": Parameters(
-        width=253.75, height=175, projection=73.5, palm_curve=75, slope=18, incut=45
+        width=217.5, height=150, projection=63, palm_curve=75, slope=18, incut=41.85
     ),
     "sloping rail": Parameters(
-        width=367.5, height=113.75, projection=66.5, palm_curve=55, slope=22, incut=40
+        width=315, height=97.5, projection=57, palm_curve=55, slope=22, incut=37.2
     ),
 }
 

@@ -45,7 +45,7 @@ class VercelApiTests(unittest.TestCase):
         code, _, body = self.request("GET")
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(body)["defaults"]["screw_count"], 3)
-        self.assertEqual(json.loads(body)["defaults"]["incut"], 35)
+        self.assertEqual(json.loads(body)["defaults"]["incut"], 32.55)
         count = next(
             control
             for control in json.loads(body)["controls"]
