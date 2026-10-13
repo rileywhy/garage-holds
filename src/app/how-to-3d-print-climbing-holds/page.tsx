@@ -19,15 +19,6 @@ export const metadata: Metadata = {
   },
 };
 
-// A source for a claim, shown as a small link after the sentence.
-function Source({ href, children }: { href: string; children: string }) {
-  return (
-    <a className="gear-source" href={href} rel="noopener" target="_blank">
-      {children}
-    </a>
-  );
-}
-
 // The guide behind every "can I print this" question. One page, in the
 // order a first-timer meets the questions, written to be found by search and
 // kept to one pick per item so it stays readable.
@@ -58,17 +49,10 @@ export default function HowToPrintHoldsPage() {
         <section className="gear-item" id="can-you">
           <h2>Can you 3D print climbing holds?</h2>
           <p>
-            Yes. Small and medium holds printed in PETG work well on a home wall
-            or a board: crimps, edges, pinches, slopers, footholds, and jugs up
-            to about a hand wide. Hold companies now prototype and even produce
-            holds this way.{" "}
-            <Source href="https://climbingbusinessjournal.com/3d-hold-printing-gets-real/">
-              Climbing Business Journal
-            </Source>{" "}
-            What a printer does not do well is big bolt-on jugs and volumes,
-            where one bolt carries a long lever, or anything on a rope wall.
-            Keep printed holds on bouldering and training walls with mats
-            underneath.
+            Yes. Crimps, edges, pinches, slopers, footholds, and jugs all print
+            well in PETG and climb well on a home wall or a board. Hold
+            companies prototype shapes this way now, and some produce them this
+            way. The rest of this page is what we have learned printing our own.
           </p>
         </section>
 
@@ -76,41 +60,39 @@ export default function HowToPrintHoldsPage() {
           <h2>What you need</h2>
           <h3>A printer</h3>
           <p>
-            Any current printer with a 200 mm bed prints every hold in the pile.
-            The <GearLink item={GEAR.printer} /> is the cheap sure thing: fast,
-            quiet, and tuned for PETG out of the box. If you want a door on it
-            for ASA or nylon later, the <GearLink item={GEAR.printerEnclosed} />{" "}
-            is the same machine with an enclosure.
+            The <GearLink item={GEAR.printer} /> is the one to get. It is cheap
+            for what it does, it works out of the box with no tuning, and it has
+            the best reviews of any printer in its price range by a wide margin.
+            If you want an enclosed printer for ASA or nylon later, the{" "}
+            <GearLink item={GEAR.printerEnclosed} /> is the same thing with a
+            door.
           </p>
-          <h3>PETG, and why not PLA</h3>
+          <h3>PETG, not PLA</h3>
           <p>
-            Print holds in PETG. PLA is a little stronger in a straight pull but
-            brittle: it snaps rather than bends, and its layers bond less well,
-            so it cracks at the screw holes.{" "}
-            <Source href="https://cnckitchen.com/blog/comparing-pla-petg-amp-asa-feat-prusament">
-              CNC Kitchen
-            </Source>{" "}
-            PETG flexes a little instead, bonds well between layers, prints on
-            any machine, and costs the same. Run it on the warm side of the
-            spool&rsquo;s range; layer bonding improves with temperature.{" "}
-            <Source href="https://www.cnckitchen.com/blog/the-influence-of-extrusion-temperature-on-layer-adhesion">
-              CNC Kitchen
-            </Source>{" "}
-            Our pick is <GearLink item={GEAR.petg} />;{" "}
-            <GearLink item={GEAR.petgBudget} /> is a few dollars less, and on a
-            Bambu <GearLink item={GEAR.petgBambu} /> is tuned for the machine.
+            Print holds in PETG. PLA is the default filament on most printers
+            and it makes a fine-looking hold, then it cracks at a screw hole the
+            first time someone pulls hard. It is stiff and it shatters rather
+            than bends. PETG gives a little, its layers stick to each other
+            properly, and it costs the same.{" "}
+            <a
+              href="https://cnckitchen.com/blog/comparing-pla-petg-amp-asa-feat-prusament"
+              rel="noopener"
+              target="_blank"
+            >
+              CNC Kitchen&rsquo;s tests
+            </a>{" "}
+            show the difference if you want the numbers. Our pick is{" "}
+            <GearLink item={GEAR.petg} />. <GearLink item={GEAR.petgBudget} />{" "}
+            is a few dollars less, and on a Bambu{" "}
+            <GearLink item={GEAR.petgBambu} /> is tuned for the machine.
           </p>
           <h3>Dry filament, if it needs it</h3>
           <p>
             PETG absorbs moisture, and a damp spool prints stringy and bonds
-            worse. A fresh spool from a sealed bag prints fine, and we have gone
-            a long time without drying anything. If prints go stringy or a hold
-            snaps along a layer, dry the spool at about 60 °C for six hours, in
-            a <GearLink item={GEAR.dryer} /> or an oven that holds the
-            temperature, and store it with <GearLink item={GEAR.desiccant} />.{" "}
-            <Source href="https://polymaker.com/the-top-5-reasons-petg-filament-strings-on-3d-prints/">
-              Polymaker
-            </Source>
+            worse. A fresh spool prints fine, and we have gone a long time
+            without drying anything. If prints go stringy or a hold snaps along
+            a layer, dry the spool at about 60 °C for six hours in a{" "}
+            <GearLink item={GEAR.dryer} /> and it comes back.
           </p>
         </section>
 
@@ -150,10 +132,14 @@ export default function HowToPrintHoldsPage() {
             <li>
               <strong>Fuzzy skin on,</strong> for grip. PETG comes out slick
               without it. We use a point distance of 0.3 mm and a thickness of
-              0.4 to 0.5 mm, which is rougher than the slicer default.{" "}
-              <Source href="https://help.prusa3d.com/en/article/fuzzy-skin_246186/">
-                Prusa Knowledge Base
-              </Source>{" "}
+              0.4 to 0.5 mm, rougher than the slicer default.{" "}
+              <a
+                href="https://help.prusa3d.com/en/article/fuzzy-skin_246186/"
+                rel="noopener"
+                target="_blank"
+              >
+                Where to find it in the slicer.
+              </a>{" "}
               The texture notes on each design page say what its creator used.
             </li>
           </ul>
@@ -177,17 +163,19 @@ export default function HowToPrintHoldsPage() {
         <section className="gear-item" id="strength">
           <h2>Do 3D printed climbing holds hold up?</h2>
           <p>
-            Small and medium holds in PETG, with plenty of walls, hold up fine
-            on a home wall; people have had the same printed sets on boards for
-            years, and climbers who have load-tested them report the hold
-            outlasting the screws.{" "}
-            <Source href="https://www.mountainproject.com/forum/topic/200377427/3d-printed-climbing-holds-strength-tested">
+            Yes, printed the way this page says. People have had the same
+            printed sets on boards for years, and when climbers on{" "}
+            <a
+              href="https://www.mountainproject.com/forum/topic/200377427/3d-printed-climbing-holds-strength-tested"
+              rel="noopener"
+              target="_blank"
+            >
               Mountain Project
-            </Source>{" "}
-            The failures that get reported are PLA cracking at the screws, damp
-            filament delaminating, big holds mounted at one point, and screws
-            cranked in until the plastic split. None of those is the
-            printer&rsquo;s fault.
+            </a>{" "}
+            load-tested theirs, the screws gave out before the holds did. The
+            failures that get reported are PLA cracking at the screws, damp
+            filament delaminating, and screws cranked in until the plastic
+            split.
           </p>
           <p>
             Look at holds now and then for cracks around the holes and retire

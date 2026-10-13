@@ -3144,18 +3144,6 @@ svg {
 .gear-contents a:hover {
   color: var(--ink);
 }
-.gear-source {
-  font-size: 11px;
-  color: var(--muted) !important;
-  text-decoration: none !important;
-  white-space: nowrap;
-}
-.gear-source::before {
-  content: "↗ ";
-}
-.gear-source:hover {
-  color: var(--ink) !important;
-}
 .gear-faq dt {
   font-size: 13px;
   font-weight: 700;
