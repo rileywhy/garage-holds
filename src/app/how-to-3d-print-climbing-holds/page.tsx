@@ -26,8 +26,8 @@ export default function HowToPrintHoldsPage() {
   return (
     <main className="main-container gear-page">
       <div className="page-intro">
-        <p className="eyebrow">the guide</p>
-        <h1>how to 3D print climbing holds</h1>
+        <p className="eyebrow">The guide</p>
+        <h1>How to 3D print climbing holds</h1>
         <p>
           What you need, the settings that keep a hold from breaking, how to
           mount it, and what to expect. Opinionated on purpose, one pick per
@@ -36,18 +36,18 @@ export default function HowToPrintHoldsPage() {
       </div>
 
       <nav className="gear-contents" aria-label="On this page">
-        <a href="#can-you">can you?</a>
-        <a href="#what-you-need">what you need</a>
-        <a href="#files">get a hold file</a>
-        <a href="#settings">slicer settings</a>
-        <a href="#mounting">mounting</a>
-        <a href="#strength">do they hold up?</a>
-        <a href="#questions">short answers</a>
+        <a href="#can-you">Can you?</a>
+        <a href="#what-you-need">What you need</a>
+        <a href="#files">Get a hold file</a>
+        <a href="#settings">Slicer settings</a>
+        <a href="#mounting">Mounting</a>
+        <a href="#strength">Do they hold up?</a>
+        <a href="#questions">Short answers</a>
       </nav>
 
       <div className="gear-list">
         <section className="gear-item" id="can-you">
-          <h2>can you 3D print climbing holds?</h2>
+          <h2>Can you 3D print climbing holds?</h2>
           <p>
             Yes. Small and medium holds printed in PETG work well on a home wall
             or a board: crimps, edges, pinches, slopers, footholds, and jugs up
@@ -65,8 +65,8 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="what-you-need">
-          <h2>what you need</h2>
-          <h3>a printer</h3>
+          <h2>What you need</h2>
+          <h3>A printer</h3>
           <p>
             Any current printer with a 200 mm bed prints every hold in the pile.
             The <GearLink item={GEAR.printer} /> is the cheap sure thing: fast,
@@ -88,7 +88,7 @@ export default function HowToPrintHoldsPage() {
             with. On a Bambu, <GearLink item={GEAR.petgBambu} /> is tuned for
             the machine.
           </p>
-          <h3>keep it dry</h3>
+          <h3>Keep it dry</h3>
           <p>
             PETG drinks moisture, and a damp spool prints stringy and weak,
             which matters more on a hold than on a vase. A{" "}
@@ -96,7 +96,7 @@ export default function HowToPrintHoldsPage() {
             is the easy answer. A sealed tub with{" "}
             <GearLink item={GEAR.desiccant} /> does the job for less.
           </p>
-          <h3>hardware</h3>
+          <h3>Hardware</h3>
           <p>
             For screw-on holds, <GearLink item={GEAR.woodScrews} /> in 1 5/8″ to
             2 1/2″. For bolt-on, <GearLink item={GEAR.tNuts} /> behind the ply,{" "}
@@ -108,7 +108,7 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="files">
-          <h2>get a hold file</h2>
+          <h2>Get a hold file</h2>
           <p>
             Free climbing hold STL files are scattered across Thingiverse,
             MakerWorld, and Printables, mostly one-offs with no notes on how
@@ -129,7 +129,7 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="settings">
-          <h2>slicer settings that matter</h2>
+          <h2>Slicer settings that matter</h2>
           <p>The settings people who print holds agree on, more or less:</p>
           <ul>
             <li>
@@ -164,8 +164,8 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="mounting">
-          <h2>mounting</h2>
-          <h3>screw-on</h3>
+          <h2>Mounting</h2>
+          <h3>Screw-on</h3>
           <p>
             Most printed holds, and everything the labs make, are screw-on. Use{" "}
             <GearLink item={GEAR.woodScrews} />, long enough to go through the
@@ -174,7 +174,7 @@ export default function HowToPrintHoldsPage() {
             a ladder. Pre-drill the ply, and do not overtighten: snug, then a
             quarter turn. A screw cranked into plastic splits it.
           </p>
-          <h3>bolt-on</h3>
+          <h3>Bolt-on</h3>
           <p>
             Bigger holds and anything you will move around mount with a bolt
             into a t-nut behind the ply. The standard is{" "}
@@ -184,7 +184,7 @@ export default function HowToPrintHoldsPage() {
             Put a washer under the bolt head, and add a set screw on holds that
             could spin.
           </p>
-          <h3>chalk and a brush</h3>
+          <h3>Chalk and a brush</h3>
           <p>
             Printed holds feel better chalked, and a{" "}
             <GearLink item={GEAR.brush} /> keeps the fuzzy skin working. Any{" "}
@@ -193,7 +193,7 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="strength">
-          <h2>do 3D printed climbing holds hold up?</h2>
+          <h2>Do 3D printed climbing holds hold up?</h2>
           <p>
             Small and medium holds in dry PETG, printed flat with five walls and
             30% or so infill, hold up fine on a home wall; people have had the
@@ -213,7 +213,7 @@ export default function HowToPrintHoldsPage() {
         </section>
 
         <section className="gear-item" id="questions">
-          <h2>short answers</h2>
+          <h2>Short answers</h2>
           <dl className="gear-faq">
             <dt>Best filament for 3D printed climbing holds?</dt>
             <dd>

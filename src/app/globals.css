@@ -3107,18 +3107,20 @@ svg {
   flex-direction: column;
 }
 .gear-item {
-  padding: 24px 0;
+  padding: 40px 0 36px;
   border-top: 1px solid var(--line);
 }
 .gear-item h2 {
-  font-size: 21px;
-  letter-spacing: -0.6px;
-  margin: 0 0 10px;
+  font-family: Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  margin: 0 0 16px;
 }
 .gear-item h3 {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
-  margin: 18px 0 6px;
+  margin: 26px 0 8px;
 }
 .gear-item ul {
   padding-left: 18px;
