@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
+import { AMAZON_DISCLOSURE, TIP_URL, amazonTag } from "@/features/gear/gear";
 import { ThemeToggle } from "./theme-toggle";
 
 export function SiteHeader({
@@ -89,10 +90,17 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
       </div>
       <div className="footer-links">
         <FeedbackWidget signedIn={signedIn} />
+        <Link href="/gear">What you need to print holds</Link>
+        {TIP_URL && (
+          <a href={TIP_URL} rel="noopener" target="_blank">
+            Chip in for hosting <ArrowUpRight size={15} />
+          </a>
+        )}
         <Link href="/upload">
           Made something good? Share it <ArrowUpRight size={15} />
         </Link>
       </div>
+      {amazonTag() && <p className="footer-disclosure">{AMAZON_DISCLOSURE}</p>}
     </footer>
   );
 }

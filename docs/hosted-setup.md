@@ -5,19 +5,21 @@ each value goes. Nothing here is secret except where marked.
 
 ## Environment variables
 
-| Variable                               | Where it is used | Secret? | Where to find it                                                                                                                         |
-| -------------------------------------- | ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                                                                                |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`)                                                  |
-| `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one                                                              |
-| `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                                                                    |
-| `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket                                                             |
-| `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                  |
-| `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                   |
-| `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                           |
-| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                            |
-| `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                |
-| `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | The public origin for the sitemap and link previews: `https://garageholds.com` in Production. Vercel's own URL is used where it is unset |
+| Variable                               | Where it is used | Secret? | Where to find it                                                                                                                               |
+| -------------------------------------- | ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                                                                                      |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`)                                                        |
+| `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one                                                                    |
+| `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                                                                          |
+| `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket                                                                   |
+| `R2_SECRET_ACCESS_KEY`                 | Server only      | **Yes** | Shown once when the R2 token is created                                                                                                        |
+| `R2_BUCKET_NAME`                       | Server only      | No      | The bucket you created                                                                                                                         |
+| `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                                 |
+| `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                                  |
+| `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                      |
+| `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | The public origin for the sitemap and link previews: `https://garageholds.com` in Production. Vercel's own URL is used where it is unset       |
+| `NEXT_PUBLIC_AMAZON_TAG`               | Browser + server | No      | The Amazon Associates tracking id (`garageholds-20`). Shopping links on `/gear` and in the labs carry it; unset, they point at Amazon untagged |
+| `NEXT_PUBLIC_TIP_URL`                  | Browser + server | No      | The tip jar page, a Ko-fi URL. The footer links to it when set                                                                                 |
 
 Locally these go in `.env.local` (git-ignored). On Vercel they go in Project →
 Settings → Environment Variables, followed by a redeploy. Secrets never go in

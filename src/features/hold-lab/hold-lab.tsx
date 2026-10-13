@@ -24,6 +24,8 @@ import {
   type Schema,
 } from "./api";
 import { Profile } from "./profile";
+import { GearLink } from "@/features/gear/gear-link";
+import { GEAR } from "@/features/gear/gear";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
@@ -525,8 +527,9 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
             )}
           </dl>
           <p className="small-note">
-            25–40% infill · PETG at 1.27 g/cm³ · estimated 1.6 mm shell.
-            Excludes supports and waste; check your slicer.
+            25–40% infill · <GearLink item={GEAR.petg}>PETG</GearLink> at 1.27
+            g/cm³ · estimated 1.6 mm shell. Excludes supports and waste; check
+            your slicer.
           </p>
           <p
             className={`lab-status ${status.error ? "error" : ""}`}

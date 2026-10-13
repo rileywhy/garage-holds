@@ -29,6 +29,17 @@ keeps it current as work lands; add your own items freely.
   their upload allowance so they can ask for more. Any address you are
   willing to make public. Redeploy after adding.
 
+## Sign-ups for the gear page and tip jar
+
+- **Amazon Associates.** Register at affiliate-program.amazon.com with
+  `garageholds.com` as the site (a free library and shape generator for 3D
+  printable climbing holds). Choose a tracking id like `garageholds-20` and
+  give it to Claude, who sets `NEXT_PUBLIC_AMAZON_TAG` on Vercel. The
+  account needs three qualifying sales in its first 180 days or Amazon
+  closes it, so do this once the gear page is live and linked.
+- **Ko-fi page.** Make one at ko-fi.com named Garage Holds, one line about
+  covering hosting, and give Claude the page URL for `NEXT_PUBLIC_TIP_URL`.
+
 ## Domain and search
 
 The site is at `https://garageholds.com`, bought through Vercel. The www

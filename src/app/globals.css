@@ -3093,3 +3093,56 @@ svg {
   bottom: calc(100% + 6px);
   width: 160px;
 }
+
+/* The gear guide: one column of short sections with a shopping link each. */
+.gear-page {
+  max-width: 760px;
+  padding-top: 48px;
+}
+.gear-page .page-intro {
+  margin-bottom: 20px;
+}
+.gear-list {
+  display: flex;
+  flex-direction: column;
+}
+.gear-item {
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+}
+.gear-item h2 {
+  font-size: 19px;
+  letter-spacing: -0.5px;
+  margin: 0 0 10px;
+}
+.gear-item p {
+  font-size: 13px;
+  line-height: 1.75;
+  margin: 0 0 10px;
+}
+.gear-item p:last-child {
+  margin-bottom: 0;
+}
+.gear-item a,
+.small-note a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gear-item a:hover,
+.small-note a:hover {
+  color: var(--action-hover);
+}
+.gear-disclosure,
+.footer-disclosure {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 28px 0 0;
+}
+.footer-disclosure {
+  flex-basis: 100%;
+  margin: 0;
+}
+.site-footer {
+  flex-wrap: wrap;
+}

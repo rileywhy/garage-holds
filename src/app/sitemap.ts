@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/make/crimp`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/make/sloper`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/make/jug`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/gear`, changeFrequency: "monthly", priority: 0.7 },
   ];
   const supabase = createSupabasePublicClient();
   if (!supabase) return entries;

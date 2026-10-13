@@ -24,6 +24,8 @@ import {
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
 import { previewGeometry } from "./preview-geometry";
+import { GearLink } from "@/features/gear/gear-link";
+import { GEAR } from "@/features/gear/gear";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
@@ -579,9 +581,9 @@ export function CrimpLab() {
           </dl>
           {preview && (
             <p className="small-note">
-              25–40% infill · PETG at 1.27 g/cm³ · estimated 1.6 mm shell. Rough
-              estimate; excludes supports and waste. Check your slicer for the
-              final weight.
+              25–40% infill · <GearLink item={GEAR.petg}>PETG</GearLink> at 1.27
+              g/cm³ · estimated 1.6 mm shell. Rough estimate; excludes supports
+              and waste. Check your slicer for the final weight.
             </p>
           )}
           <p
