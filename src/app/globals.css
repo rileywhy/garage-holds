@@ -3111,9 +3111,46 @@ svg {
   border-top: 1px solid var(--line);
 }
 .gear-item h2 {
-  font-size: 19px;
-  letter-spacing: -0.5px;
+  font-size: 21px;
+  letter-spacing: -0.6px;
   margin: 0 0 10px;
+}
+.gear-item h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 18px 0 6px;
+}
+.gear-item ul {
+  padding-left: 18px;
+  margin: 0;
+}
+.gear-item li {
+  font-size: 13px;
+  line-height: 1.75;
+  margin-bottom: 6px;
+}
+.gear-contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 11px;
+  margin-bottom: 24px;
+}
+.gear-contents a {
+  color: var(--muted);
+}
+.gear-contents a:hover {
+  color: var(--ink);
+}
+.gear-faq dt {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 14px;
+}
+.gear-faq dd {
+  font-size: 13px;
+  line-height: 1.75;
+  margin: 4px 0 0;
 }
 .gear-item p {
   font-size: 13px;

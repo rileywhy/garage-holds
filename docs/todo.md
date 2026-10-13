@@ -36,9 +36,12 @@ keeps it current as work lands; add your own items freely.
   printable climbing holds). Choose a tracking id like `garageholds-20` and
   give it to Claude, who sets `NEXT_PUBLIC_AMAZON_TAG` on Vercel. The
   account needs three qualifying sales in its first 180 days or Amazon
-  closes it, so do this once the gear page is live and linked.
-- **Ko-fi page.** Make one at ko-fi.com named Garage Holds, one line about
-  covering hosting, and give Claude the page URL for `NEXT_PUBLIC_TIP_URL`.
+  closes it, so do this once the guide is live and linked.
+- **Stripe payment link for the tip jar.** Make a Stripe account, then
+  Payment Links → New → "customer chooses what to pay", named something
+  like "chip in for hosting", one-off. Give Claude the link for
+  `NEXT_PUBLIC_TIP_URL`. The same Stripe account serves anything sold on the
+  site later.
 
 ## Domain and search
 

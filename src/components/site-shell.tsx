@@ -90,7 +90,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
       </div>
       <div className="footer-links">
         <FeedbackWidget signedIn={signedIn} />
-        <Link href="/gear">What you need to print holds</Link>
+        <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
           <a href={TIP_URL} rel="noopener" target="_blank">
             Chip in for hosting <ArrowUpRight size={15} />
