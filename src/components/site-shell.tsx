@@ -57,6 +57,12 @@ export function SiteHeader({
           >
             <FlaskConical size={15} /> sloper lab
           </Link>
+          <Link
+            href="/make/jug"
+            className={`nav-link ${pathname === "/make/jug" ? "active" : ""}`}
+          >
+            <FlaskConical size={15} /> jug lab
+          </Link>
         </nav>
         <div className="header-actions">
           {account}

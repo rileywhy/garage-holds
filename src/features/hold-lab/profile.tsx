@@ -1,6 +1,12 @@
 import type { Preview } from "./api";
 
-export function Profile({ data }: { data: Preview }) {
+export function Profile({
+  data,
+  kind,
+}: {
+  data: Preview;
+  kind: "sloper" | "jug";
+}) {
   const ys = data.profile.map(([y]) => y);
   const zs = data.profile.map(([, z]) => z);
   const low = Math.min(...ys),
@@ -18,7 +24,7 @@ export function Profile({ data }: { data: Preview }) {
       className="lab-profile"
       viewBox="0 0 480 230"
       role="img"
-      aria-label="Centre cross-section of the sloper, with the wall on the left"
+      aria-label={`Centre cross-section of the ${kind}, with the wall on the left`}
     >
       <path d={path} className="lab-profile-body" />
       <line
@@ -32,8 +38,9 @@ export function Profile({ data }: { data: Preview }) {
         wall
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {data.parameters.incut}° lift · {data.parameters.arc_wrap}° wrap ·{" "}
-        {data.parameters.projection} mm depth
+        {kind === "jug"
+          ? `${data.parameters.edge_depth} mm reach · ${data.parameters.incut}° incut`
+          : `${data.parameters.incut}° lift · ${data.parameters.arc_wrap}° wrap · ${data.parameters.projection} mm depth`}
       </text>
     </svg>
   );

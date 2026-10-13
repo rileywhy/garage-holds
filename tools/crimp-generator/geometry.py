@@ -11,7 +11,10 @@ import manifold3d as manifold
 import numpy as np
 import trimesh
 
-from parameters import Parameters, parse_parameters, seat_height
+if __package__:
+    from .parameters import Parameters, parse_parameters, seat_height
+else:
+    from parameters import Parameters, parse_parameters, seat_height
 
 
 @dataclass
@@ -177,7 +180,7 @@ def _end_center_y(p: Parameters) -> float:
 
 
 def _loft(
-    p: Parameters, quality: str
+    p: Parameters, quality: str, end_wrap: float = 0, arc_rise: float = 0
 ) -> tuple[trimesh.Trimesh, np.ndarray, tuple, tuple, float]:
     if quality not in {"preview", "export"}:
         raise ValueError("Unknown mesh quality.")
@@ -223,8 +226,15 @@ def _loft(
         # for screw seats even with strong character.
         strength = 0.3 if fold >= 0 else 0.15
         yz[:, 1] *= 1 + p.character * strength * fold * weight
+        # Sweep the entire grip toward the board without squeezing or
+        # changing its incut. The wall cuts the curved body at its ends.
+        yz[:, 1] *= 1 + arc_rise * (1 - u * u) / max(profile[:, 1])
+        yz[:, 1] -= end_wrap * (p.edge_depth + 6) * u * u
         rings.append(np.column_stack((np.full(len(profile), x), yz)))
-    vertices = np.vstack(([[-half, end_center, 0]], *rings, [[half, end_center, 0]]))
+    tip_z = -end_wrap * (p.edge_depth + 6)
+    vertices = np.vstack(
+        ([[-half, end_center, tip_z]], *rings, [[half, end_center, tip_z]])
+    )
     count, ring_count = len(profile), len(rings)
     faces = []
     for j in range(count):
@@ -238,6 +248,14 @@ def _loft(
     mesh = trimesh.Trimesh(vertices, faces, process=True)
     if mesh.volume < 0:
         mesh.invert()
+    if end_wrap:
+        # Plane trim makes a broad, coplanar mounting face rather than a
+        # collapsed pole or a separately added foot.
+        solid = _solid(mesh).trim_by_plane((0, 0, 1), 0)
+        result = solid.to_mesh()
+        mesh = trimesh.Trimesh(
+            result.vert_properties[:, :3], result.tri_verts, process=True
+        )
     # The displayed section must include the same bow and seeded folds as
     # the centre ring of the mesh, rather than showing its unmodified profile.
     profile = rings[len(rings) // 2][:, 1:]
@@ -292,7 +310,9 @@ class _NoRoomForScrews(ValueError):
     pass
 
 
-def build(p: Parameters, quality: str = "preview") -> Model:
+def build(
+    p: Parameters, quality: str = "preview", *, end_wrap: float = 0, arc_rise: float = 0
+) -> Model:
     """Builds the shape, growing the body height when that is what it takes:
     first to keep the shelf above the body, then until the screw recesses
     fit. The settings used come back on the model, with what changed."""
@@ -309,7 +329,7 @@ def build(p: Parameters, quality: str = "preview") -> Model:
         for height in heights:
             p = replace(p, body_height=float(height))
             try:
-                model = _build(p, quality, floor)
+                model = _build(p, quality, floor, end_wrap, arc_rise)
                 break
             except _NoRoomForScrews:
                 continue
@@ -324,8 +344,14 @@ def build(p: Parameters, quality: str = "preview") -> Model:
     return model
 
 
-def _build(p: Parameters, quality: str, seat_floor: float = 0.5) -> Model:
-    mesh, profile, inner, outer, lip_radius = _loft(p, quality)
+def _build(
+    p: Parameters,
+    quality: str,
+    seat_floor: float = 0.5,
+    end_wrap: float = 0,
+    arc_rise: float = 0,
+) -> Model:
+    mesh, profile, inner, outer, lip_radius = _loft(p, quality, end_wrap, arc_rise)
     solid = _solid(mesh)
     if mesh.bounds[0, 2] < -1e-6:
         raise ValueError(
@@ -338,9 +364,11 @@ def _build(p: Parameters, quality: str, seat_floor: float = 0.5) -> Model:
         # Resolve mounting on the same mesh for both qualities. Otherwise a
         # finer rounded end can shift automatic spacing between preview/STL.
         mounting_solid = (
-            _solid(_loft(p, "preview")[0]) if quality == "export" else solid
+            _solid(_loft(p, "preview", end_wrap, arc_rise)[0])
+            if quality == "export"
+            else solid
         )
-        candidates = _screw_candidates(p)
+        candidates = _screw_candidates(p, jug=end_wrap > 0)
         # An automatic seat is as high as the recesses allow: start at the
         # share of the depth and come down until the row fits.
         seats = (
@@ -376,7 +404,7 @@ def _build(p: Parameters, quality: str, seat_floor: float = 0.5) -> Model:
     return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p)
 
 
-def _screw_candidates(p: Parameters) -> np.ndarray:
+def _screw_candidates(p: Parameters, jug: bool = False) -> np.ndarray:
     """Every row worth trying, in order of preference: wider spans first,
     then the smallest drop below the lip-limited height. Shape (rows,
     holes, 2) of x and y centres."""
@@ -407,6 +435,8 @@ def _screw_candidates(p: Parameters) -> np.ndarray:
         return min(-p.body_height * 0.02, lip_y - radius) + bow
 
     minimum_span = (p.screw_count - 1) * (p.head_diameter + 1.5)
+    if jug and p.auto_spacing:
+        minimum_span = max(minimum_span, p.width * 0.32)
     preferred_span = max(p.width * 0.6, minimum_span)
     spans = (
         np.arange(preferred_span, minimum_span - 1e-9, -1)
@@ -418,6 +448,11 @@ def _screw_candidates(p: Parameters) -> np.ndarray:
     for span in spans:
         xs = np.linspace(-span / 2, span / 2, p.screw_count)
         tops = np.array([hole_height(x) for x in xs])
+        if jug:
+            # A broad triangular mounting pattern: outer holes higher,
+            # middle lower. Slice checks still validate every full recess.
+            stagger = min(6, p.body_height * 0.08)
+            tops += stagger * (2 * np.abs(xs) / max(span / 2, 1) - 1)
         ys = tops[None, :] - drops[:, None]
         rows.append(np.stack((np.broadcast_to(xs, ys.shape), ys), axis=2))
     return np.concatenate(rows) if rows else np.zeros((0, p.screw_count, 2))

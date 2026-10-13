@@ -13,6 +13,10 @@
     "api/sloper.py": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/jug.py": {
+      "maxDuration": 30,
+      "memory": 1024
     }
   }
 }
