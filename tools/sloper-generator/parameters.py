@@ -3,12 +3,16 @@
 import math
 from dataclasses import asdict, dataclass, fields
 
+MAX_WIDTH = 525
+MAX_HEIGHT = 420
+MAX_PROJECTION = 175
+
 
 @dataclass(frozen=True)
 class Parameters:
-    width: float = 110
-    height: float = 85
-    projection: float = 45
+    width: float = 192.5
+    height: float = 148.75
+    projection: float = 78.75
     incut: float = 35
     arc_wrap: float = 0
     palm_curve: float = 25  # Legacy settings key; labelled "surface curve" in the GUI.
@@ -21,7 +25,7 @@ class Parameters:
     shank_diameter: float = 5.5
     head_diameter: float = 11
     auto_seat: bool = True
-    seat_depth: float = 16.2
+    seat_depth: float = 28.4
 
 
 def control(key, label, group, minimum, maximum, step, unit, help_text):
@@ -63,8 +67,8 @@ CONTROLS = [
         "depth from the wall",
         "Grip",
         12,
-        100,
-        1,
+        MAX_PROJECTION,
+        0.05,
         "mm",
         "Depth at the centre. Actual overall depth appears beside the preview.",
     ),
@@ -93,8 +97,8 @@ CONTROLS = [
         "width",
         "Shape",
         40,
-        300,
-        1,
+        MAX_WIDTH,
+        0.25,
         "mm",
         "Overall width across the board. Stretch it into a rail.",
     ),
@@ -103,8 +107,8 @@ CONTROLS = [
         "height",
         "Shape",
         40,
-        240,
-        1,
+        MAX_HEIGHT,
+        0.25,
         "mm",
         "Height before incut lift. Arc wrap narrows the mounting face; actual dimensions appear below.",
     ),
@@ -173,19 +177,19 @@ CONTROLS = [
 PRESETS = {
     "rounded board sloper": Parameters(),
     "round ball": Parameters(
-        width=95,
-        height=95,
-        projection=78,
+        width=133,
+        height=133,
+        projection=109.2,
         palm_curve=0,
         slope=0,
         incut=20,
         arc_wrap=40,
     ),
     "broad sloper": Parameters(
-        width=145, height=100, projection=42, palm_curve=75, slope=18, incut=45
+        width=253.75, height=175, projection=73.5, palm_curve=75, slope=18, incut=45
     ),
     "sloping rail": Parameters(
-        width=210, height=65, projection=38, palm_curve=55, slope=22, incut=40
+        width=367.5, height=113.75, projection=66.5, palm_curve=55, slope=22, incut=40
     ),
 }
 

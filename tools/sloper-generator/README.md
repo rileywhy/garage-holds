@@ -2,7 +2,7 @@
 
 A separate, local sloper generator for trying shapes together before adding a
 site page. Start at **http://127.0.0.1:8770**. The default sits between a broad
-board sloper and a round dome: 110 × 85 mm footprint, 45 mm centre depth, a
+board sloper and a round dome: 192.5 × 148.75 mm footprint, 78.75 mm centre depth, a
 broad rounded surface, 35° incut lift, and three screws.
 
 ```powershell
@@ -17,6 +17,11 @@ installed Three.js package (`npm ci` if missing). There is no frontend build.
 The server binds only to this computer and serves an explicit asset list.
 
 ## Controls
+
+The round ball preset is 40% larger in each dimension than the original;
+the other presets are 75% larger. Size sliders retain their small-size minimums
+and now reach 525 mm wide, 420 mm high, and 175 mm deep. Loading saved settings
+retains their dimensions.
 
 - **grip:** incut lift (0–45°), arc wrap (0–60°), centre depth, surface curve (round dome to a broader
   flatter surface), and surface slope to fine-tune the dome's bias. Incut lift raises

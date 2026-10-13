@@ -13,9 +13,21 @@ import numpy as np
 import trimesh
 
 if __package__:
-    from .parameters import Parameters, parse_parameters
+    from .parameters import (
+        MAX_HEIGHT,
+        MAX_PROJECTION,
+        MAX_WIDTH,
+        Parameters,
+        parse_parameters,
+    )
 else:
-    from parameters import Parameters, parse_parameters
+    from parameters import (
+        MAX_HEIGHT,
+        MAX_PROJECTION,
+        MAX_WIDTH,
+        Parameters,
+        parse_parameters,
+    )
 
 
 @dataclass
@@ -207,7 +219,12 @@ def build(requested: Parameters, quality="preview") -> Model:
     p = replace(p, head_diameter=max(p.head_diameter, p.shank_diameter + 1.5))
     # Mounting uses preview geometry at both qualities, so hole layout and
     # adjusted settings never change just because the user exports an STL.
-    for attempt in range(50):
+    # Allow enough growth steps to reach the full supported size range.
+    growth_steps = math.ceil(
+        max((MAX_WIDTH - p.width) / 8, (MAX_HEIGHT - p.height) / 8)
+    )
+    depth_steps = math.ceil((MAX_PROJECTION - p.projection) / 4)
+    for attempt in range(growth_steps + depth_steps + 1):
         p = _fit_slope(p)
         mesh, profile = _mesh(p, "preview")
         solid = _solid(mesh)
@@ -216,10 +233,14 @@ def build(requested: Parameters, quality="preview") -> Model:
             break
         # Grow the footprint first, then depth if the maximum oval is still
         # too shallow for the chosen hardware. No hidden hole removal.
-        if p.width < 300 or p.height < 240:
-            p = replace(p, width=min(300, p.width + 8), height=min(240, p.height + 8))
+        if p.width < MAX_WIDTH or p.height < MAX_HEIGHT:
+            p = replace(
+                p,
+                width=min(MAX_WIDTH, p.width + 8),
+                height=min(MAX_HEIGHT, p.height + 8),
+            )
         else:
-            p = replace(p, projection=min(100, p.projection + 4))
+            p = replace(p, projection=min(MAX_PROJECTION, p.projection + 4))
     else:
         raise ValueError("The mounting solver could not find space for these screws.")
     p = replace(p, seat_depth=seat)

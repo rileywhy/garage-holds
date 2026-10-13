@@ -42,6 +42,52 @@ class GeometryTests(unittest.TestCase):
                 )
                 self.assertGreater(len(exported.mesh.faces), len(preview.mesh.faces))
 
+    def test_presets_are_larger_without_changing_their_proportions(self):
+        previous = {
+            "rounded board sloper": (110, 85, 45, 1.75),
+            "round ball": (95, 95, 78, 1.4),
+            "broad sloper": (145, 100, 42, 1.75),
+            "sloping rail": (210, 65, 38, 1.75),
+        }
+        for name, (width, height, depth, scale) in previous.items():
+            with self.subTest(preset=name):
+                p = replace(PRESETS[name], screws=False)
+                old = build(replace(p, width=width, height=height, projection=depth))
+                new = build(p)
+                np.testing.assert_allclose(
+                    new.mesh.extents, old.mesh.extents * scale, rtol=1e-6
+                )
+                self.assertAlmostEqual(
+                    new.mesh.volume / old.mesh.volume, scale**3, places=5
+                )
+                # Old saved dimensions remain available, rather than being scaled on load.
+                saved = parse_parameters(design_document(old.parameters)["parameters"])
+                self.assertEqual(
+                    (saved.width, saved.height, saved.projection),
+                    (width, height, depth),
+                )
+
+    def test_expanded_size_limits_still_export_a_closed_mounted_hold(self):
+        p = Parameters(
+            width=525,
+            height=420,
+            projection=175,
+            arc_wrap=60,
+            incut=45,
+            taper=-65,
+            character=1.5,
+            screw_count=6,
+            head_diameter=25,
+            shank_diameter=12,
+        )
+        preview, exported = build(p), build(p, "export")
+        self.assert_solid(preview)
+        self.assert_solid(exported)
+        self.assertEqual(preview.parameters, exported.parameters)
+        self.assertEqual(preview.screws, exported.screws)
+        self.assertEqual(len(exported.screws), 6)
+        self.assertEqual(len(_solid(exported.mesh).slice(0.1).to_polygons()), 7)
+
     def test_dome_volume_and_surface_slope_have_physical_meaning(self):
         p = Parameters(
             width=100,
@@ -259,7 +305,7 @@ class GeometryTests(unittest.TestCase):
         p = parse_parameters(design_document(Parameters())["parameters"])
         self.assertEqual(p, Parameters())
         self.assertEqual(p.screw_count, 3)
-        self.assertEqual(parse_parameters({"width": 1000}).width, 300)
+        self.assertEqual(parse_parameters({"width": 1000}).width, 525)
         self.assertEqual(parse_parameters({"incut": 75}).incut, 45)
         self.assertEqual(parse_parameters({"arc_wrap": 90}).arc_wrap, 60)
         self.assertEqual(parse_parameters({"incut": 0}).arc_wrap, 0)
