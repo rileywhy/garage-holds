@@ -49,7 +49,7 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
+export function HoldLab({ kind }: { kind: "sloper" | "jug" | "foot" }) {
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
   const latest = useRef<Parameters>({});
@@ -94,7 +94,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
     if (!box.current) return;
     viewer.current = new Viewer(box.current, {
       dark: isDarkTheme(),
-      color: kind === "jug" ? 0xc2aadf : undefined,
+      color: kind !== "sloper" ? 0xc2aadf : undefined,
     });
     return () => {
       viewer.current?.dispose();
@@ -319,6 +319,19 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                       hardware.
                     </p>
                   )}
+                  {kind === "foot" && (
+                    <label className="lab-toggle">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(parameters.auto_screw_count)}
+                        disabled={!screws || Boolean(parameters.bolt_mount)}
+                        onChange={(e) =>
+                          change("auto_screw_count", e.target.checked)
+                        }
+                      />
+                      auto screw count: two at 50 mm wide
+                    </label>
+                  )}
                   <label className="lab-toggle">
                     <input
                       type="checkbox"
@@ -334,19 +347,23 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                 .filter(
                   (c) =>
                     c.group === name &&
+                    (!c.shapes ||
+                      c.shapes.includes(String(parameters.shape))) &&
                     mountingControlVisible(c.key, parameters),
                 )
                 .map((control) => (
                   <ControlRow
                     key={control.key}
                     control={control}
-                    dualUnits={kind === "jug"}
+                    dualUnits={kind !== "sloper"}
                     value={Number(parameters[control.key])}
                     disabled={
                       name === "Mounting" &&
                       (!screws ||
                         (control.key === "seat_depth" &&
-                          Boolean(parameters.auto_seat)))
+                          Boolean(parameters.auto_seat)) ||
+                        (control.key === "screw_count" &&
+                          Boolean(parameters.auto_screw_count)))
                     }
                     onChange={change}
                   />
@@ -435,7 +452,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
       <section className="lab-stage" aria-label="Model preview">
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
           {VIEWS.filter(
-            ([name]) => kind === "jug" || name !== "angled-side",
+            ([name]) => kind !== "sloper" || name !== "angled-side",
           ).map(([name, label]) => (
             <button
               type="button"
@@ -527,7 +544,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
               <>
                 <Metric
                   label="dimensions"
-                  value={`${preview.dimensions.join(" × ")} mm${kind === "jug" ? ` · ${preview.dimensions.map((mm) => (mm / 25.4).toFixed(2)).join(" × ")} in` : ""}`}
+                  value={`${preview.dimensions.join(" × ")} mm${kind !== "sloper" ? ` · ${preview.dimensions.map((mm) => (mm / 25.4).toFixed(2)).join(" × ")} in` : ""}`}
                 />
                 <Metric
                   label="estimated material"
@@ -549,7 +566,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                 )}
                 <Metric
                   label="seat above wall"
-                  value={`${preview.parameters.seat_depth} mm${kind === "jug" ? ` · ${(Number(preview.parameters.seat_depth) / 25.4).toFixed(2)} in` : ""}`}
+                  value={`${preview.parameters.seat_depth} mm${kind !== "sloper" ? ` · ${(Number(preview.parameters.seat_depth) / 25.4).toFixed(2)} in` : ""}`}
                 />
               </>
             )}

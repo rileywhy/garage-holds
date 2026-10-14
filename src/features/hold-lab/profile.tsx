@@ -5,7 +5,7 @@ export function Profile({
   kind,
 }: {
   data: Preview;
-  kind: "sloper" | "jug";
+  kind: "sloper" | "jug" | "foot";
 }) {
   const ys = data.profile.map(([y]) => y);
   const zs = data.profile.map(([, z]) => z);
@@ -38,9 +38,11 @@ export function Profile({
         wall
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {kind === "jug"
-          ? `${data.parameters.edge_depth} mm reach · ${data.parameters.incut}° incut`
-          : `${data.parameters.incut}° lift · ${data.parameters.arc_wrap}° wrap · ${data.parameters.projection} mm depth`}
+        {kind === "foot"
+          ? `${data.parameters.shape} � ${data.parameters.edge_depth} mm depth`
+          : kind === "jug"
+            ? `${data.parameters.edge_depth} mm reach · ${data.parameters.incut}° incut`
+            : `${data.parameters.incut}° lift · ${data.parameters.arc_wrap}° wrap · ${data.parameters.projection} mm depth`}
       </text>
     </svg>
   );

@@ -8,8 +8,9 @@ export interface Control {
   step: number;
   unit: string;
   help: string;
+  shapes?: string[];
 }
-export type Parameters = Record<string, number | boolean>;
+export type Parameters = Record<string, number | boolean | string>;
 export interface Schema {
   defaults: Parameters;
   controls: Control[];
@@ -37,7 +38,7 @@ export interface Preview {
 export const DESIGN_FILE_LIMIT = 16384;
 
 export async function loadSchema(
-  kind: "sloper" | "jug" = "sloper",
+  kind: "sloper" | "jug" | "foot" = "sloper",
 ): Promise<Schema> {
   const response = await fetch(`/api/${kind}`);
   if (!response.ok) throw new Error(`${kind} generator is not configured.`);
@@ -48,7 +49,7 @@ export async function post(
   action: "preview" | "stl" | "validate",
   parameters: Parameters,
   signal?: AbortSignal,
-  kind: "sloper" | "jug" = "sloper",
+  kind: "sloper" | "jug" | "foot" = "sloper",
 ) {
   const response = await fetch(`/api/${kind}`, {
     method: "POST",
@@ -70,20 +71,20 @@ export async function post(
 
 export function parseDesignFile(
   text: string,
-  kind: "sloper" | "jug" = "sloper",
+  kind: "sloper" | "jug" | "foot" = "sloper",
 ): Parameters {
   const design = JSON.parse(text) as Partial<Design> | null;
   if (
     !design ||
     design.generator !== `garage-holds-${kind}` ||
-    design.version !== (kind === "jug" ? 2 : 1) ||
+    design.version !== (kind === "sloper" ? 1 : 2) ||
     design.units !== "mm" ||
     !design.parameters ||
     typeof design.parameters !== "object" ||
     Array.isArray(design.parameters)
   )
     throw new Error(
-      `this is not a ${kind === "jug" ? "Jug" : "Sloper"} Lab settings file.`,
+      `this is not a ${kind === "jug" ? "Jug" : kind === "foot" ? "Foot" : "Sloper"} Lab settings file.`,
     );
   return kind === "sloper"
     ? { incut: 0, ...design.parameters }

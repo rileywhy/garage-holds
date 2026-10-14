@@ -32,19 +32,24 @@ function refresh() {
     const disabled =
       item.group === "Mounting" &&
       (!parameters.screws ||
-        (item.key === "seat_depth" && parameters.auto_seat));
+        (item.key === "seat_depth" && parameters.auto_seat) ||
+        (item.key === "screw_count" && parameters.auto_screw_count));
     widget.number.disabled = widget.slider.disabled = disabled;
     const hidden = item.key.startsWith("bolt_")
       ? !parameters.bolt_mount
       : parameters.bolt_mount &&
         ["screw_count", "screw_spacing"].includes(item.key);
-    widget.number.closest(".control").hidden = Boolean(hidden);
+    widget.number.closest(".control").hidden = Boolean(
+      hidden || (item.shapes && !item.shapes.includes(parameters.shape)),
+    );
   }
   $("#screws").checked = parameters.screws;
   $("#bolt-mount").checked = Boolean(parameters.bolt_mount);
   $("#bolt-mount").disabled = !parameters.screws;
   $("#auto-seat").checked = parameters.auto_seat;
   $("#auto-seat").disabled = !parameters.screws;
+  if (config.autoScrewCount)
+    $("#auto-screw-count").checked = parameters.auto_screw_count;
   $("#seed").value = parameters.seed;
 }
 
@@ -180,6 +185,12 @@ function createControls() {
       mountToggle(panel, "screws", "mounting holes");
       mountToggle(panel, "bolt_mount", "bolt + one screw");
       mountToggle(panel, "auto_seat", "automatic screw seat");
+      if (config.autoScrewCount)
+        mountToggle(
+          panel,
+          "auto_screw_count",
+          "auto screw count: two at 50 mm wide",
+        );
     }
     for (const item of config.controls.filter((c) => c.group === group)) {
       const node =
@@ -283,7 +294,13 @@ function boardAngle(angle) {
 async function main() {
   const response = await fetch("/api/schema");
   if (!response.ok) throw new Error("could not load generator settings.");
-  config = await response.json();
+  config = {
+    generator: "garage-holds-jug",
+    version: 2,
+    slug: "jug",
+    label: "Jug Lab",
+    ...(await response.json()),
+  };
   parameters = { ...config.defaults };
   viewer = new Viewer($("#viewer"));
   createControls();
@@ -325,7 +342,7 @@ async function main() {
         new Blob([JSON.stringify(currentDesign, null, 2)], {
           type: "application/json",
         }),
-        `jug-${parameters.width}mm.json`,
+        `${config.slug}-${parameters.width}mm.json`,
       );
   });
   $("#load-settings").addEventListener("change", async (event) => {
@@ -336,14 +353,14 @@ async function main() {
         throw new Error("settings files must be smaller than 16 KB.");
       const design = JSON.parse(await file.text());
       if (
-        design.generator !== "garage-holds-jug" ||
-        design.version !== 2 ||
+        design.generator !== config.generator ||
+        design.version !== config.version ||
         design.units !== "mm" ||
         !design.parameters ||
         typeof design.parameters !== "object" ||
         Array.isArray(design.parameters)
       )
-        throw new Error("this is not a Jug Lab settings file.");
+        throw new Error(`this is not a ${config.label} settings file.`);
       const checked = await (
         await post("/api/validate", design.parameters)
       ).json();
@@ -364,7 +381,7 @@ async function main() {
     try {
       download(
         await (await post("/api/stl", snapshot)).blob(),
-        `jug-${snapshot.width}mm.stl`,
+        `${config.slug}-${snapshot.width}mm.stl`,
       );
       if (request === sequence)
         status("STL downloaded. save settings to keep it editable.");
