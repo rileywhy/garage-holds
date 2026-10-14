@@ -29,22 +29,18 @@ function refresh() {
     widget.number.value = widget.slider.value = parameters[item.key];
     if (widget.imperial)
       widget.imperial.textContent = inches(parameters[item.key]);
-    const disabled =
-      item.group === "Mounting" &&
-      (!parameters.screws ||
-        (item.key === "seat_depth" && parameters.auto_seat));
+    const disabled = item.group === "Mounting" && !parameters.screws;
     widget.number.disabled = widget.slider.disabled = disabled;
+    widget.reset.disabled = disabled;
     const hidden = item.key.startsWith("bolt_")
       ? !parameters.bolt_mount
       : parameters.bolt_mount &&
-        ["screw_count", "screw_spacing"].includes(item.key);
+        ["screw_count", "screw_spacing", "screw_arc"].includes(item.key);
     widget.number.closest(".control").hidden = Boolean(hidden);
   }
   $("#screws").checked = parameters.screws;
   $("#bolt-mount").checked = Boolean(parameters.bolt_mount);
   $("#bolt-mount").disabled = !parameters.screws;
-  $("#auto-seat").checked = parameters.auto_seat;
-  $("#auto-seat").disabled = !parameters.screws;
   $("#seed").value = parameters.seed;
 }
 
@@ -79,7 +75,27 @@ async function preview() {
     ).json();
     if (request !== sequence) return;
     // Echo the built settings without scheduling another request.
-    parameters = { ...data.parameters };
+    parameters = { ...data.parameters, body_height: parameters.body_height };
+    for (const item of config.controls) {
+      const widget = widgets.get(item.key);
+      const available = data.control_limits?.[item.key];
+      const range = data.control_ranges?.[item.key];
+      const minimum = Math.max(
+        item.min,
+        Math.min(item.max, Number.isFinite(range?.min) ? range.min : item.min),
+      );
+      const maximum = Math.max(
+        minimum,
+        item.min,
+        Math.min(item.max, Number.isFinite(available) ? available : item.max),
+      );
+      widget.number.min = widget.slider.min = minimum;
+      widget.number.max = widget.slider.max = maximum;
+      widget.hint.textContent =
+        Number.isFinite(available) || Number.isFinite(range?.min)
+          ? `${item.help} Current geometry allows ${minimum}–${maximum} ${item.unit}.`
+          : item.help;
+    }
     refresh();
     viewer.update(data, fitNext);
     fitNext = false;
@@ -179,7 +195,6 @@ function createControls() {
     if (group === "Mounting") {
       mountToggle(panel, "screws", "mounting holes");
       mountToggle(panel, "bolt_mount", "bolt + one screw");
-      mountToggle(panel, "auto_seat", "automatic screw seat");
     }
     for (const item of config.controls.filter((c) => c.group === group)) {
       const node =
@@ -201,6 +216,24 @@ function createControls() {
         node.insertBefore(imperial, hint);
       }
       slider.setAttribute("aria-label", `${item.label} slider`);
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.textContent = "↶";
+      reset.title = `Reset ${item.label}`;
+      reset.setAttribute("aria-label", reset.title);
+      function resetControl() {
+        if (item.key === "screw_spacing") parameters.auto_spacing = true;
+        else if (item.key === "seat_depth") {
+          parameters.auto_seat = true;
+          parameters.seat_depth = config.defaults.seat_depth;
+        } else parameters[item.key] = config.defaults[item.key];
+        $("#preset").value = "custom";
+        refresh();
+        dirty();
+      }
+      reset.addEventListener("click", resetControl);
+      slider.addEventListener("dblclick", resetControl);
+      node.querySelector(".number-wrap").append(reset);
       for (const input of [number, slider]) {
         Object.assign(input, { min: item.min, max: item.max, step: item.step });
         input.setAttribute("aria-describedby", hint.id);
@@ -212,6 +245,8 @@ function createControls() {
           )
             return;
           parameters[item.key] = value;
+          if (item.key === "screw_spacing") parameters.auto_spacing = false;
+          if (item.key === "seat_depth") parameters.auto_seat = false;
           if (imperial) imperial.textContent = inches(value);
           if (input === slider) number.value = value;
           else slider.value = value;
@@ -219,7 +254,7 @@ function createControls() {
           dirty();
         });
       }
-      widgets.set(item.key, { number, slider, imperial });
+      widgets.set(item.key, { number, slider, imperial, reset, hint });
       panel.append(node);
     }
     if (group === "Shape") {

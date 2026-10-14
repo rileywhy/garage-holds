@@ -29,6 +29,8 @@ export interface Design {
 }
 
 export interface Preview {
+  control_limits?: Record<string, number>;
+  control_ranges?: Record<string, { min?: number; max?: number }>;
   vertices: number[][];
   faces: number[][];
   profile: [number, number][];
@@ -50,6 +52,29 @@ export interface Preview {
   lip_radius: number;
   watertight: boolean;
   design: Design;
+}
+
+export function limitControl(
+  control: Control,
+  preview: Preview | null,
+): Control {
+  const range = preview?.control_ranges?.[control.key];
+  const available = range?.max ?? preview?.control_limits?.[control.key];
+  const minimum =
+    range?.min != null && Number.isFinite(range.min)
+      ? Math.max(control.min, Math.min(control.max, range.min))
+      : control.min;
+  if (available == null && minimum === control.min) return control;
+  const max = Math.max(
+    minimum,
+    Math.min(control.max, available ?? control.max),
+  );
+  return {
+    ...control,
+    min: minimum,
+    max,
+    help: `${control.help} Current geometry allows ${minimum}–${max} ${control.unit}.`,
+  };
 }
 
 export const DESIGN_FILE_LIMIT = 16384;

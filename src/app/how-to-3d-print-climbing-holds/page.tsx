@@ -47,7 +47,10 @@ export default function HowToPrintHoldsPage() {
           <li>
             Filament: PETG, <GearLink item={GEAR.petg} />.
           </li>
-          <li>Slicer: 8 walls, 25 to 40% infill, everything else default.</li>
+          <li>
+            Slicer: 8 walls, 25 to 40% infill, Layer height 0.2 mm, everything
+            else default.
+          </li>
           <li>Fuzzy skin on: 0.3 mm point distance, 0.4 to 0.5 mm thick.</li>
           <li>
             Mount with wood screws, snug not tight, and test it low first.

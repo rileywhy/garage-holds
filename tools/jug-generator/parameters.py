@@ -15,7 +15,7 @@ class Parameters(crimp.Parameters):
     edge_depth: float = 57.5
     incut: float = 56
     lip_radius: float = 10.5
-    body_height: float = 115
+    body_height: float = 100
     body_rounding: float = 25
     end_rounding: float = 19
     bow: float = 10.5
@@ -23,6 +23,8 @@ class Parameters(crimp.Parameters):
     arc_rise: float = 5
     size: float = 100
     grip_quality: float = 90
+    screw_arc: float = 6
+    seat_depth: float = 6
 
 
 CONTROLS = [
@@ -98,6 +100,13 @@ CONTROLS.append(
         help="Bends the whole gripping section into an arch that meets the wall at both ends. Zero keeps a straight rail.",
     )
 )
+CONTROLS.append(
+    dict(
+        key="screw_arc", label="screw arc", group="Mounting",
+        min=0, max=20, step=0.5, unit="mm",
+        help="Moves the inner screws away from the lip for a deeper mounting arc. Zero follows the usable mounting curve. Outer screws stay put; available material limits the offset.",
+    )
+)
 PRESETS = {
     "board jug": Parameters(),
     "deep jug": Parameters(
@@ -110,7 +119,7 @@ PRESETS = {
     # with a gentler arch so four screws spread across the body instead of
     # crowding the middle.
     "two-handed jug": Parameters(
-        width=255,
+        width=253,
         end_rounding=24,
         bow=12,
         end_wrap=50,
@@ -138,9 +147,10 @@ def parse_parameters(values):
     rise = merged.pop("arc_rise")
     size = merged.pop("size")
     bite = merged.pop("grip_quality")
+    screw_arc = merged.pop("screw_arc")
     if any(
         isinstance(v, bool) or not isinstance(v, (int, float))
-        for v in (wrap, rise, size, bite)
+        for v in (wrap, rise, size, bite, screw_arc)
     ):
         raise ValueError("Grip controls must be numbers.")
     # Preserve the established 90% -> 56 degree bite, then ease toward
@@ -148,7 +158,8 @@ def parse_parameters(values):
     merged["incut"] = 20 + bite * 0.4 if bite <= 90 else 56 + (bite - 90) * 4 / 90
     parsed = crimp.parse_parameters(merged, jug=True)
     return Parameters(
-        **asdict(parsed), end_wrap=wrap, arc_rise=rise, size=size, grip_quality=bite
+        **asdict(parsed), end_wrap=wrap, arc_rise=rise, size=size, grip_quality=bite,
+        screw_arc=screw_arc,
     )
 
 

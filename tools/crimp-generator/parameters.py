@@ -1,7 +1,7 @@
 """The generator's shared parameter contract, in millimetres and degrees."""
 
 import math
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 
 
 @dataclass(frozen=True)
@@ -226,7 +226,13 @@ CONTROLS.extend(
 )
 
 # Jugs may be taller, deeper, and wide enough for two hands.
-JUG_MAXIMA = {"edge_depth": 140, "body_height": 300, "width": 400, "screw_spacing": 360}
+JUG_MAXIMA = {
+    "edge_depth": 140,
+    "body_height": 300,
+    "width": 400,
+    "screw_spacing": 360,
+    "seat_depth": 140,
+}
 
 PRESETS = {
     "Rounded board crimp": Parameters(),
@@ -298,9 +304,15 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
             and not p.auto_spacing
             and p.screw_spacing + p.head_diameter + 4 > p.width
         ):
-            raise ValueError(
-                "Move the screws closer together, reduce end rounding, or increase width."
-            )
+            if jug:
+                p = replace(
+                    p,
+                    screw_spacing=max(0.0, p.width - p.head_diameter - 4),
+                )
+            else:
+                raise ValueError(
+                    "Move the screws closer together, reduce end rounding, or increase width."
+                )
         if (
             not p.auto_spacing
             and not p.bolt_mount
