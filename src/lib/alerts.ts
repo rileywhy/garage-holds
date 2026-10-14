@@ -15,7 +15,13 @@ export async function notifyOwner(message: string) {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message, text: message }),
+      // Messages quote visitor text, so Discord must not turn an @everyone
+      // in it into a ping. Slack ignores the field.
+      body: JSON.stringify({
+        content: message,
+        text: message,
+        allowed_mentions: { parse: [] },
+      }),
     });
     if (!response.ok)
       console.error("owner alert webhook failed", response.status, message);
