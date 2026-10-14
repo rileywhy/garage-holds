@@ -34,8 +34,15 @@ function refresh() {
       (!parameters.screws ||
         (item.key === "seat_depth" && parameters.auto_seat));
     widget.number.disabled = widget.slider.disabled = disabled;
+    const hidden = item.key.startsWith("bolt_")
+      ? !parameters.bolt_mount
+      : parameters.bolt_mount &&
+        ["screw_count", "screw_spacing"].includes(item.key);
+    widget.number.closest(".control").hidden = Boolean(hidden);
   }
   $("#screws").checked = parameters.screws;
+  $("#bolt-mount").checked = Boolean(parameters.bolt_mount);
+  $("#bolt-mount").disabled = !parameters.screws;
   $("#auto-seat").checked = parameters.auto_seat;
   $("#auto-seat").disabled = !parameters.screws;
   $("#seed").value = parameters.seed;
@@ -85,6 +92,7 @@ async function preview() {
       ["estimated material", `≈ ${data.material_grams.join("–")} g`],
       ["mesh", `${data.triangles.toLocaleString()} triangles · closed`],
       ["screw holes", String(data.screws.length)],
+      ["bolt holes", String(data.bolts?.length ?? 0)],
       ["seat above wall", length(data.parameters.seat_depth)],
     ];
     $("#metrics").replaceChildren(
@@ -169,7 +177,8 @@ function createControls() {
     panel.setAttribute("aria-labelledby", `tab-${group.toLowerCase()}`);
     panel.hidden = group !== "Grip";
     if (group === "Mounting") {
-      mountToggle(panel, "screws", "screw-on mounting holes");
+      mountToggle(panel, "screws", "mounting holes");
+      mountToggle(panel, "bolt_mount", "bolt + one screw");
       mountToggle(panel, "auto_seat", "automatic screw seat");
     }
     for (const item of config.controls.filter((c) => c.group === group)) {

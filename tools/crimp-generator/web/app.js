@@ -40,8 +40,10 @@ function updateControl(key, value) {
 function refreshWidgets() {
   for (const key of widgets.keys()) updateControl(key, parameters[key]);
   $("#screws").checked = parameters.screws;
+  $("#bolt-mount").checked = Boolean(parameters.bolt_mount);
+  $("#bolt-mount").disabled = !parameters.screws;
   $("#auto-spacing").checked = parameters.auto_spacing;
-  $("#auto-spacing").disabled = !parameters.screws;
+  $("#auto-spacing").disabled = !parameters.screws || parameters.bolt_mount;
   $("#auto-seat").checked = parameters.auto_seat;
   $("#auto-seat").disabled = !parameters.screws;
   $("#seed").value = parameters.seed;
@@ -54,6 +56,12 @@ function refreshWidgets() {
       (control.key === "seat_depth" && parameters.auto_seat);
     widgets.get(control.key).number.disabled = disabled;
     widgets.get(control.key).slider.disabled = disabled;
+    const hidden = control.key.startsWith("bolt_")
+      ? !parameters.bolt_mount
+      : parameters.bolt_mount &&
+        ["screw_count", "screw_spacing"].includes(control.key);
+    widgets.get(control.key).number.closest(".control").hidden =
+      Boolean(hidden);
   }
 }
 
@@ -183,8 +191,21 @@ function createControls() {
         refreshWidgets();
         dirty();
       });
-      toggle.append(checkbox, "Screw-on mounting holes");
+      toggle.append(checkbox, "Mounting holes");
       panel.append(toggle);
+      const boltLabel = document.createElement("label"),
+        boltCheckbox = document.createElement("input");
+      boltLabel.className = "mount-toggle";
+      boltCheckbox.type = "checkbox";
+      boltCheckbox.id = "bolt-mount";
+      boltCheckbox.addEventListener("change", () => {
+        parameters.bolt_mount = boltCheckbox.checked;
+        $("#preset").value = "Custom";
+        refreshWidgets();
+        dirty();
+      });
+      boltLabel.append(boltCheckbox, "Bolt + one screw");
+      panel.append(boltLabel);
       const automatic = document.createElement("label"),
         autoCheckbox = document.createElement("input");
       automatic.className = "mount-toggle";

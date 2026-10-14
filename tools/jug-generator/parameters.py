@@ -12,21 +12,25 @@ else:
 @dataclass(frozen=True)
 class Parameters(crimp.Parameters):
     width: float = 150
-    edge_depth: float = 40
-    incut: float = 40
+    edge_depth: float = 55
+    incut: float = 56
     lip_radius: float = 10
-    body_height: float = 58
+    body_height: float = 110
     body_rounding: float = 24
     end_rounding: float = 18
     bow: float = 10
     end_wrap: float = 115
     arc_rise: float = 5
     size: float = 100
-    grip_quality: float = 50
+    grip_quality: float = 90
 
 
 CONTROLS = [
-    dict(item, label=item["label"].lower())
+    dict(
+        item,
+        label=item["label"].lower(),
+        max=300 if item["key"] == "body_height" else item["max"],
+    )
     for item in crimp.CONTROLS
     if item["group"] != "Grip"
 ]
@@ -46,17 +50,17 @@ CONTROLS[:0] = [
         label="more / less bite",
         group="Grip",
         min=0,
-        max=90,
+        max=180,
         step=1,
         unit="%",
-        help="Higher gives a more positive incut; lower makes the grip less positive. This is shape, not a problem grade.",
+        help="90% is the standard positive jug. Higher adds bite; lower makes it less positive. This is shape, not a problem grade.",
     ),
     dict(
         key="edge_depth",
         label="grip reach",
         group="Grip",
-        min=25,
-        max=60,
+        min=10,
+        max=100,
         step=0.5,
         unit="mm",
         help="Lengthens the gripping section outward from the wall. Separate from the curve of the arch.",
@@ -98,10 +102,10 @@ PRESETS = {
     "board jug": Parameters(),
     "deep jug": Parameters(
         width=135,
-        edge_depth=48,
-        incut=45,
-        grip_quality=62.5,
-        body_height=72,
+        edge_depth=55,
+        incut=56,
+        grip_quality=90,
+        body_height=110,
         lip_radius=12,
         end_wrap=145,
         arc_rise=12,
@@ -133,8 +137,10 @@ def parse_parameters(values):
         for v in (wrap, rise, size, bite)
     ):
         raise ValueError("Grip controls must be numbers.")
-    merged["incut"] = 20 + bite * 0.4
-    parsed = crimp.parse_parameters(merged)
+    # Preserve the established 90% -> 56 degree bite, then ease toward
+    # 60 degrees above that point instead of allowing a folded-over grip.
+    merged["incut"] = 20 + bite * 0.4 if bite <= 90 else 56 + (bite - 90) * 4 / 90
+    parsed = crimp.parse_parameters(merged, jug=True)
     return Parameters(
         **asdict(parsed), end_wrap=wrap, arc_rise=rise, size=size, grip_quality=bite
     )

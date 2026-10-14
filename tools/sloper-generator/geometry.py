@@ -6,11 +6,18 @@ keeping the back at Z=0. This invertible transform cannot fold the mesh.
 """
 
 import math
-from dataclasses import asdict, dataclass, replace
+
+# Standalone GUI entry points also need the repository's shared hardware code.
+import sys
+from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path
 
 import manifold3d as manifold
 import numpy as np
 import trimesh
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.hold_mounting import drill, fit_bolt_and_screw
 
 if __package__:
     from .parameters import (
@@ -37,6 +44,7 @@ class Model:
     screws: list[tuple[float, float]]
     parameters: Parameters
     adjusted: dict
+    bolts: list = field(default_factory=list)
 
     def preview(self):
         volume = float(self.mesh.volume)
@@ -46,6 +54,7 @@ class Model:
             faces=self.mesh.faces.tolist(),
             profile=np.round(self.profile, 5).tolist(),
             screws=self.screws,
+            bolts=self.bolts,
             dimensions=np.round(self.mesh.extents, 2).tolist(),
             material_grams=[
                 round((shell + (volume - shell) * i) / 1000 * 1.27) for i in (0.25, 0.4)
@@ -228,7 +237,16 @@ def build(requested: Parameters, quality="preview") -> Model:
         p = _fit_slope(p)
         mesh, profile = _mesh(p, "preview")
         solid = _solid(mesh)
-        screws, seat = _mounting(p, solid) if p.screws else ([], p.seat_depth)
+        holes = []
+        if p.screws and p.bolt_mount:
+            target = round(
+                min(30, p.projection * 0.36) if p.auto_seat else p.seat_depth, 1
+            )
+            holes = fit_bolt_and_screw(p, solid, mesh.bounds, target)
+            screws = [(h.x, h.y) for h in holes if not h.bolt]
+            seat = holes[0].seat if holes else target
+        else:
+            screws, seat = _mounting(p, solid) if p.screws else ([], p.seat_depth)
         if not p.screws or screws:
             break
         # Grow the footprint first, then depth if the maximum oval is still
@@ -247,7 +265,13 @@ def build(requested: Parameters, quality="preview") -> Model:
     if quality == "export":
         mesh, profile = _mesh(p, quality)
         solid = _solid(mesh)
-    if screws:
+    bolts = [(h.x, h.y) for h in holes if h.bolt]
+    if holes:
+        result = drill(solid, holes, float(mesh.bounds[1, 2])).to_mesh()
+        mesh = trimesh.Trimesh(
+            result.vert_properties[:, :3], result.tri_verts, process=True
+        )
+    elif screws:
         cone_height = (p.head_diameter - p.shank_diameter) / 2
         for x, y in screws:
             shank = manifold.Manifold.cylinder(
@@ -271,4 +295,4 @@ def build(requested: Parameters, quality="preview") -> Model:
         for key, value in asdict(p).items()
         if value != asdict(requested)[key]
     }
-    return Model(mesh, profile, screws, p, adjusted)
+    return Model(mesh, profile, screws, p, adjusted, bolts)

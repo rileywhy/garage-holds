@@ -25,6 +25,7 @@ import {
   type Schema,
 } from "./api";
 import { Profile } from "./profile";
+import { mountingControlVisible } from "./mounting";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
@@ -300,8 +301,24 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                       checked={screws}
                       onChange={(e) => change("screws", e.target.checked)}
                     />
-                    screw-on mounting holes
+                    mounting holes
                   </label>
+                  <label className="lab-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(parameters.bolt_mount)}
+                      disabled={!screws}
+                      onChange={(e) => change("bolt_mount", e.target.checked)}
+                    />
+                    bolt + one screw
+                  </label>
+                  {Boolean(parameters.bolt_mount) && (
+                    <p className="lab-hint">
+                      One flat-bottom M10 bolt recess and one countersunk
+                      anti-rotation screw. Check the dimensions against your
+                      hardware.
+                    </p>
+                  )}
                   <label className="lab-toggle">
                     <input
                       type="checkbox"
@@ -314,7 +331,11 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                 </>
               )}
               {schema.controls
-                .filter((c) => c.group === name)
+                .filter(
+                  (c) =>
+                    c.group === name &&
+                    mountingControlVisible(c.key, parameters),
+                )
                 .map((control) => (
                   <ControlRow
                     key={control.key}
@@ -520,6 +541,12 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                   label="screw holes"
                   value={String(preview.screws.length)}
                 />
+                {(preview.bolts?.length ?? 0) > 0 && (
+                  <Metric
+                    label="bolt holes"
+                    value={String(preview.bolts?.length)}
+                  />
+                )}
                 <Metric
                   label="seat above wall"
                   value={`${preview.parameters.seat_depth} mm${kind === "jug" ? ` · ${(Number(preview.parameters.seat_depth) / 25.4).toFixed(2)} in` : ""}`}

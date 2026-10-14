@@ -16,6 +16,22 @@ from parameters import PRESETS, Parameters, design_document, parse_parameters
 
 
 class GeometryTests(unittest.TestCase):
+    def test_default_controls_are_centered_and_maximum_jug_fits(self):
+        from parameters import CONTROLS
+
+        controls = {c["key"]: c for c in CONTROLS}
+        for key in ("edge_depth", "grip_quality"):
+            c = controls[key]
+            self.assertEqual(getattr(Parameters(), key), (c["min"] + c["max"]) / 2)
+        model = build(
+            Parameters(size=140, edge_depth=100, grip_quality=180, bolt_mount=True)
+        )
+        self.assertTrue(model.mesh.is_watertight)
+        self.assertEqual(model.bolts[0][0], 0)
+        np.testing.assert_allclose(
+            build(model.parameters).mesh.vertices, model.mesh.vertices
+        )
+
     def test_calibrated_controls_change_the_intended_geometry(self):
         p = Parameters()
         small, large = build(replace(p, size=80)), build(replace(p, size=125))
@@ -104,9 +120,10 @@ class GeometryTests(unittest.TestCase):
 
     def test_default_is_deep_incut_rounded_and_low_projection(self):
         model = build(Parameters())
-        self.assertLessEqual(model.mesh.extents[2], 46.01)
-        self.assertEqual(model.parameters.edge_depth, 40)
-        self.assertEqual(model.parameters.incut, 40)
+        self.assertLessEqual(model.mesh.extents[2], 66.01)
+        self.assertEqual(model.parameters.edge_depth, 55)
+        self.assertEqual(model.parameters.grip_quality, 90)
+        self.assertEqual(model.parameters.incut, 56)
         self.assertGreaterEqual(model._model.lip_radius, 7)
         self.assertEqual(len(model.screws), 3)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)

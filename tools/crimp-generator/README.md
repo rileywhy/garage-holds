@@ -89,3 +89,5 @@ keep your camera orientation, pan, and zoom; **Exact side** gives a true side-on
 view of the mounted hold. Presets and loaded settings refit the model while keeping
 the viewing direction. This is a viewing setting
 and does not change the generated mesh, exported STL, or saved design parameters.
+
+Mounting also offers a centred M10 bolt plus one off-centre anti-rotation screw. Bolt clearance defaults to 10.5 mm with a 20 mm flat-bottom counterbore; both are adjustable. Screw-only remains the default. Preview and export share the fitted hole layout.

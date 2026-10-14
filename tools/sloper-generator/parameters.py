@@ -21,6 +21,9 @@ class Parameters:
     character: float = 0
     seed: int = 21
     screws: bool = True
+    bolt_mount: bool = False
+    bolt_diameter: float = 10.5
+    bolt_head_diameter: float = 20
     screw_count: int = 3
     shank_diameter: float = 5.5
     head_diameter: float = 11
@@ -174,6 +177,31 @@ CONTROLS = [
     ),
 ]
 
+CONTROLS.extend(
+    [
+        dict(
+            key="bolt_diameter",
+            label="bolt hole diameter",
+            group="Mounting",
+            min=8,
+            max=14,
+            step=0.1,
+            unit="mm",
+            help="Through-hole clearance. 10.5 mm is the default for an M10 bolt.",
+        ),
+        dict(
+            key="bolt_head_diameter",
+            label="bolt head recess diameter",
+            group="Mounting",
+            min=16,
+            max=30,
+            step=0.5,
+            unit="mm",
+            help="Flat-bottom counterbore for the bolt head. Check against your hardware.",
+        ),
+    ]
+)
+
 PRESETS = {
     "rounded board sloper": Parameters(),
     "round ball": Parameters(
@@ -210,7 +238,7 @@ def parse_parameters(values: dict) -> Parameters:
             raise ValueError(f"{item['label']} must be a finite number.")
         # Typed values outside the sliders snap to the supported range.
         parsed[item["key"]] = min(item["max"], max(item["min"], value))
-    for key in ("screws", "auto_seat"):
+    for key in ("screws", "auto_seat", "bolt_mount"):
         if not isinstance(parsed[key], bool):
             raise ValueError("Mounting switches must be on or off.")
     if parsed["screw_count"] != int(parsed["screw_count"]):
@@ -219,6 +247,9 @@ def parse_parameters(values: dict) -> Parameters:
     seed = parsed["seed"]
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 999999:
         raise ValueError("Seed must be a whole number between 0 and 999999.")
+    parsed["bolt_head_diameter"] = max(
+        parsed["bolt_head_diameter"], parsed["bolt_diameter"] + 2
+    )
     return Parameters(**parsed)
 
 
