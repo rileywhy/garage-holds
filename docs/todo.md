@@ -31,12 +31,11 @@ keeps it current as work lands; add your own items freely.
 
 ## Sign-ups for the gear page and tip jar
 
-- **Amazon Associates.** Register at affiliate-program.amazon.com with
-  `garageholds.com` as the site (a free library and shape generator for 3D
-  printable climbing holds). Choose a tracking id like `garageholds-20` and
-  give it to Claude, who sets `NEXT_PUBLIC_AMAZON_TAG` on Vercel. The
-  account needs three qualifying sales in its first 180 days or Amazon
-  closes it, so do this once the guide is live and linked.
+- **Amazon Associates: make three sales by April 2027.** The account is
+  open and `garageholds-20` is live on the site, but Amazon only reviews
+  the application after the first three qualifying sales, and closes it
+  after 180 days without any. Getting the guide in front of people is what
+  starts that.
 - **Stripe payment link for the tip jar.** Make a Stripe account, then
   Payment Links → New → "customer chooses what to pay", named something
   like "chip in for hosting", one-off. Give Claude the link for
