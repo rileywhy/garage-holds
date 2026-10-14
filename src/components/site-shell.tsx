@@ -93,7 +93,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
         <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
           <a href={TIP_URL} rel="noopener" target="_blank">
-            Chip in for hosting <ArrowUpRight size={15} />
+            Buy us a spool <ArrowUpRight size={15} />
           </a>
         )}
         <Link href="/upload">

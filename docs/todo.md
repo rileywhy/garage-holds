@@ -36,12 +36,10 @@ keeps it current as work lands; add your own items freely.
   the application after the first three qualifying sales, and closes it
   after 180 days without any. Getting the guide in front of people is what
   starts that.
-- **Stripe payment link for the tip jar.** Register at
-  dashboard.stripe.com as an individual with your legal name and a bank
-  account. Product catalog → Add product → "chip in for hosting", one-off,
-  "customer chooses what to pay", suggested $5, minimum $1. Payment links →
-  New → that product → Create. Give Claude the `buy.stripe.com` link for
-  `NEXT_PUBLIC_TIP_URL`. The same account serves anything sold later.
+- **Stripe: finish verification.** The tip link is live in the footer, but
+  payouts wait until the bank account and identity details in the Stripe
+  dashboard are complete. Settings → Business → Public details should say
+  "Garage Holds" for the public name and statement descriptor.
 
 ## Domain and search
 
