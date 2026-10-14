@@ -47,9 +47,13 @@ move the hole centers or change the body's outside dimensions.
 Changes to scale/incut may require manually repositioning holes;
 the generator reports this rather than silently moving them.
 
-Preview requests debounce by 450 ms after a gesture or parameter change. Previous
-requests are canceled, and export stays disabled until the current shape passes
+Preview requests run immediately, with only one request in flight. Superseded
+results are discarded and the latest settings run next, preventing a backlog
+while dragging sliders. Export stays disabled until the current shape passes
 validation. STL output is validated for watertightness and positive volume.
+Drawing contours and mesh connectivity are cached independently of settings.
+Previews use fewer profile samples and packed binary coordinates to reduce transfer
+and browser rendering work; STL exports retain the full profile resolution.
 The editor caches smoothed, antialiased contours for display without changing
 the binary material mask or semantic mounting holes.
 

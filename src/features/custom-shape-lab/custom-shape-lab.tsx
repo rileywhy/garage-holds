@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
 import {
@@ -7,7 +7,7 @@ import {
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
 import { RotateCcw } from "lucide-react";
-import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
+import { decodePreview, previewMesh } from "./preview";
 import {
   ARTWORK_COLORS,
   RESOLUTION,
@@ -68,6 +68,7 @@ export function CustomShapeLab() {
   const bitmap = useRef<HTMLCanvasElement | null>(null);
   const materialDirty = useRef(true);
   const frame = useRef<number | null>(null);
+  const previewFlight = useRef<Promise<void> | null>(null);
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
   const [fittedSeat, setFittedSeat] = useState<number | null>(null);
@@ -191,37 +192,49 @@ export function CustomShapeLab() {
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setMessage("Updating preview…");
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "preview",
-            document: serializeDocument(drawing.current),
-            parameters,
-          }),
-          signal: controller.signal,
-        });
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error ?? "Could not generate the hold.");
-        if (controller.signal.aborted || active.current?.changed) return;
-        viewer.current?.setGeometry(previewGeometry(data), revision === 0);
-        setReady(true);
-        setFittedSeat(data.seatDepth);
-        setMessage(`Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setReady(false);
+      await previewFlight.current;
+      if (controller.signal.aborted) return;
+      const update = async () => {
+        setMessage("Updating preview…");
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "preview",
+              previewEncoding: "binary",
+              document: serializeDocument(drawing.current),
+              parameters,
+            }),
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error ?? "Could not generate the hold.");
+          }
+          const data = decodePreview(await response.arrayBuffer());
+          if (controller.signal.aborted || active.current?.changed) return;
+          viewer.current?.setGeometry(previewMesh(data), revision === 0);
+          setReady(true);
+          setFittedSeat(data.seatDepth);
           setMessage(
-            error instanceof Error
-              ? error.message
-              : "Could not generate preview.",
+            `Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`,
           );
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setReady(false);
+            setMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not generate preview.",
+            );
+          }
         }
-      }
-    }, 450);
+      };
+      const pending = update();
+      previewFlight.current = pending;
+      await pending;
+      if (previewFlight.current === pending) previewFlight.current = null;
+    }, 0);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -359,6 +372,33 @@ export function CustomShapeLab() {
       commit();
     }
   }
+  const onHistoryShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.altKey ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.key.toLowerCase() !== "z"
+    )
+      return;
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.closest('input:not([type="range"]), textarea, select'))
+    )
+      return;
+    const direction = event.shiftKey ? "redo" : "undo";
+    if (!(direction === "undo" ? undo.current : redo.current).length) return;
+    event.preventDefault();
+    finish();
+    history(direction);
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => onHistoryShortcut(event);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
   async function download() {
     setExporting(true);
     try {
@@ -462,10 +502,20 @@ export function CustomShapeLab() {
                   : "Eraser"}
             </button>
           ))}
-          <button disabled={!editorState.undo} onClick={() => history("undo")}>
+          <button
+            disabled={!editorState.undo}
+            onClick={() => history("undo")}
+            title="Undo (Ctrl+Z / Cmd+Z)"
+            aria-keyshortcuts="Control+Z Meta+Z"
+          >
             Undo
           </button>
-          <button disabled={!editorState.redo} onClick={() => history("redo")}>
+          <button
+            disabled={!editorState.redo}
+            onClick={() => history("redo")}
+            title="Redo (Ctrl+Shift+Z / Cmd+Shift+Z)"
+            aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z"
+          >
             Redo
           </button>
           <button

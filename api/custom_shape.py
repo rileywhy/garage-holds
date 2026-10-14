@@ -2,10 +2,17 @@
 import importlib
 import json
 import sys
+import struct
+import numpy as np
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 engine=importlib.import_module('tools.custom-shape-generator.geometry')
+
+def preview_bytes(mesh):
+    return (struct.pack('<IIdd',len(mesh.vertices),len(mesh.faces),round(mesh.volume/1000,2),mesh.metadata['seatDepth'])
+            +np.asarray(mesh.vertices,dtype='<f4').tobytes()
+            +np.asarray(mesh.faces,dtype='<u4').tobytes())
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -21,8 +28,11 @@ class handler(BaseHTTPRequestHandler):
             mesh=engine.build(request)
             if request['action']=='stl':
                 body=mesh.export(file_type='stl'); content='model/stl'
+            elif request.get('previewEncoding')=='binary':
+                body=preview_bytes(mesh)
+                content='application/octet-stream'
             else:
-                body=json.dumps(dict(vertices=mesh.vertices.tolist(),faces=mesh.faces.tolist(),volume_cm3=round(mesh.volume/1000,2),seatDepth=mesh.metadata["seatDepth"]),allow_nan=False).encode(); content='application/json'
+                body=json.dumps(dict(vertices=mesh.vertices.round(5).tolist(),faces=mesh.faces.tolist(),volume_cm3=round(mesh.volume/1000,2),seatDepth=mesh.metadata["seatDepth"]),allow_nan=False,separators=(',',':')).encode(); content='application/json'
             self.respond(200,body,content)
         except (ValueError,TypeError,KeyError,OverflowError) as error:
             self.respond(400,json.dumps(dict(error=str(error))).encode(),'application/json')
