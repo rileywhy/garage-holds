@@ -6,7 +6,12 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { notifyOwner } from "@/lib/alerts";
+import { notifyOwner, notifyOwnerOnce } from "@/lib/alerts";
+import {
+  clientErrorKey,
+  formatClientError,
+  validateClientReport,
+} from "@/lib/error-reports";
 import { loadCurrentUser } from "@/features/auth/current-user";
 import { validateFeedback } from "./validation";
 
@@ -59,4 +64,13 @@ export async function submitFeedback(
     `Feedback from ${from} on ${input.page || "an unknown page"}:\n${input.body}`,
   );
   return { errors: [], sent: true };
+}
+
+// Called once by the error boundary when a page fails in the browser. The
+// report is whatever the browser sent, so it is validated and clipped here
+// and never stored; the owner gets one line per distinct error per minute.
+export async function reportClientError(input: unknown): Promise<void> {
+  const report = validateClientReport(input);
+  if (!report) return;
+  await notifyOwnerOnce(clientErrorKey(report), formatClientError(report));
 }

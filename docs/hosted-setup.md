@@ -229,6 +229,33 @@ submissions. To read everything ever sent:
 select created_at, contact, page, body from public.feedback order by created_at desc;
 ```
 
+## Error alerts
+
+Unhandled errors reach the same webhook, so you hear about a broken page
+before anyone reports it. Two sources feed it:
+
+- **Server.** `src/instrumentation.ts` exports Next.js's `onRequestError`
+  hook, which runs for every uncaught error in a Server Component, route
+  handler, server function, or the proxy. The line names the context and
+  method, the route template (`/holds/[id]`, never the real id or the query
+  string, so a phone-session id in the address cannot leak), and the error's
+  name, message, and digest.
+- **Browser.** `src/app/error.tsx` and `src/app/global-error.tsx` call
+  `reportClientError` once when they appear. The line names the page path
+  and the message the browser saw; for a server-side failure that is a
+  generic message plus the same digest as the server's line, so the two can
+  be matched. The server validates and clips the report and stores nothing.
+
+Nothing else is sent: no headers, cookies, request bodies, or stack traces.
+The line is clipped to 500 characters. A storm of the same error on the
+same route sends one line a minute per server instance
+(`src/lib/error-reports.ts`); Vercel's own Observability tab keeps the full
+count and stack for each error group.
+
+Without `ALERT_WEBHOOK_URL` the lines go to the runtime log, which Vercel
+keeps for an hour. In development that log is the terminal running
+`next dev`, which is how to see what a line would say.
+
 ## Crimp Lab's Python function
 
 `/api/crimp` is `api/crimp.py`, a Vercel Python function built from the

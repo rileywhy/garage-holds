@@ -1,4 +1,5 @@
 import "server-only";
+import { createAlertLimiter } from "./error-reports";
 
 // One-line notices for the site owner: someone hit an upload limit, or is
 // close to one. ALERT_WEBHOOK_URL is a Discord or Slack incoming webhook;
@@ -21,4 +22,13 @@ export async function notifyOwner(message: string) {
   } catch (error) {
     console.error("owner alert webhook failed", error, message);
   }
+}
+
+// For errors, which can repeat hundreds of times in a minute: the first one
+// with a given key is sent, the rest are dropped until a minute has passed.
+const allow = createAlertLimiter();
+
+export async function notifyOwnerOnce(key: string, message: string) {
+  if (!allow(key)) return;
+  await notifyOwner(message);
 }
