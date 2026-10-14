@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from "react";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { AMAZON_DISCLOSURE, TIP_URL, amazonTag } from "@/features/gear/gear";
+import { trackEvent } from "@/features/analytics/events";
 import { ThemeToggle } from "./theme-toggle";
 
 export function SiteHeader({
@@ -92,7 +93,12 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
         <FeedbackWidget signedIn={signedIn} />
         <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
-          <a href={TIP_URL} rel="noopener" target="_blank">
+          <a
+            href={TIP_URL}
+            rel="noopener"
+            target="_blank"
+            onClick={() => trackEvent({ name: "tip_click" })}
+          >
             Buy us a spool <ArrowUpRight size={15} />
           </a>
         )}

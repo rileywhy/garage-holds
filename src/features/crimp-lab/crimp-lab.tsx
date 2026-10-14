@@ -1,6 +1,7 @@
 "use client";
 
 import { mountingControlVisible } from "@/features/hold-lab/mounting";
+import { trackEvent } from "@/features/analytics/events";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -228,6 +229,7 @@ export function CrimpLab() {
         await response.blob(),
         `crimp-${snapshot.edge_depth}mm-${snapshot.incut}deg.stl`,
       );
+      trackEvent({ name: "export_stl", lab: "crimp" });
       if (request === sequence.current)
         setStatus({
           text: "STL downloaded. Save settings too if you want to revisit this design.",

@@ -26,6 +26,7 @@ import {
 } from "./api";
 import { Profile } from "./profile";
 import { mountingControlVisible } from "./mounting";
+import { trackEvent } from "@/features/analytics/events";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
@@ -214,6 +215,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
         await (await post("stl", snapshot, undefined, kind)).blob(),
         `${kind}-${snapshot.width}mm.stl`,
       );
+      trackEvent({ name: "export_stl", lab: kind });
       if (request === sequence.current)
         setStatus({
           text: "STL downloaded. save settings to keep it editable.",

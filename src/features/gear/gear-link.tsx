@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { trackEvent } from "@/features/analytics/events";
 import { gearUrl, type GearItem } from "./gear";
 
 // A shopping link. Marked sponsored so search engines do not count it as an
@@ -18,6 +21,7 @@ export function GearLink({
       rel="sponsored noopener"
       target="_blank"
       className={className}
+      onClick={() => trackEvent({ name: "gear_click", item: item.id })}
     >
       {children ?? item.label}
     </a>

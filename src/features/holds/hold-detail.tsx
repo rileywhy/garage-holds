@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { HoldVisual } from "@/components/hold-art";
 import { PhotoGallery } from "./photo-gallery";
+import { DownloadLink } from "./download-link";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
@@ -191,14 +192,12 @@ export function HoldDetail({
                       <small>{formatBytes(file.bytes)} · Original file</small>
                     </div>
                     {file.url ? (
-                      <a
-                        href={file.url}
-                        className="icon-button"
-                        aria-label={`Download ${file.name}`}
-                        download={file.name}
-                      >
-                        <Download size={18} />
-                      </a>
+                      <DownloadLink
+                        url={file.url}
+                        name={file.name}
+                        hold={hold.id}
+                        extension={file.extension}
+                      />
                     ) : (
                       <span className="icon-button" aria-hidden="true">
                         <Download size={18} />
