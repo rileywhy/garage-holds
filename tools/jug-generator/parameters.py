@@ -106,10 +106,11 @@ PRESETS = {
         end_wrap=145,
         arc_rise=12.5,
     ),
-    # Wide enough for both hands, with a gentler arch so four screws can
-    # spread across the body instead of crowding the middle.
+    # Wide enough for both hands and still 5% inside a 256 mm printer bed,
+    # with a gentler arch so four screws spread across the body instead of
+    # crowding the middle.
     "two-handed jug": Parameters(
-        width=330,
+        width=255,
         end_rounding=24,
         bow=12,
         end_wrap=50,

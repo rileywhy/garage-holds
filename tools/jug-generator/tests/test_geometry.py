@@ -128,10 +128,11 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(len(model.screws), 3)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)
 
-    def test_two_handed_jug_is_more_than_twice_as_wide(self):
+    def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
         widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
         for name in ("board jug", "deep jug"):
-            self.assertGreater(widths["two-handed jug"], 2 * widths[name])
+            self.assertGreater(widths["two-handed jug"], 1.9 * widths[name])
+        self.assertLessEqual(widths["two-handed jug"], 256 * 0.95)
         model = build(PRESETS["two-handed jug"])
         self.assertEqual(len(model.screws), 4)
         xs = sorted(x for x, _ in model.screws)
