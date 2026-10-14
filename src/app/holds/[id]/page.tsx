@@ -19,10 +19,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hold = await loadHold((await params).id);
   if (!hold || hold.status !== "published")
     return { title: "Hold design", robots: { index: false, follow: false } };
-  // The preview image is a signed URL that expires after an hour, which is
-  // enough for the first fetch a chat or social site makes when a link is
-  // posted.
-  const image = hold.photos[0]?.url;
+  // The preview image is served from this origin by /holds/<id>/og so it
+  // never expires; the photo id in the address busts caches when the photo
+  // changes. Without a photo the site-wide opengraph-image applies.
+  const photo = hold.photos[0];
   const description = `${hold.type} · ${hold.size} · ${hold.mount}. ${hold.description}`;
   return {
     title: hold.title,
@@ -33,9 +33,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: hold.title,
       description,
       url: `/holds/${hold.id}`,
-      ...(image ? { images: [{ url: image, alt: hold.title }] } : {}),
+      ...(photo
+        ? {
+            images: [
+              { url: `/holds/${hold.id}/og?v=${photo.id}`, alt: hold.title },
+            ],
+          }
+        : {}),
     },
-    twitter: { card: image ? "summary_large_image" : "summary" },
   };
 }
 

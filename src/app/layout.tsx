@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: "/",
   },
-  twitter: { card: "summary" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default async function RootLayout({
