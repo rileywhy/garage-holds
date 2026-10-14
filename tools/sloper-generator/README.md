@@ -102,3 +102,5 @@ on port 8771 and set `SLOPER_API_URL=http://127.0.0.1:8771`. Next rewrites
 GUI remains available on port 8770. On Vercel omit this variable; the Python
 function serves the route directly. Root `requirements.txt` supplies the same
 pinned geometry dependencies as Crimp Lab.
+
+Mounting also offers a centred M10 bolt plus one off-centre anti-rotation screw. Bolt clearance defaults to 10.5 mm with a 20 mm flat-bottom counterbore; both are adjustable. Screw-only remains the default. Preview and export share the fitted hole layout.

@@ -30,7 +30,8 @@ def engine_parameters(p):
     limits = {item["key"]: item for item in crimp_settings.CONTROLS}
     for key in SCALED:
         limit = limits[key]
-        values[key] = min(limit["max"], max(limit["min"], values[key] * factor))
+        maximum = {"edge_depth": 140, "body_height": 300}.get(key, limit["max"])
+        values[key] = min(maximum, max(limit["min"], values[key] * factor))
     values["end_rounding"] = min(values["end_rounding"], values["width"] / 2 - 0.5)
     return crimp.Parameters(**values)
 
@@ -40,6 +41,7 @@ class Model:
         self.mesh = model.mesh
         self.profile = model.profile
         self.screws = model.screws
+        self.bolts = model.bolts
         factor = requested.size / 100
         self.parameters = replace(
             requested,
@@ -65,6 +67,10 @@ def build(requested, quality="preview"):
     p = parse_parameters(asdict(requested))
     base = engine_parameters(p)
     model = crimp.build(
-        base, quality, end_wrap=p.end_wrap / 100, arc_rise=p.arc_rise * p.size / 100
+        base,
+        quality,
+        end_wrap=p.end_wrap / 100,
+        arc_rise=p.arc_rise * p.size / 100,
+        jug=True,
     )
     return Model(model, p)

@@ -33,6 +33,7 @@ export interface Preview {
   faces: number[][];
   profile: [number, number][];
   screws: [number, number][];
+  bolts?: [number, number][];
   grip_inner: [number, number];
   grip_outer: [number, number];
   dimensions: number[];

@@ -1,5 +1,7 @@
 "use client";
 
+import { mountingControlVisible } from "@/features/hold-lab/mounting";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, LoaderCircle, RotateCcw, Shuffle } from "lucide-react";
@@ -340,13 +342,31 @@ export function CrimpLab() {
                         change("screws", event.target.checked)
                       }
                     />
-                    Screw-on mounting holes
+                    Mounting holes
                   </label>
                   <label className="lab-toggle">
                     <input
                       type="checkbox"
-                      checked={Boolean(parameters.auto_spacing)}
+                      checked={Boolean(parameters.bolt_mount)}
                       disabled={!screws}
+                      onChange={(event) =>
+                        change("bolt_mount", event.target.checked)
+                      }
+                    />
+                    Bolt + one screw
+                  </label>
+                  {Boolean(parameters.bolt_mount) && (
+                    <p className="lab-hint">
+                      One flat-bottom M10 bolt recess and one countersunk
+                      anti-rotation screw. Check the dimensions against your
+                      hardware.
+                    </p>
+                  )}
+                  <label className="lab-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(parameters.auto_spacing)}
+                      disabled={!screws || Boolean(parameters.bolt_mount)}
                       onChange={(event) =>
                         change("auto_spacing", event.target.checked)
                       }
@@ -376,7 +396,11 @@ export function CrimpLab() {
                 </>
               )}
               {schema.controls
-                .filter((control) => control.group === name)
+                .filter(
+                  (control) =>
+                    control.group === name &&
+                    mountingControlVisible(control.key, parameters),
+                )
                 .map((control) => (
                   <ControlRow
                     key={control.key}
@@ -569,6 +593,12 @@ export function CrimpLab() {
                   label="Screw holes"
                   value={String(preview.screws.length)}
                 />
+                {(preview.bolts?.length ?? 0) > 0 && (
+                  <Metric
+                    label="Bolt holes"
+                    value={String(preview.bolts?.length)}
+                  />
+                )}
                 {preview.screw_spacing !== null && (
                   <Metric
                     label="Centre spacing"

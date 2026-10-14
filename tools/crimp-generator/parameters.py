@@ -18,6 +18,9 @@ class Parameters:
     character: float = 0
     seed: int = 21
     screws: bool = True
+    bolt_mount: bool = False
+    bolt_diameter: float = 10.5
+    bolt_head_diameter: float = 20
     screw_count: int = 3
     auto_spacing: bool = True
     screw_spacing: float = 60
@@ -197,11 +200,34 @@ CONTROLS = [
     ),
 ]
 
+CONTROLS.extend(
+    [
+        dict(
+            key="bolt_diameter",
+            label="bolt hole diameter",
+            group="Mounting",
+            min=8,
+            max=14,
+            step=0.1,
+            unit="mm",
+            help="Through-hole clearance. 10.5 mm is the default for an M10 bolt.",
+        ),
+        dict(
+            key="bolt_head_diameter",
+            label="bolt head recess diameter",
+            group="Mounting",
+            min=16,
+            max=30,
+            step=0.5,
+            unit="mm",
+            help="Flat-bottom counterbore for the bolt head. Check against your hardware.",
+        ),
+    ]
+)
+
 PRESETS = {
     "Rounded board crimp": Parameters(),
-    "Small flat edge": Parameters(
-        edge_depth=10, incut=0, lip_radius=2, body_height=42
-    ),
+    "Small flat edge": Parameters(edge_depth=10, incut=0, lip_radius=2, body_height=42),
     "Curved incut": Parameters(
         edge_depth=24,
         incut=22,
@@ -222,7 +248,7 @@ PRESETS = {
 }
 
 
-def parse_parameters(values: dict) -> Parameters:
+def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
     if not isinstance(values, dict):
         raise ValueError("Settings must be a JSON object.")
     allowed = {field.name for field in fields(Parameters)}
@@ -238,11 +264,16 @@ def parse_parameters(values: dict) -> Parameters:
             or not math.isfinite(value)
         ):
             raise ValueError(f"{control['label']} must be a finite number.")
-        if not control["min"] <= value <= control["max"]:
+        maximum = (
+            {"edge_depth": 140, "body_height": 300}.get(key, control["max"])
+            if jug
+            else control["max"]
+        )
+        if not control["min"] <= value <= maximum:
             raise ValueError(
-                f"{control['label']} must be between {control['min']} and {control['max']} {control['unit']}."
+                f"{control['label']} must be between {control['min']} and {maximum} {control['unit']}."
             )
-    for key in ("screws", "auto_spacing", "auto_seat"):
+    for key in ("screws", "auto_spacing", "auto_seat", "bolt_mount"):
         if not isinstance(parsed[key], bool):
             raise ValueError("Screw holes and automatic spacing must be on or off.")
     if parsed["screw_count"] != int(parsed["screw_count"]):
@@ -252,6 +283,8 @@ def parse_parameters(values: dict) -> Parameters:
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 999999:
         raise ValueError("Seed must be a whole number between 0 and 999999.")
     p = Parameters(**parsed)
+    if p.bolt_head_diameter < p.bolt_diameter + 2:
+        raise ValueError("The bolt recess must be at least 2 mm wider than its hole.")
     if p.end_rounding >= p.width / 2:
         raise ValueError(
             "Reduce rounded ends or increase width: each end must use less than half the width."
@@ -261,12 +294,17 @@ def parse_parameters(values: dict) -> Parameters:
             raise ValueError(
                 "The head recess must be at least 1 mm wider than the screw hole."
             )
-        if not p.auto_spacing and p.screw_spacing + p.head_diameter + 4 > p.width:
+        if (
+            not p.bolt_mount
+            and not p.auto_spacing
+            and p.screw_spacing + p.head_diameter + 4 > p.width
+        ):
             raise ValueError(
                 "Move the screws closer together, reduce end rounding, or increase width."
             )
         if (
             not p.auto_spacing
+            and not p.bolt_mount
             and p.screw_spacing / (p.screw_count - 1) < p.head_diameter + 1.5
         ):
             raise ValueError(

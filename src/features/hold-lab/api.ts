@@ -26,6 +26,7 @@ export interface Preview {
   faces: number[][];
   profile: [number, number][];
   screws: [number, number][];
+  bolts?: [number, number][];
   dimensions: number[];
   material_grams: [number, number];
   triangles: number;

@@ -5,11 +5,18 @@ The mounting/print face stays on Z=0. No GUI, filesystem, or server state.
 """
 
 import math
+
+# Standalone GUI entry points also need the repository's shared hardware code.
+import sys
 from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path
 
 import manifold3d as manifold
 import numpy as np
 import trimesh
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.hold_mounting import drill, fit_bolt_and_screw
 
 if __package__:
     from .parameters import Parameters, parse_parameters, seat_height
@@ -30,6 +37,7 @@ class Model:
     # make the shape work (see build): the exported design carries these.
     parameters: Parameters
     adjusted: dict = field(default_factory=dict)
+    bolts: list[tuple[float, float]] = field(default_factory=list)
 
     def preview(self) -> dict:
         return dict(
@@ -41,6 +49,7 @@ class Model:
             faces=self.mesh.faces.tolist(),
             profile=np.round(self.profile, 5).tolist(),
             screws=self.screws,
+            bolts=self.bolts,
             grip_inner=self.grip_inner,
             grip_outer=self.grip_outer,
             dimensions=np.round(self.mesh.extents, 2).tolist(),
@@ -311,15 +320,21 @@ class _NoRoomForScrews(ValueError):
 
 
 def build(
-    p: Parameters, quality: str = "preview", *, end_wrap: float = 0, arc_rise: float = 0
+    p: Parameters,
+    quality: str = "preview",
+    *,
+    end_wrap: float = 0,
+    arc_rise: float = 0,
+    jug: bool = False,
 ) -> Model:
     """Builds the shape, growing the body height when that is what it takes:
     first to keep the shelf above the body, then until the screw recesses
     fit. The settings used come back on the model, with what changed."""
-    p = parse_parameters(asdict(p))
+    p = parse_parameters(asdict(p), jug=jug or end_wrap > 0)
     requested = p.body_height
-    start = max(p.body_height, min(BODY_MAX, minimum_body_height(p)))
-    heights = np.arange(start, min(BODY_MAX, start + BODY_GROWTH) + 1e-9, BODY_STEP)
+    body_max = 300 if jug or end_wrap > 0 else BODY_MAX
+    start = max(p.body_height, min(body_max, minimum_body_height(p)))
+    heights = np.arange(start, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP)
     # A taller body is preferred to a shallow seat: the seat may drop to
     # half its target first, and only once the body has grown as far as it
     # will may it go lower still.
@@ -358,8 +373,24 @@ def _build(
             "Body character crosses the flat back. Reduce body character or taper, or deepen the edge."
         )
     screws = []
+    bolts = []
     seat = seat_height(p)
-    if p.screws:
+    if p.screws and p.bolt_mount:
+        mounting_mesh = (
+            _loft(p, "preview", end_wrap, arc_rise)[0] if quality == "export" else mesh
+        )
+        mounting_solid = _solid(mounting_mesh) if quality == "export" else solid
+        holes = fit_bolt_and_screw(p, mounting_solid, mounting_mesh.bounds, seat)
+        if not holes:
+            raise _NoRoomForScrews()
+        seat = holes[0].seat
+        bolts = [(h.x, h.y) for h in holes if h.bolt]
+        screws = [(h.x, h.y) for h in holes if not h.bolt]
+        result = drill(solid, holes, float(mesh.bounds[1, 2])).to_mesh()
+        mesh = trimesh.Trimesh(
+            result.vert_properties[:, :3], result.tri_verts, process=True
+        )
+    elif p.screws:
         cone_height = (p.head_diameter - p.shank_diameter) / 2
         # Resolve mounting on the same mesh for both qualities. Otherwise a
         # finer rounded end can shift automatic spacing between preview/STL.
@@ -401,7 +432,7 @@ def _build(
         )
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("The generated mesh did not pass the closed-solid checks.")
-    return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p)
+    return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p, bolts=bolts)
 
 
 def _screw_candidates(p: Parameters, jug: bool = False) -> np.ndarray:
