@@ -97,9 +97,15 @@ Dashboard → Authentication.
 
    - Set **Email OTP Expiration** to `600` seconds (10 minutes). The default
      6-digit length is fine.
-   - The built-in mailer allows only a few emails per hour, enough for a
-     two-account test. Before sharing more widely, add custom SMTP under
-     **Emails → SMTP Settings** (Resend's free tier works).
+   - Codes are sent through **Brevo** (custom SMTP under **Emails → SMTP
+     Settings**: host `smtp-relay.brevo.com`, port 587, the Brevo login as
+     user and an SMTP key as password; sender name "Garage Holds"). The
+     sender is Brevo's shared `brevosend.com` address until
+     `garageholds.com` is authenticated in Brevo (Senders & Domains →
+     Domains; the DKIM and DMARC records go in Vercel DNS), after which it
+     can be `sign-in@garageholds.com`. Supabase's own limit on emails per
+     hour (**Rate Limits**) still applies with custom SMTP; raise it before
+     sharing the site widely. Brevo's free plan sends 300 a day.
 3. **Sign In / Providers → Google**
    - Enable, then paste the Client ID and Client Secret from the Google step
      below. Leave "Skip nonce check" off.
