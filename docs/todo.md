@@ -46,12 +46,13 @@ keeps it current as work lands; add your own items freely.
 The site is at `https://garageholds.com`, bought through Vercel. The www
 and old vercel.app addresses redirect to it.
 
-- **Google Search Console**: at search.google.com/search-console add a
-  "Domain" property for `garageholds.com` and paste Claude the TXT record
-  value it shows (the DNS is at Vercel, so Claude can add it). Once it
-  verifies, submit `https://garageholds.com/sitemap.xml` and request
-  indexing for the home page and
-  `/how-to-3d-print-climbing-holds`.
+- **Google Search Console: verify, then submit.** The TXT record is on
+  the domain. Press Verify on the property, then Sitemaps → enter
+  `sitemap.xml` → Submit, and under URL inspection request indexing for
+  `https://garageholds.com` and
+  `https://garageholds.com/how-to-3d-print-climbing-holds`.
+- **Vercel Analytics.** vercel.com/garage-holds/garage-holds/analytics →
+  Enable. Claude adds the component once it is on.
 
 ## Things to try in a browser
 
