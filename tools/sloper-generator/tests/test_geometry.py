@@ -1,5 +1,6 @@
 import io
 import math
+import random
 import sys
 import unittest
 from dataclasses import asdict, replace
@@ -10,7 +11,34 @@ import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import _solid, _surface, build
-from parameters import PRESETS, Parameters, design_document, parse_parameters
+from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+
+# A sampled setting whose export used to fail the closed-solid check even
+# though the solid was fine: the vertex merge after drilling opened a pinhole.
+PINHOLE_SLOPER = dict(
+    width=260.0, height=283.0, projection=20.1, incut=5.05, arc_wrap=53,
+    palm_curve=90, slope=30, taper=-21, character=1.5, seed=497905,
+    screws=True, bolt_mount=False, bolt_diameter=8.6, bolt_head_diameter=29.5,
+    screw_count=3, auto_spacing=True, screw_spacing=485.75, shank_diameter=11.3,
+    head_diameter=24.0, auto_seat=True, seat_depth=30,
+)
+
+
+def random_settings(rng, controls):
+    """One setting per control, on its step, anywhere in its range."""
+    values = {}
+    for control in controls:
+        steps = int(round((control["max"] - control["min"]) / control["step"]))
+        value = control["min"] + rng.randint(0, steps) * control["step"]
+        values[control["key"]] = int(value) if control["key"] == "screw_count" else round(value, 4)
+    values.update(
+        screws=rng.random() < 0.85,
+        bolt_mount=rng.random() < 0.3,
+        auto_spacing=rng.random() < 0.6,
+        auto_seat=rng.random() < 0.6,
+        seed=rng.randint(0, 999999),
+    )
+    return values
 
 
 class GeometryTests(unittest.TestCase):
@@ -21,6 +49,26 @@ class GeometryTests(unittest.TestCase):
         self.assertGreater(mesh.volume, 0)
         self.assertEqual(len(_solid(mesh).decompose()), 1)
         self.assertAlmostEqual(mesh.bounds[0, 2], 0, places=6)
+
+    def test_random_settings_export_closed_solids(self):
+        # A seeded sweep across the control ranges. The mounting solver may
+        # say there is no room, in words; anything else must export. The
+        # final closed-solid check used to refuse valid shapes now and then.
+        rng = random.Random(2026)
+        exported = 0
+        for _ in range(30):
+            p = parse_parameters(random_settings(rng, CONTROLS))
+            with self.subTest(values=asdict(p)):
+                try:
+                    model = build(p, "export")
+                except ValueError as error:
+                    self.assertNotIn("closed-solid", str(error))
+                    continue
+                self.assert_solid(model)
+                exported += 1
+        self.assertGreater(exported, 10)
+        for quality in ("preview", "export"):
+            self.assert_solid(build(Parameters(**PINHOLE_SLOPER), quality))
 
     def test_presets_and_export_match(self):
         for name, p in PRESETS.items():

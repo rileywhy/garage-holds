@@ -3,7 +3,7 @@ import math
 import numpy as np
 import manifold3d as m
 import trimesh
-from tools.hold_mounting import Hole, drill, _inside, _room
+from tools.hold_mounting import Hole, closed_mesh, drill, _inside, _room
 
 
 def contours(mask):
@@ -244,9 +244,6 @@ def build(request):
             raise ValueError('Move mounting holes farther from the edge or pocket, or reduce the recess diameter.')
     mounted=[Hole(x,y,shank,head,seat,False) for x,y in positions]
     solid = drill(solid,mounted,depth)
-    mesh_data=solid.to_mesh()
-    mesh=trimesh.Trimesh(vertices=mesh_data.vert_properties[:,:3],faces=mesh_data.tri_verts,process=True)
-    if not mesh.is_watertight or mesh.volume <= 0:
-        raise ValueError('Unable to create a watertight hold from this drawing.')
+    mesh=closed_mesh(solid,'Unable to create a watertight hold from this drawing.')
     mesh.metadata["seatDepth"]=float(seat)
     return mesh

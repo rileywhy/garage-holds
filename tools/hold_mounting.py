@@ -1,9 +1,37 @@
-"""Shared bolt + anti-rotation screw fitting for the three hold generators."""
+"""Shared bolt + anti-rotation screw fitting for the three hold generators,
+and the closed-solid check every generator finishes with."""
 
 from dataclasses import dataclass
 
 import manifold3d as manifold
 import numpy as np
+import trimesh
+
+
+def closed_mesh(solid: manifold.Manifold, message: str) -> trimesh.Trimesh:
+    """A drilled solid as a trimesh, after confirming it is a closed body.
+
+    Manifold is the authority on whether a solid is closed. Its output
+    already shares vertices by index, so the trimesh keeps that topology as
+    is (process=False). Merging nearly coincident vertices and then dropping
+    the zero-area triangles that creates used to open pinholes in valid
+    meshes, and the export was refused for nothing."""
+    if solid.status() != manifold.Error.NoError or solid.is_empty():
+        raise ValueError(message)
+    result = solid.to_mesh()
+    mesh = trimesh.Trimesh(
+        result.vert_properties[:, :3], result.tri_verts, process=False
+    )
+    assert_closed(mesh, message)
+    return mesh
+
+
+def assert_closed(mesh: trimesh.Trimesh, message: str) -> None:
+    """The same closed-body check for a mesh that was never drilled, kept
+    exactly as the loft built it. A zero-area triangle between distinct
+    vertices is harmless here and must not be removed: that opens a hole."""
+    if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
+        raise ValueError(message)
 
 
 @dataclass(frozen=True)

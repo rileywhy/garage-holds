@@ -16,8 +16,7 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.hold_mounting import drill, fit_bolt_and_screw
-
+from tools.hold_mounting import assert_closed, closed_mesh, drill, fit_bolt_and_screw
 
 if __package__:
     from .parameters import Parameters, parse_parameters, seat_height
@@ -468,10 +467,7 @@ def _build(
         seat = holes[0].seat
         bolts = [(h.x, h.y) for h in holes if h.bolt]
         screws = [(h.x, h.y) for h in holes if not h.bolt]
-        result = drill(solid, holes, float(mesh.bounds[1, 2])).to_mesh()
-        mesh = trimesh.Trimesh(
-            result.vert_properties[:, :3], result.tri_verts, process=True
-        )
+        solid = drill(solid, holes, float(mesh.bounds[1, 2]))
     elif p.screws:
         requested_seat = seat
         if jug or not p.auto_seat:
@@ -624,16 +620,15 @@ def _build(
                 float(mesh.bounds[1, 2]) + 1, p.head_diameter / 2, circular_segments=48
             ).translate((x, hole_y, seat_top))
             solid = solid - (shank + cone + bore)
-        result = solid.to_mesh()
-        mesh = trimesh.Trimesh(
-            result.vert_properties[:, :3], result.tri_verts, process=True
-        )
-    # Float32 Boolean vertices can merge into zero-area triangles when
-    # several symmetric recesses meet the same loft ring. Remove those
-    # collapsed faces before checking the resulting closed solid.
-    mesh.update_faces(mesh.nondegenerate_faces())
-    if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
-        raise ValueError("The generated mesh did not pass the closed-solid checks.")
+    # A drilled hold is read back from Manifold as is; an undrilled one
+    # keeps the loft mesh exactly as built. Either way the closed-solid
+    # check no longer removes zero-area triangles first, which opened
+    # pinholes in valid meshes (see closed_mesh).
+    message = "The generated mesh did not pass the closed-solid checks."
+    if screws or bolts:
+        mesh = closed_mesh(solid, message)
+    else:
+        assert_closed(mesh, message)
     if screws and not p.auto_spacing:
         actual_span = round(screws[-1][0] - screws[0][0], 6)
         if not math.isclose(p.screw_spacing, actual_span):

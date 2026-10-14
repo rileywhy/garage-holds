@@ -1,5 +1,6 @@
 import io
 import math
+import random
 import sys
 import unittest
 from dataclasses import asdict, replace
@@ -11,12 +12,30 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import _inside_contours, _solid, build, cross_section, estimate_material
 from parameters import (
+    CONTROLS,
     PRESETS,
     Parameters,
     design_document,
     parse_parameters,
     seat_height,
 )
+
+
+def random_settings(rng, controls):
+    """One setting per control, on its step, anywhere in its range."""
+    values = {}
+    for control in controls:
+        steps = int(round((control["max"] - control["min"]) / control["step"]))
+        value = control["min"] + rng.randint(0, steps) * control["step"]
+        values[control["key"]] = int(value) if control["key"] == "screw_count" else round(value, 4)
+    values.update(
+        screws=rng.random() < 0.85,
+        bolt_mount=rng.random() < 0.3,
+        auto_spacing=rng.random() < 0.6,
+        auto_seat=rng.random() < 0.6,
+        seed=rng.randint(0, 999999),
+    )
+    return values
 
 
 class GeometryTests(unittest.TestCase):
@@ -267,6 +286,30 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(preview.screws, exported.screws)
         self.assertLess(preview.screws[-1][0] - preview.screws[0][0], p.width * 0.6)
         self.assert_solid(exported)
+
+    def test_random_settings_export_closed_solids(self):
+        # A seeded sweep across the control ranges. The schema may reject a
+        # setting and the mounting solver may find no room, both in words
+        # for the person; anything else must export. The final closed-solid
+        # check used to refuse 1-4% of valid shapes after a vertex merge
+        # opened pinholes in them.
+        rng = random.Random(2026)
+        exported = 0
+        for _ in range(30):
+            values = random_settings(rng, CONTROLS)
+            try:
+                p = parse_parameters(values)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                try:
+                    model = build(p, "export")
+                except ValueError as error:
+                    self.assertNotIn("closed-solid", str(error))
+                    continue
+                self.assert_solid(model)
+                exported += 1
+        self.assertGreater(exported, 10)
 
     def test_manual_seat_survives_turning_screws_off(self):
         # The seat slider turns auto_seat off; the mounting checkbox then only
