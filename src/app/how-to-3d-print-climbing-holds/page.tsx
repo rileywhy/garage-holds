@@ -29,11 +29,31 @@ export default function HowToPrintHoldsPage() {
         <p className="eyebrow">The guide</p>
         <h1>How to 3D print climbing holds</h1>
         <p>
-          What you need, the settings that keep a hold from breaking, and what
-          to expect. Opinionated on purpose, one pick per item. Updated October
-          2026.
+          What you need to print climbing holds, the settings that keep one from
+          breaking, and what to expect. Opinionated on purpose, one pick per
+          item. Updated October 2026 · by Riley Young.
+          {amazonTag() && (
+            <> Some links earn us a small commission, at no cost to you.</>
+          )}
         </p>
       </div>
+
+      <aside className="gear-short" aria-label="The short version">
+        <h2>The short version</h2>
+        <ul>
+          <li>
+            Printer: a <GearLink item={GEAR.printer} />.
+          </li>
+          <li>
+            Filament: PETG, <GearLink item={GEAR.petg} />.
+          </li>
+          <li>Slicer: 8 walls, 25 to 40% infill, everything else default.</li>
+          <li>Fuzzy skin on: 0.3 mm point distance, 0.4 to 0.5 mm thick.</li>
+          <li>
+            Mount with wood screws, snug not tight, and test it low first.
+          </li>
+        </ul>
+      </aside>
 
       <nav className="gear-contents" aria-label="On this page">
         <a href="#can-you">Can you?</a>
@@ -82,8 +102,7 @@ export default function HowToPrintHoldsPage() {
               CNC Kitchen&rsquo;s tests
             </a>{" "}
             show the difference if you want the numbers. Our pick is{" "}
-            <GearLink item={GEAR.petg} />. <GearLink item={GEAR.petgBudget} />{" "}
-            is a few dollars less, and on a Bambu{" "}
+            <GearLink item={GEAR.petg} />; on a Bambu,{" "}
             <GearLink item={GEAR.petgBambu} /> is tuned for the machine.
           </p>
           <h3>Dry filament, if it needs it</h3>

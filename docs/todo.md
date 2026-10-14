@@ -85,6 +85,11 @@ and old vercel.app addresses redirect to it.
 
 ## Content
 
+- **Photos for the printing guide** (`/how-to-3d-print-climbing-holds`):
+  a printed hold on the wall, one on the print bed, and a close-up of
+  fuzzy skin. Your colleague offered. Send them to Claude, who adds them
+  with alt text and uses the wall shot as the link preview image.
+
 - **Seed the library** with your own holds: real recipes, photos on a wall.
 - **Upload the two granite crimps** from `rileywhy/holdmaking` as the
   first real designs: run `generate_granite_crimps.py` there (the folder's

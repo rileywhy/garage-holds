@@ -3102,6 +3102,33 @@ svg {
 .gear-page .page-intro {
   margin-bottom: 20px;
 }
+.gear-short {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 20px 24px;
+  margin-bottom: 8px;
+}
+.gear-short h2 {
+  font-size: 13px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 10px;
+}
+.gear-short ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.gear-short li {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.gear-short a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .gear-list {
   display: flex;
   flex-direction: column;

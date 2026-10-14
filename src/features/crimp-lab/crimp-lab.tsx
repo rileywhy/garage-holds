@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, LoaderCircle, RotateCcw, Shuffle } from "lucide-react";
 import {
@@ -583,7 +584,10 @@ export function CrimpLab() {
             <p className="small-note">
               25–40% infill · <GearLink item={GEAR.petg}>PETG</GearLink> at 1.27
               g/cm³ · estimated 1.6 mm shell. Rough estimate; excludes supports
-              and waste. Check your slicer for the final weight.
+              and waste. Check your slicer for the final weight.{" "}
+              <Link href="/how-to-3d-print-climbing-holds#settings">
+                How we print holds.
+              </Link>
             </p>
           )}
           <p
