@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/next";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { AccountMenu } from "@/features/auth/account-menu";
 import { getCurrentUser } from "@/features/auth/current-user";
@@ -51,6 +52,7 @@ export default async function RootLayout({
         <SiteHeader account={<AccountMenu />} savedCount={savedCount} />
         <div id="main-content">{children}</div>
         <SiteFooter signedIn={user !== null} />
+        <Analytics />
       </body>
     </html>
   );

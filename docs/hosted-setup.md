@@ -245,11 +245,11 @@ design and refreshes hourly. Every page carries Open Graph tags, and design
 pages use their first photo, so a pasted link shows a card in chats and on
 social sites.
 
-To get indexed, add the site as a property in Google Search Console
-(https://search.google.com/search-console), verify it with the HTML tag
-method (the tag goes in `src/app/layout.tsx` metadata, under
-`verification.google`), submit `https://garageholds.com/sitemap.xml`,
-and request indexing for the home page.
+The site is verified in Google Search Console
+(https://search.google.com/search-console) as a Domain property through a
+TXT record on `garageholds.com` in Vercel DNS, with the sitemap submitted.
+Page views are recorded by Vercel Web Analytics, enabled on the project
+and mounted in `src/app/layout.tsx`; no cookies, so no banner.
 
 ## What the app does with all this
 
