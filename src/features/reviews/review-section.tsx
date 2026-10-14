@@ -10,6 +10,7 @@ import { Field, FieldErrors } from "@/components/form-fields";
 import { reviewSummary } from "@/features/holds/catalog";
 import type { Review } from "@/features/holds/types";
 import { signInPath } from "@/features/auth/redirects";
+import { trackEvent } from "@/features/analytics/events";
 import { submitReview, type ReviewFormState } from "./actions";
 
 export function ReviewSection({
@@ -32,6 +33,7 @@ export function ReviewSection({
     async (previous: ReviewFormState, formData: FormData) => {
       const result = await submitReview(previous, formData);
       if (result.saved) {
+        trackEvent({ name: "review_posted", hold: holdId });
         setOpen(false);
         router.refresh();
       } else requestAnimationFrame(() => errorRegion.current?.focus());

@@ -7,6 +7,7 @@ import {
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
 import { RotateCcw } from "lucide-react";
+import { trackEvent } from "@/features/analytics/events";
 import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
 import {
   ARTWORK_COLORS,
@@ -378,7 +379,9 @@ export function CustomShapeLab() {
       link.download = "custom-shape.stl";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      trackEvent({ name: "export_stl", lab: "custom-shape" });
     } catch (error) {
+      trackEvent({ name: "lab_error", lab: "custom-shape", stage: "export" });
       setNotice(error instanceof Error ? error.message : "Export failed.");
     } finally {
       setExporting(false);

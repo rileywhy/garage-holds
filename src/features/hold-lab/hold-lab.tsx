@@ -85,7 +85,9 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
         setSchema(loaded);
       })
       .catch((error: Error) => {
-        if (!cancelled) setStatus({ text: error.message, error: true });
+        if (cancelled) return;
+        trackEvent({ name: "lab_error", lab: kind, stage: "start" });
+        setStatus({ text: error.message, error: true });
       });
     return () => {
       cancelled = true;
@@ -143,11 +145,13 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
         if (
           (error as Error).name !== "AbortError" &&
           request === sequence.current
-        )
+        ) {
+          trackEvent({ name: "lab_error", lab: kind, stage: "preview" });
           setStatus({
             text: `${(error as Error).message} showing the last valid model.`,
             error: true,
           });
+        }
       }
     }, 180);
     return () => {
@@ -211,6 +215,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
         parameters: Parameters;
       };
       edit(() => data.parameters, "custom", true);
+      trackEvent({ name: "lab_settings", lab: kind, action: "load" });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
@@ -233,8 +238,10 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
           error: false,
         });
     } catch (error) {
-      if (request === sequence.current)
+      if (request === sequence.current) {
+        trackEvent({ name: "lab_error", lab: kind, stage: "export" });
         setStatus({ text: (error as Error).message, error: true });
+      }
     } finally {
       setExporting(false);
     }
@@ -410,13 +417,14 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
             type="button"
             disabled={!design}
             onClick={() => {
-              if (design)
-                download(
-                  new Blob([JSON.stringify(design, null, 2)], {
-                    type: "application/json",
-                  }),
-                  `${kind}-${design.parameters.width}mm.json`,
-                );
+              if (!design) return;
+              download(
+                new Blob([JSON.stringify(design, null, 2)], {
+                  type: "application/json",
+                }),
+                `${kind}-${design.parameters.width}mm.json`,
+              );
+              trackEvent({ name: "lab_settings", lab: kind, action: "save" });
             }}
           >
             save settings

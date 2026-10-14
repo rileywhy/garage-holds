@@ -11,6 +11,7 @@ import {
   CircleCheck,
 } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
+import { trackEvent } from "@/features/analytics/events";
 import { readDesignInput } from "@/features/holds/design-form";
 import { MODEL_EXTENSIONS, validateUpload } from "@/features/holds/validation";
 import { DesignFields } from "./design-fields";
@@ -174,6 +175,12 @@ function UploadDesignForm({
         id: draft.designId,
         title: input.title,
         fileCount: models.length,
+      });
+      trackEvent({
+        name: "publish_design",
+        hold: draft.designId,
+        files: models.length,
+        photos: photoCount,
       });
       setPhotoReminder(false);
       requestAnimationFrame(() => {

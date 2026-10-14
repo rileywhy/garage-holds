@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Flag, LoaderCircle, MessageSquare, Send, X } from "lucide-react";
 import { FieldErrors } from "@/components/form-fields";
+import { trackEvent } from "@/features/analytics/events";
 import { submitFeedback, type FeedbackState } from "./actions";
 import { MAX_BODY } from "./validation";
 
@@ -36,6 +37,14 @@ export function FeedbackWidget({
       element.showModal();
     } else if (!open && element.open) element.close();
   }, [open]);
+
+  useEffect(() => {
+    if (state.sent)
+      trackEvent({
+        name: "feedback_sent",
+        kind: icon === "report" ? "report" : "feedback",
+      });
+  }, [state.sent, icon]);
 
   const Icon = icon === "report" ? Flag : MessageSquare;
   return (

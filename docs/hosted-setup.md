@@ -297,10 +297,13 @@ The site is verified in Google Search Console
 (https://search.google.com/search-console) as a Domain property through a
 TXT record on `garageholds.com` in Vercel DNS, with the sitemap submitted.
 Page views are recorded by Vercel Web Analytics, enabled on the project
-and mounted in `src/app/layout.tsx`; no cookies, so no banner. A few clicks
-are counted as custom events, listed in `src/features/analytics/events.ts`:
-STL exports per lab, gear link clicks per product, the tip link, and file
-downloads from design pages. They appear under Events in the Analytics tab.
+and mounted in `src/app/layout.tsx`; no cookies, so no banner. The clicks
+that matter are counted as custom events, listed with their properties in
+`src/features/analytics/events.ts`: STL exports, generator errors, and
+settings saved or loaded per lab; designs published, saved, and reviewed;
+file downloads; sign-in starts by method; feedback and reports sent; gear
+link clicks per product; and the tip link. They appear under Events in the
+Analytics tab.
 
 ## What the app does with all this
 

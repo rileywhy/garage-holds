@@ -81,12 +81,13 @@ export function CrimpLab() {
         setSchema(loaded);
         setPreset(Object.keys(loaded.presets)[0] ?? CUSTOM);
       })
-      .catch((error: Error) =>
+      .catch((error: Error) => {
+        trackEvent({ name: "lab_error", lab: "crimp", stage: "start" });
         setStatus({
           text: `Could not start the generator: ${error.message}`,
           error: true,
-        }),
-      );
+        });
+      });
   }, []);
 
   useEffect(() => {
@@ -164,11 +165,13 @@ export function CrimpLab() {
         });
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
-        if (request === sequence.current)
+        if (request === sequence.current) {
+          trackEvent({ name: "lab_error", lab: "crimp", stage: "preview" });
           setStatus({
             text: `${(error as Error).message} Showing the last valid model.`,
             error: true,
           });
+        }
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -264,8 +267,10 @@ export function CrimpLab() {
           error: false,
         });
     } catch (error) {
-      if (request === sequence.current)
+      if (request === sequence.current) {
+        trackEvent({ name: "lab_error", lab: "crimp", stage: "export" });
         setStatus({ text: (error as Error).message, error: true });
+      }
     } finally {
       setExporting(false);
     }
@@ -277,6 +282,7 @@ export function CrimpLab() {
       new Blob([JSON.stringify(design, null, 2)], { type: "application/json" }),
       `crimp-${design.parameters.edge_depth}mm.json`,
     );
+    trackEvent({ name: "lab_settings", lab: "crimp", action: "save" });
   }
 
   async function loadSettings(file: File | undefined) {
@@ -289,6 +295,7 @@ export function CrimpLab() {
       const data = (await checked.json()) as { parameters: Parameters };
       fitNext.current = true;
       edit(() => data.parameters);
+      trackEvent({ name: "lab_settings", lab: "crimp", action: "load" });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
