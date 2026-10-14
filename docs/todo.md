@@ -19,12 +19,6 @@ keeps it current as work lands; add your own items freely.
 
 ## Settings to add
 
-- **`ALERT_WEBHOOK_URL` on Vercel.** Where feedback, design reports, and
-  upload-allowance notices arrive. Discord: Server Settings → Integrations →
-  Webhooks → New Webhook → pick a channel → Copy Webhook URL. Slack's
-  "Incoming Webhooks" app gives the same kind of URL. Add it under
-  Settings → Environment Variables (Production, Sensitive), then redeploy.
-  Until then these messages only reach the Vercel log.
 - **`NEXT_PUBLIC_CONTACT_EMAIL` on Vercel.** Shown to anyone who reaches
   their upload allowance so they can ask for more. Any address you are
   willing to make public. Redeploy after adding.
@@ -87,8 +81,6 @@ and old vercel.app addresses redirect to it.
 - **Mobile and both themes** on the catalog, a design page (tap the
   thumbnails and the "3D preview" tile, drag the model around, try "On a
   board" and its angle slider), the upload page, and the edit page.
-- **Send one feedback message** from the footer after the webhook is set,
-  to see the ping arrive.
 
 ## Local tooling
 
