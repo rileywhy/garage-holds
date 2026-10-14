@@ -11,14 +11,14 @@ else:
 
 @dataclass(frozen=True)
 class Parameters(crimp.Parameters):
-    width: float = 150
-    edge_depth: float = 55
+    width: float = 158
+    edge_depth: float = 57.5
     incut: float = 56
-    lip_radius: float = 10
-    body_height: float = 110
-    body_rounding: float = 24
-    end_rounding: float = 18
-    bow: float = 10
+    lip_radius: float = 10.5
+    body_height: float = 115
+    body_rounding: float = 25
+    end_rounding: float = 19
+    bow: float = 10.5
     end_wrap: float = 115
     arc_rise: float = 5
     size: float = 100
@@ -29,7 +29,7 @@ CONTROLS = [
     dict(
         item,
         label=item["label"].lower(),
-        max=300 if item["key"] == "body_height" else item["max"],
+        max=crimp.JUG_MAXIMA.get(item["key"], item["max"]),
     )
     for item in crimp.CONTROLS
     if item["group"] != "Grip"
@@ -59,7 +59,7 @@ CONTROLS[:0] = [
         key="edge_depth",
         label="grip reach",
         group="Grip",
-        min=10,
+        min=15,
         max=100,
         step=0.5,
         unit="mm",
@@ -101,14 +101,19 @@ CONTROLS.append(
 PRESETS = {
     "board jug": Parameters(),
     "deep jug": Parameters(
-        width=135,
-        edge_depth=55,
-        incut=56,
-        grip_quality=90,
-        body_height=110,
-        lip_radius=12,
+        width=142,
+        lip_radius=12.5,
         end_wrap=145,
-        arc_rise=12,
+        arc_rise=12.5,
+    ),
+    # Wide enough for both hands, with a gentler arch so four screws can
+    # spread across the body instead of crowding the middle.
+    "two-handed jug": Parameters(
+        width=330,
+        end_rounding=24,
+        bow=12,
+        end_wrap=50,
+        screw_count=4,
     ),
 }
 

@@ -225,6 +225,9 @@ CONTROLS.extend(
     ]
 )
 
+# Jugs may be taller, deeper, and wide enough for two hands.
+JUG_MAXIMA = {"edge_depth": 140, "body_height": 300, "width": 400, "screw_spacing": 360}
+
 PRESETS = {
     "Rounded board crimp": Parameters(),
     "Small flat edge": Parameters(edge_depth=10, incut=0, lip_radius=2, body_height=42),
@@ -264,11 +267,7 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
             or not math.isfinite(value)
         ):
             raise ValueError(f"{control['label']} must be a finite number.")
-        maximum = (
-            {"edge_depth": 140, "body_height": 300}.get(key, control["max"])
-            if jug
-            else control["max"]
-        )
+        maximum = JUG_MAXIMA.get(key, control["max"]) if jug else control["max"]
         if not control["min"] <= value <= maximum:
             raise ValueError(
                 f"{control['label']} must be between {control['min']} and {maximum} {control['unit']}."

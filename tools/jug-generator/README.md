@@ -9,15 +9,17 @@ set `JUG_API_URL=http://127.0.0.1:8781` when running Next.js. Omit this variable
 on Vercel; the Python function serves `/api/jug` directly.
 
 The jug is a larger, deep, strongly incut crimp with a smooth rounded contact
-edge. The default uses a 150 mm sweep span, 55 mm edge depth, 90% bite (56° incut) and a
-10 mm lip radius. The whole gripping section follows an arch into the wall,
+edge. The default uses a 158 mm sweep span, 57.5 mm edge depth, 90% bite (56° incut) and a
+10.5 mm lip radius. The whole gripping section follows an arch into the wall,
 then is trimmed flush at Z=0; the finished width is smaller than the sweep span.
 The centre section stays unchanged instead of being squeezed at the shoulders.
-Presets: board jug and deep jug.
+Presets: board jug, deep jug, and two-handed jug (a 330 mm sweep span with a
+gentler arch and four screws; the finished hold is over twice the width of the
+other two, which is wider than most printer beds).
 
 Grip controls are overall size (75–140%), more/less bite, grip reach, arc rise,
 and lip comfort. Size scales geometry before hole fitting, leaving hardware
-diameters unchanged. The bite slider maps 0–180% to 20–60° incut; 90% is the midpoint and maps to 56°. It is not a grade. Grip reach spans 10–100 mm, centred on 55 mm.
+diameters unchanged. The bite slider maps 0–180% to 20–60° incut; 90% is the midpoint and maps to 56°. It is not a grade. Grip reach spans 15–100 mm, centred on 57.5 mm. Width goes up to 400 mm.
 Millimeter lengths include inch equivalents. Automatic mounting spreads the
 outer screws with body width and lowers the centre screw for a triangular layout.
 

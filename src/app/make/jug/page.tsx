@@ -12,8 +12,8 @@ export default function JugLabPage() {
         <p className="eyebrow">a proper handful</p>
         <h1>jug lab</h1>
         <p>
-          Shape a rounded board jug or deep jug. Find the bite, then export an
-          STL.
+          Shape a board jug, a deep jug, or a two-handed jug. Find the bite,
+          then export an STL.
         </p>
       </div>
       <HoldLab kind="jug" />

@@ -121,12 +121,24 @@ class GeometryTests(unittest.TestCase):
     def test_default_is_deep_incut_rounded_and_low_projection(self):
         model = build(Parameters())
         self.assertLessEqual(model.mesh.extents[2], 66.01)
-        self.assertEqual(model.parameters.edge_depth, 55)
+        self.assertEqual(model.parameters.edge_depth, 57.5)
         self.assertEqual(model.parameters.grip_quality, 90)
         self.assertEqual(model.parameters.incut, 56)
         self.assertGreaterEqual(model._model.lip_radius, 7)
         self.assertEqual(len(model.screws), 3)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)
+
+    def test_two_handed_jug_is_more_than_twice_as_wide(self):
+        widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
+        for name in ("board jug", "deep jug"):
+            self.assertGreater(widths["two-handed jug"], 2 * widths[name])
+        model = build(PRESETS["two-handed jug"])
+        self.assertEqual(len(model.screws), 4)
+        xs = sorted(x for x, _ in model.screws)
+        self.assertGreater(xs[-1] - xs[0], widths["two-handed jug"] * 0.55)
+        self.assertNotIn(
+            "body_height", build(replace(PRESETS["board jug"], size=125)).adjusted
+        )
 
     def test_saved_parameters_reproduce_adjusted_mesh(self):
         model = build(Parameters(body_height=20, lip_radius=20))

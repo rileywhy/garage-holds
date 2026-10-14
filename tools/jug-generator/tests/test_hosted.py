@@ -35,7 +35,9 @@ class HostedTests(unittest.TestCase):
             status, body = request()
             self.assertEqual(status, 200)
             schema = json.loads(body)
-            self.assertEqual(set(schema["presets"]), {"board jug", "deep jug"})
+            self.assertEqual(
+                set(schema["presets"]), {"board jug", "deep jug", "two-handed jug"}
+            )
             status, body = request(
                 dict(action="preview", parameters=schema["defaults"])
             )

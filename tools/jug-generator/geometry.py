@@ -1,5 +1,6 @@
 """Jug Lab's calibrated controls mapped onto the shared shape engine."""
 
+import math
 from dataclasses import asdict, replace
 
 if __package__:
@@ -30,10 +31,16 @@ def engine_parameters(p):
     limits = {item["key"]: item for item in crimp_settings.CONTROLS}
     for key in SCALED:
         limit = limits[key]
-        maximum = {"edge_depth": 140, "body_height": 300}.get(key, limit["max"])
+        maximum = crimp_settings.JUG_MAXIMA.get(key, limit["max"])
         values[key] = min(maximum, max(limit["min"], values[key] * factor))
     values["end_rounding"] = min(values["end_rounding"], values["width"] / 2 - 0.5)
     return crimp.Parameters(**values)
+
+
+def _same(a, b):
+    if isinstance(a, float) and isinstance(b, (int, float)):
+        return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
+    return a == b
 
 
 class Model:
@@ -48,10 +55,11 @@ class Model:
             body_height=model.parameters.body_height / factor,
             seat_depth=model.seat_depth,
         )
+        # Scaling up and back down leaves float noise that is not a change.
         self.adjusted = {
             key: value
             for key, value in asdict(self.parameters).items()
-            if value != asdict(requested)[key]
+            if not _same(value, asdict(requested)[key])
         }
         self._model = model
 
