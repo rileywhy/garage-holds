@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   Bookmark,
-  Hammer,
   Mountain,
   Plus,
   FlaskConical,
@@ -48,28 +47,15 @@ export function SiteHeader({
             {savedCount > 0 && <span className="nav-count">{savedCount}</span>}
           </Link>
           <Link
-            href="/make/crimp"
-            className={`nav-link ${pathname === "/make/crimp" ? "active" : ""}`}
+            href="/make"
+            className={`nav-link ${pathname === "/make" || pathname.startsWith("/make/") ? "active" : ""}`}
+            aria-current={
+              pathname === "/make" || pathname.startsWith("/make/")
+                ? "page"
+                : undefined
+            }
           >
-            <Hammer size={15} /> Crimp Lab
-          </Link>
-          <Link
-            href="/make/sloper"
-            className={`nav-link ${pathname === "/make/sloper" ? "active" : ""}`}
-          >
-            <FlaskConical size={15} /> sloper lab
-          </Link>
-          <Link
-            href="/make/jug"
-            className={`nav-link ${pathname === "/make/jug" ? "active" : ""}`}
-          >
-            <FlaskConical size={15} /> jug lab
-          </Link>
-          <Link
-            href="/make/custom-shape"
-            className={`nav-link ${pathname === "/make/custom-shape" ? "active" : ""}`}
-          >
-            <FlaskConical size={15} /> Custom Shape Lab
+            <FlaskConical size={15} /> Hold Labs
           </Link>
         </nav>
         <div className="header-actions">
