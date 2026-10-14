@@ -229,6 +229,21 @@ submissions. To read everything ever sent:
 select created_at, contact, page, body from public.feedback order by created_at desc;
 ```
 
+## Outage alerts
+
+Outages cannot report themselves, so `.github/workflows/uptime.yml` checks
+the site from GitHub Actions every 5 minutes (and on demand from the Actions
+tab). It fetches the home page and one published design page, which proves
+Supabase and R2 signing work, and passes on HTTP 200 within 20 seconds,
+retrying once after 10 seconds. When a page goes down it posts one line to a
+Discord webhook naming the URL and the status code or timeout, and one line
+when the page is back; it remembers the previous state in the Actions cache,
+so nothing repeats while the site stays down. The webhook is the repository
+secret `DISCORD_ALERT_WEBHOOK`, set under the repo's Settings → Secrets and
+variables → Actions (the same URL as `ALERT_WEBHOOK_URL` works). GitHub
+pauses scheduled workflows in a repository with no commits for 60 days, and
+sends an email when it does; re-enable it from the Actions tab.
+
 ## Crimp Lab's Python function
 
 `/api/crimp` is `api/crimp.py`, a Vercel Python function built from the

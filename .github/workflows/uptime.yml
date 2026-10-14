@@ -1,0 +1,74 @@
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# One run at a time, so two overlapping runs cannot both post the same line.
+concurrency: uptime
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The previous up/down state of each URL lives in the Actions cache, as a
+      # one-word file per URL under state/. Cache entries are immutable, so each
+      # run saves under its own run id and restores the newest entry with the
+      # shared prefix. The cache was chosen over an artifact because restoring
+      # "the latest" is a built-in (restore-keys), while artifacts would need an
+      # API call to find the previous run. Entries are a few bytes and GitHub
+      # evicts caches unused for 7 days.
+      - uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: uptime-${{ github.run_id }}
+          restore-keys: uptime-
+
+      - name: Check each URL and post state changes to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+          URLS: >-
+            https://garageholds.com/
+            https://garageholds.com/holds/f7f425b3-0ca4-457c-a8e8-490694af3d83
+        run: |
+          mkdir -p state
+          # Posts one line to Discord. Without the secret the line is only logged.
+          post() {
+            echo "$1"
+            [ -z "$WEBHOOK" ] || curl -sS -o /dev/null --max-time 20 \
+              -H 'Content-Type: application/json' \
+              -d "{\"content\": \"$1\"}" "$WEBHOOK" || true
+          }
+          # Prints "HTTP <code>", or what went wrong when no response arrived in 20 s.
+          fetch() {
+            local code rc=0
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1") || rc=$?
+            if [ "$rc" = 28 ]; then echo "timeout after 20 s"
+            elif [ "$rc" != 0 ]; then echo "no response (curl exit $rc)"
+            else echo "HTTP $code"; fi
+          }
+          for url in $URLS; do
+            result=$(fetch "$url")
+            # One retry after 10 s, so a slow cold start is not an outage.
+            if [ "$result" != "HTTP 200" ]; then sleep 10; result=$(fetch "$url"); fi
+            file="state/$(echo "$url" | tr -c 'A-Za-z0-9\n' _)"
+            was=$(cat "$file" 2>/dev/null || echo up)
+            if [ "$result" = "HTTP 200" ]; then
+              [ "$was" != down ] || post "✅ $url is back up"
+              echo up > "$file"
+            else
+              [ "$was" != up ] || post "🔴 $url is down: $result"
+              echo down > "$file"
+            fi
+            echo "- $url: $result (was $was)" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state
+          key: uptime-${{ github.run_id }}
