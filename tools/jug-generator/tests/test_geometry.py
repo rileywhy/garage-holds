@@ -32,6 +32,16 @@ class GeometryTests(unittest.TestCase):
             build(model.parameters).mesh.vertices, model.mesh.vertices
         )
 
+    def test_manual_seat_survives_turning_screws_off(self):
+        # Dragging the seat slider sets auto_seat off; turning the mounting
+        # holes off afterwards must still build a closed body.
+        for quality in ("preview", "export"):
+            model = build(
+                Parameters(screws=False, auto_seat=False, seat_depth=12), quality
+            )
+            self.assertTrue(model.mesh.is_watertight)
+            self.assertEqual(model.screws, [])
+
     def test_calibrated_controls_change_the_intended_geometry(self):
         p = Parameters()
         small, large = build(replace(p, size=80)), build(replace(p, size=125))

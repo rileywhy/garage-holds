@@ -268,6 +268,18 @@ class GeometryTests(unittest.TestCase):
         self.assertLess(preview.screws[-1][0] - preview.screws[0][0], p.width * 0.6)
         self.assert_solid(exported)
 
+    def test_manual_seat_survives_turning_screws_off(self):
+        # The seat slider turns auto_seat off; the mounting checkbox then only
+        # flips screws. Both qualities must build with no seat limit to clamp
+        # to (this used to be a TypeError shown to the person as-is).
+        for quality in ("preview", "export"):
+            model = build(
+                Parameters(screws=False, auto_seat=False, seat_depth=12), quality
+            )
+            self.assert_solid(model)
+            self.assertEqual(model.screws, [])
+            self.assertIsNone(model.preview()["seat_depth_limit"])
+
     def test_manual_mounting_is_respected_or_rejected(self):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)

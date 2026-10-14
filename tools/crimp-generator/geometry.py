@@ -445,7 +445,9 @@ def _build(
         else None
     )
     seat = automatic_seat(p, jug) if p.auto_seat else seat_height(p)
-    if not p.auto_seat:
+    # With mounting holes off there is no limit to clamp to; the seat slider
+    # may still have turned auto_seat off before the holes were removed.
+    if not p.auto_seat and seat_limit is not None:
         seat = min(seat, seat_limit)
     if p.screws and p.bolt_mount:
         mounting_mesh = (
