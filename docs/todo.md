@@ -36,21 +36,24 @@ keeps it current as work lands; add your own items freely.
   the application after the first three qualifying sales, and closes it
   after 180 days without any. Getting the guide in front of people is what
   starts that.
-- **Stripe payment link for the tip jar.** Make a Stripe account, then
-  Payment Links → New → "customer chooses what to pay", named something
-  like "chip in for hosting", one-off. Give Claude the link for
-  `NEXT_PUBLIC_TIP_URL`. The same Stripe account serves anything sold on the
-  site later.
+- **Stripe payment link for the tip jar.** Register at
+  dashboard.stripe.com as an individual with your legal name and a bank
+  account. Product catalog → Add product → "chip in for hosting", one-off,
+  "customer chooses what to pay", suggested $5, minimum $1. Payment links →
+  New → that product → Create. Give Claude the `buy.stripe.com` link for
+  `NEXT_PUBLIC_TIP_URL`. The same account serves anything sold later.
 
 ## Domain and search
 
 The site is at `https://garageholds.com`, bought through Vercel. The www
 and old vercel.app addresses redirect to it.
 
-- **Google Search Console**: add `https://garageholds.com` as a property,
-  choose HTML-tag verification and paste the tag's `content` value to
-  Claude to add to the site, submit `/sitemap.xml`, request indexing for
-  the home page. See `docs/hosted-setup.md` → "Search engines".
+- **Google Search Console**: at search.google.com/search-console add a
+  "Domain" property for `garageholds.com` and paste Claude the TXT record
+  value it shows (the DNS is at Vercel, so Claude can add it). Once it
+  verifies, submit `https://garageholds.com/sitemap.xml` and request
+  indexing for the home page and
+  `/how-to-3d-print-climbing-holds`.
 
 ## Things to try in a browser
 
@@ -86,7 +89,7 @@ and old vercel.app addresses redirect to it.
 
 - **Photos for the printing guide** (`/how-to-3d-print-climbing-holds`):
   a printed hold on the wall, one on the print bed, and a close-up of
-  fuzzy skin. Your colleague offered. Send them to Claude, who adds them
+  fuzzy skin. Alex is on it. Send them to Claude, who adds them
   with alt text and uses the wall shot as the link preview image.
 
 - **Seed the library** with your own holds: real recipes, photos on a wall.
