@@ -117,7 +117,7 @@ Google Cloud console, in the project you intend to use.
      test accounts there, or publish the app when ready.
 2. **Credentials → Create credentials → OAuth client ID**
    - Application type: Web application.
-   - Authorized JavaScript origins: `http://127.0.0.1:3000`, `http://localhost:3000`, and the Vercel URL.
+   - Authorized JavaScript origins: `http://127.0.0.1:3000`, `http://localhost:3000`, and `https://garageholds.com`.
    - Authorized redirect URIs: the Supabase callback URL from above
      (`https://<project-ref>.supabase.co/auth/v1/callback`). Not the app's own
      `/auth/callback`; Supabase talks to Google, then redirects to the app.

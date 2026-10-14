@@ -41,6 +41,22 @@ keeps it current as work lands; add your own items freely.
   dashboard are complete. Settings → Business → Public details should say
   "Garage Holds" for the public name and statement descriptor.
 
+## Accounts
+
+- **Google sign-in.** The button is wired up but only works once the
+  Google side exists. Steps, in full under "Google Cloud: OAuth client" in
+  `docs/hosted-setup.md`:
+  1. Google Cloud console → Google Auth Platform → consent screen: External,
+     app name "Garage Holds", your email twice, default scopes. Publish it
+     (in "Testing" only listed test users can sign in).
+  2. Credentials → OAuth client ID → Web application. JavaScript origins:
+     `https://garageholds.com` and `http://localhost:3000`. Redirect URI:
+     `https://hbwvqjktqdxyspaqyshb.supabase.co/auth/v1/callback`.
+  3. Supabase → Authentication → Sign In / Providers → Google: enable and
+     paste the Client ID and Client Secret.
+  4. Try it on the live site from an incognito window, then tell Claude
+     whether the profile picked up your Google name and photo.
+
 ## Domain and search
 
 The site is at `https://garageholds.com`, bought through Vercel. The www
@@ -97,8 +113,6 @@ and old vercel.app addresses redirect to it.
 
 ## Open questions for Claude
 
-- Google sign-in: is the Google Cloud OAuth client done, and is the
-  consent screen still in "Testing" (only listed test users can sign in)?
 - Laptop RAM, and whether Docker Desktop is installed yet.
 
 ## Later, when you say so
