@@ -61,6 +61,55 @@ class GeometryTests(unittest.TestCase):
             self.assertGreaterEqual(right[0] - left[0], p.width * 0.32)
             self.assertLess(middle[1], min(left[1], right[1]) - 5)
 
+    def test_mounting_clearance_from_body_edges(self):
+        def boundary_distance(point, contours):
+            distances = []
+            for contour in contours:
+                a = np.asarray(contour)
+                edges = np.roll(a, -1, axis=0) - a
+                t = np.clip(((point - a) * edges).sum(axis=1) / (edges * edges).sum(axis=1), 0, 1)
+                distances.extend(np.linalg.norm(point - (a + t[:, None] * edges), axis=1))
+            return min(distances)
+
+        for preset in PRESETS.values():
+            for bolt in (False, True):
+                for wrap in (0, preset.end_wrap):
+                    with self.subTest(width=preset.width, bolt=bolt, wrap=wrap):
+                        model = build(replace(preset, bolt_mount=bolt, end_wrap=wrap))
+                        p = engine_parameters(model.parameters)
+                        uncut = build(replace(model.parameters, screws=False))
+                        solid = crimp._solid(uncut.mesh)
+                        for centers, shank, head, is_bolt in (
+                            (model.screws, p.shank_diameter, p.head_diameter, False),
+                            (model.bolts, p.bolt_diameter, p.bolt_head_diameter, True),
+                        ):
+                            seat = model.parameters.seat_depth
+                            cone = 0 if is_bolt else (head - shank) / 2
+                            for z, diameter in ((0.5, shank), (seat / 2, shank), (seat + cone + 0.5, head)):
+                                contours = solid.slice(z).to_polygons()
+                                for center in centers:
+                                    self.assertTrue(crimp._inside_contours(*center, contours))
+                                    self.assertGreaterEqual(boundary_distance(np.array(center), contours) - diameter / 2, 4.9)
+
+    def test_deeper_mounting_arc_for_odd_and_even_hole_counts(self):
+        for count in range(2, 7):
+            with self.subTest(count=count):
+                p = Parameters(screw_count=count, width=240, body_height=125)
+                model, exported = build(p), build(p, "export")
+                neutral = build(replace(model.parameters, auto_seat=False, screw_arc=0))
+                self.assertEqual(model.screws, exported.screws)
+                self.assertTrue(model.mesh.is_watertight)
+                self.assertTrue(exported.mesh.is_watertight)
+                a, b = np.array(neutral.screws), np.array(model.screws)
+                np.testing.assert_allclose(a[:, 0], b[:, 0])
+                np.testing.assert_allclose(a[[0, -1]], b[[0, -1]])
+                np.testing.assert_allclose(b[:, 1], b[::-1, 1], atol=1e-7)
+                if count > 2:
+                    self.assertTrue((b[1:-1, 1] < a[1:-1, 1]).all())
+                    self.assertTrue((a[:, 1] - b[:, 1] <= 6.001).all())
+                else:
+                    np.testing.assert_allclose(a, b)
+
     def test_jug_uses_the_crimp_engine_exactly(self):
         for p in PRESETS.values():
             jug, original = (
@@ -69,6 +118,8 @@ class GeometryTests(unittest.TestCase):
                     engine_parameters(p),
                     end_wrap=p.end_wrap / 100,
                     arc_rise=p.arc_rise * p.size / 100,
+                    jug=True,
+                    screw_arc=p.screw_arc,
                 ),
             )
             np.testing.assert_array_equal(jug.mesh.vertices, original.mesh.vertices)
@@ -122,6 +173,9 @@ class GeometryTests(unittest.TestCase):
         model = build(Parameters())
         self.assertLessEqual(model.mesh.extents[2], 66.01)
         self.assertEqual(model.parameters.edge_depth, 57.5)
+        self.assertEqual(Parameters().body_height, 100)
+        self.assertGreaterEqual(model.parameters.body_height, 100)
+        self.assertLessEqual(model.parameters.body_height, 130)
         self.assertEqual(model.parameters.grip_quality, 90)
         self.assertEqual(model.parameters.incut, 56)
         self.assertGreaterEqual(model._model.lip_radius, 7)
@@ -136,10 +190,100 @@ class GeometryTests(unittest.TestCase):
         model = build(PRESETS["two-handed jug"])
         self.assertEqual(len(model.screws), 4)
         xs = sorted(x for x, _ in model.screws)
-        self.assertGreater(xs[-1] - xs[0], widths["two-handed jug"] * 0.55)
-        self.assertNotIn(
-            "body_height", build(replace(PRESETS["board jug"], size=125)).adjusted
+        self.assertGreater(xs[-1] - xs[0], widths["two-handed jug"] * 0.35)
+
+    def test_body_height_changes_geometry_and_manual_span_is_exact(self):
+        low = build(Parameters(body_height=130))
+        high = build(Parameters(body_height=150))
+        self.assertEqual(low.parameters.body_height, 130)
+        self.assertEqual(high.parameters.body_height, 150)
+        self.assertGreater(high.mesh.extents[1], low.mesh.extents[1] + 10)
+        for span in (40, 60, 80):
+            p = Parameters(auto_spacing=False, screw_spacing=span)
+            preview, exported = build(p), build(p, "export")
+            self.assertAlmostEqual(preview.screws[-1][0] - preview.screws[0][0], span)
+            self.assertEqual(preview.screws, exported.screws)
+            self.assertFalse(preview.parameters.auto_spacing)
+
+    def test_automatic_span_increases_with_hole_count(self):
+        for width in (158, 240):
+            spans = []
+            for count in range(2, 7):
+                model = build(Parameters(width=width, screw_count=count))
+                self.assertEqual(len(model.screws), count)
+                spans.append(model.screws[-1][0] - model.screws[0][0])
+            self.assertTrue((np.diff(spans) > 0).all(), spans)
+
+    def test_manual_span_limit_is_the_largest_slider_value_that_fits(self):
+        oversized = build(Parameters(auto_spacing=False, screw_spacing=360))
+        self.assertEqual(
+            oversized.preview()["control_ranges"]["screw_spacing"]["min"],
+            (oversized.parameters.screw_count - 1)
+            * (oversized.parameters.head_diameter + 1.5),
         )
+        limit = oversized.preview()["control_limits"]["screw_spacing"]
+        self.assertEqual(oversized.parameters.screw_spacing, limit)
+        self.assertEqual(oversized.screws[-1][0] - oversized.screws[0][0], limit)
+        self.assertEqual(
+            build(Parameters(auto_spacing=False, screw_spacing=limit)).screws,
+            oversized.screws,
+        )
+
+    def test_screw_arc_control_and_saved_settings(self):
+        self.assertEqual(parse_parameters({}).screw_arc, 6)
+        self.assertEqual(parse_parameters({"screw_arc": 30}).screw_arc, 20)
+        for invalid in (True, "6", float("nan")):
+            with self.assertRaises(ValueError):
+                parse_parameters({"screw_arc": invalid})
+        flat = build(Parameters(body_height=150, screw_arc=0))
+        curved = build(Parameters(body_height=150, screw_arc=12))
+        self.assertLess(curved.screws[1][1], flat.screws[1][1] - 5)
+        self.assertEqual(curved.screws[0], flat.screws[0])
+        self.assertEqual(curved.screws[-1], flat.screws[-1])
+        saved = parse_parameters(design_document(curved.parameters)["parameters"])
+        self.assertEqual(saved.screw_arc, curved.parameters.screw_arc)
+        self.assertGreater(saved.screw_arc, 5)
+        self.assertLessEqual(saved.screw_arc, 12)
+        self.assertEqual(build(saved, "export").screws, curved.screws)
+
+    def test_arc_limit_prevents_silent_slider_plateau(self):
+        model = build(Parameters(screw_arc=20))
+        limit = model.preview()["screw_arc_limit"]
+        self.assertEqual(model.parameters.screw_arc, limit)
+        self.assertGreater(limit, 0)
+        self.assertLess(limit, 20)
+        flat = build(Parameters(screw_arc=0))
+        self.assertLess(model.screws[1][1], flat.screws[1][1])
+
+    def test_seat_only_changes_recess_depth(self):
+        for bolt in (False, True):
+            models = [build(Parameters(body_height=150, bolt_mount=bolt, auto_seat=False, seat_depth=seat)) for seat in (6, 10)]
+            np.testing.assert_allclose(models[0].mesh.bounds, models[1].mesh.bounds)
+            np.testing.assert_allclose(models[0].profile, models[1].profile)
+            self.assertEqual(models[0].parameters.body_height, models[1].parameters.body_height)
+            self.assertEqual([m.parameters.seat_depth for m in models], [6, 10])
+            self.assertEqual(models[0].screws, models[1].screws)
+            self.assertEqual(models[0].bolts, models[1].bolts)
+        high = build(Parameters(auto_seat=False, seat_depth=60))
+        self.assertEqual(high.parameters.seat_depth, high.preview()["seat_depth_limit"])
+        self.assertEqual(high.screws, build(Parameters()).screws)
+        self.assertTrue(high.mesh.is_watertight)
+
+    def test_seat_above_profile_removes_the_recess(self):
+        shallow = build(Parameters(auto_seat=False, seat_depth=6))
+        above = build(Parameters(auto_seat=False, seat_depth=60))
+        beyond = build(Parameters(auto_seat=False, seat_depth=140))
+        np.testing.assert_allclose(shallow.mesh.bounds, above.mesh.bounds)
+        self.assertEqual(above.screws, shallow.screws)
+        self.assertEqual(above.parameters.seat_depth, above.preview()["seat_depth_limit"])
+        np.testing.assert_allclose(above.mesh.vertices, beyond.mesh.vertices)
+        np.testing.assert_array_equal(above.mesh.faces, beyond.mesh.faces)
+        self.assertGreater(above.mesh.volume, shallow.mesh.volume)
+
+    def test_automatic_span_uses_finished_width(self):
+        for preset in PRESETS.values():
+            model = build(preset)
+            self.assertGreaterEqual(model.parameters.screw_spacing / model.mesh.extents[0], 0.59)
 
     def test_saved_parameters_reproduce_adjusted_mesh(self):
         model = build(Parameters(body_height=20, lip_radius=20))

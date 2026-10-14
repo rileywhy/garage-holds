@@ -45,6 +45,8 @@ class Model:
     parameters: Parameters
     adjusted: dict
     bolts: list = field(default_factory=list)
+    seat_depth_limit: float | None = None
+    screw_spacing_limit: float | None = None
 
     def preview(self):
         volume = float(self.mesh.volume)
@@ -63,6 +65,15 @@ class Model:
             watertight=bool(self.mesh.is_watertight),
             parameters=asdict(self.parameters),
             adjusted=self.adjusted,
+            seat_depth_limit=self.seat_depth_limit,
+            control_limits={"seat_depth": self.seat_depth_limit}
+            if self.seat_depth_limit is not None
+            else {},
+            control_ranges={
+                "screw_spacing": {"min": (self.parameters.head_diameter + 1.5) * (self.parameters.screw_count - 1), "max": self.screw_spacing_limit}
+            }
+            if self.screw_spacing_limit is not None
+            else {},
         )
 
 
@@ -170,19 +181,32 @@ def _mounting(p, solid):
     unit = np.column_stack(
         (np.cos(angles) * p.width / 2, np.sin(angles) * p.height / 2)
     )
-    candidates = np.array(
-        [
-            unit * r + [0, -p.height * drop]
-            for r in np.arange(0.58, 0.17, -0.04)
-            for drop in (0.08, 0.04, 0, -0.04, -0.08, -0.12, -0.16, -0.2)
-        ]
+    if not p.auto_spacing:
+        unit[:, 0] = np.linspace(-p.screw_spacing / 2, p.screw_spacing / 2, p.screw_count)
+        # Manual span follows a shallow oval. The outer holes define the
+        # requested span and the inner holes sag toward the back of the arc.
+        half_span = max(p.screw_spacing / 2, 1)
+        arc_depth = min(p.height * 0.55, max(6.0, p.screw_spacing * 0.68))
+        unit[:, 1] = arc_depth * 0.34 - arc_depth * np.cos(
+            np.pi * unit[:, 0] / (2 * half_span)
+        )
+    candidates = (
+        np.array([unit])
+        if not p.auto_spacing
+        else np.array(
+            [
+                unit * r + [0, -p.height * drop]
+                for r in np.arange(0.58, 0.17, -0.04)
+                for drop in (0.08, 0.04, 0, -0.04, -0.08, -0.12, -0.16, -0.2)
+            ]
+        )
     )
     gaps = np.linalg.norm(candidates[:, :, None] - candidates[:, None, :], axis=-1)
     for i in range(p.screw_count):
         gaps[:, i, i] = np.inf
     spaced = gaps.min(axis=(1, 2)) >= p.head_diameter + 1.5
     candidates = candidates[spaced]
-    target = round(min(30, p.projection * 0.36) if p.auto_seat else p.seat_depth, 1)
+    target = round(min(12, p.projection * 0.36) if p.auto_seat else p.seat_depth, 1)
     cone = (p.head_diameter - p.shank_diameter) / 2
     # Prefer a larger body to an extremely shallow automatic screw seat.
     # A manual seat can lower further when its requested height cannot fit.
@@ -237,16 +261,26 @@ def build(requested: Parameters, quality="preview") -> Model:
         p = _fit_slope(p)
         mesh, profile = _mesh(p, "preview")
         solid = _solid(mesh)
+        seat_limit = max(3.0, float(mesh.bounds[1, 2]) - p.head_diameter)
+        if not p.auto_seat:
+            p = replace(p, seat_depth=min(p.seat_depth, seat_limit))
         holes = []
         if p.screws and p.bolt_mount:
             target = round(
-                min(30, p.projection * 0.36) if p.auto_seat else p.seat_depth, 1
+                min(
+                min(12, p.projection * 0.36)
+                    if p.auto_seat
+                    else p.seat_depth,
+                    seat_limit,
+                ),
+                1,
             )
             holes = fit_bolt_and_screw(p, solid, mesh.bounds, target)
             screws = [(h.x, h.y) for h in holes if not h.bolt]
             seat = holes[0].seat if holes else target
         else:
             screws, seat = _mounting(p, solid) if p.screws else ([], p.seat_depth)
+            seat = min(seat, seat_limit)
         if not p.screws or screws:
             break
         # Grow the footprint first, then depth if the maximum oval is still
@@ -261,6 +295,7 @@ def build(requested: Parameters, quality="preview") -> Model:
             p = replace(p, projection=min(MAX_PROJECTION, p.projection + 4))
     else:
         raise ValueError("The mounting solver could not find space for these screws.")
+    seat = min(seat, seat_limit)
     p = replace(p, seat_depth=seat)
     if quality == "export":
         mesh, profile = _mesh(p, quality)
@@ -295,4 +330,5 @@ def build(requested: Parameters, quality="preview") -> Model:
         for key, value in asdict(p).items()
         if value != asdict(requested)[key]
     }
-    return Model(mesh, profile, screws, p, adjusted, bolts)
+    spacing_limit = max(6.0, p.width - p.head_diameter - 4.0)
+    return Model(mesh, profile, screws, p, adjusted, bolts, seat_limit, spacing_limit)

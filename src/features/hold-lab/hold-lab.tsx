@@ -16,6 +16,7 @@ import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
 import {
   DESIGN_FILE_LIMIT,
   loadSchema,
+  limitControl,
   parseDesignFile,
   post,
   type Control,
@@ -119,7 +120,12 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
           fitNext.current,
         );
         fitNext.current = false;
-        latest.current = { ...data.parameters };
+        latest.current = {
+          ...data.parameters,
+          ...(kind === "jug"
+            ? { body_height: latest.current.body_height }
+            : {}),
+        };
         setParameters(latest.current);
         setPreview(data);
         setDesign(data.design);
@@ -166,7 +172,12 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
   );
   const change = useCallback(
     (key: string, value: number | boolean) =>
-      edit((p) => ({ ...p, [key]: value })),
+      edit((p) => ({
+        ...p,
+        [key]: value,
+        ...(key === "screw_spacing" ? { auto_spacing: false } : {}),
+        ...(key === "seat_depth" ? { auto_seat: false } : {}),
+      })),
     [edit],
   );
 
@@ -321,15 +332,6 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                       hardware.
                     </p>
                   )}
-                  <label className="lab-toggle">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(parameters.auto_seat)}
-                      disabled={!screws}
-                      onChange={(e) => change("auto_seat", e.target.checked)}
-                    />
-                    automatic screw seat
-                  </label>
                 </>
               )}
               {schema.controls
@@ -341,16 +343,26 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                 .map((control) => (
                   <ControlRow
                     key={control.key}
-                    control={control}
+                    control={limitControl(control, preview)}
                     dualUnits={kind === "jug"}
                     value={Number(parameters[control.key])}
-                    disabled={
-                      name === "Mounting" &&
-                      (!screws ||
-                        (control.key === "seat_depth" &&
-                          Boolean(parameters.auto_seat)))
-                    }
+                    disabled={name === "Mounting" && !screws}
                     onChange={change}
+                    onReset={() => {
+                      if (control.key === "screw_spacing")
+                        change("auto_spacing", true);
+                      else if (control.key === "seat_depth")
+                        edit((p) => ({
+                          ...p,
+                          auto_seat: true,
+                          seat_depth: Number(schema.defaults.seat_depth),
+                        }));
+                      else
+                        change(
+                          control.key,
+                          Number(schema.defaults[control.key]),
+                        );
+                    }}
                   />
                 ))}
               {name === "Shape" && (
@@ -596,9 +608,11 @@ function ControlRow({
   disabled,
   onChange,
   dualUnits,
+  onReset,
 }: {
   control: Control;
   dualUnits: boolean;
+  onReset: () => void;
   value: number;
   disabled: boolean;
   onChange: (key: string, value: number) => void;
@@ -628,6 +642,16 @@ function ControlRow({
             onChange={(e) => handle(e.target.valueAsNumber)}
           />
           <span>{control.unit}</span>
+          <button
+            type="button"
+            className="lab-control-reset"
+            disabled={disabled}
+            aria-label={`Reset ${control.label}`}
+            title={`Reset ${control.label}`}
+            onClick={onReset}
+          >
+            <RotateCcw size={14} aria-hidden="true" />
+          </button>
         </span>
       </div>
       <input
@@ -640,6 +664,7 @@ function ControlRow({
         aria-label={`${control.label} slider`}
         aria-describedby={`${id}-hint`}
         onChange={(e) => handle(e.target.valueAsNumber)}
+        onDoubleClick={onReset}
       />
       {dualUnits && control.unit === "mm" && (
         <p className="lab-hint">{(value / 25.4).toFixed(2)} in</p>

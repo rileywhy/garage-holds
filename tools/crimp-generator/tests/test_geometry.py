@@ -271,8 +271,8 @@ class GeometryTests(unittest.TestCase):
     def test_manual_mounting_is_respected_or_rejected(self):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)
-        with self.assertRaisesRegex(ValueError, "seat is above the top"):
-            build(Parameters(auto_seat=False, seat_depth=30))
+        high = build(Parameters(auto_seat=False, seat_depth=30))
+        self.assertEqual(high.parameters.seat_depth, high.preview()["seat_depth_limit"])
         with self.assertRaisesRegex(ValueError, "screws closer"):
             build(Parameters(width=50, auto_spacing=False))
 

@@ -2777,6 +2777,29 @@ svg {
   font-size: 11px;
   color: var(--muted);
 }
+
+.lab-control-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lab-control-reset:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.lab-control-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .lab-number input {
   width: 72px;
   padding: 4px 6px;
@@ -2785,6 +2808,17 @@ svg {
 .lab-control input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
+}
+.lab-slider-with-auto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lab-slider-with-auto .lab-toggle {
+  color: var(--muted);
+}
+.lab-slider-with-auto input[type="range"] {
+  flex: 1;
 }
 .lab-hint {
   font-size: 10px;

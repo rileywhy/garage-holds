@@ -25,7 +25,7 @@ SCALED = (
 
 def engine_parameters(p):
     values = asdict(p)
-    for key in ("end_wrap", "arc_rise", "size", "grip_quality"):
+    for key in ("end_wrap", "arc_rise", "size", "grip_quality", "screw_arc"):
         values.pop(key)
     factor = p.size / 100
     limits = {item["key"]: item for item in crimp_settings.CONTROLS}
@@ -54,6 +54,15 @@ class Model:
             requested,
             body_height=model.parameters.body_height / factor,
             seat_depth=model.seat_depth,
+            screw_arc=(
+                min(requested.screw_arc, model.screw_arc_limit)
+                if model.screw_arc_limit is not None else requested.screw_arc
+            ),
+            screw_spacing=(
+                model.screws[-1][0] - model.screws[0][0]
+                if len(model.screws) > 1
+                else requested.screw_spacing
+            ),
         )
         # Scaling up and back down leaves float noise that is not a change.
         self.adjusted = {
@@ -80,5 +89,6 @@ def build(requested, quality="preview"):
         end_wrap=p.end_wrap / 100,
         arc_rise=p.arc_rise * p.size / 100,
         jug=True,
+        screw_arc=p.screw_arc,
     )
     return Model(model, p)

@@ -18,6 +18,7 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.hold_mounting import drill, fit_bolt_and_screw
 
+
 if __package__:
     from .parameters import Parameters, parse_parameters, seat_height
 else:
@@ -38,6 +39,10 @@ class Model:
     parameters: Parameters
     adjusted: dict = field(default_factory=dict)
     bolts: list[tuple[float, float]] = field(default_factory=list)
+    screw_arc_limit: float | None = None
+    seat_depth_limit: float | None = None
+    screw_spacing_limit: float | None = None
+    screw_spacing_minimum: float | None = None
 
     def preview(self) -> dict:
         return dict(
@@ -50,6 +55,25 @@ class Model:
             profile=np.round(self.profile, 5).tolist(),
             screws=self.screws,
             bolts=self.bolts,
+            screw_arc_limit=self.screw_arc_limit,
+            seat_depth_limit=self.seat_depth_limit,
+            control_limits={
+                key: value
+                for key, value in {
+                    "screw_arc": self.screw_arc_limit,
+                    "seat_depth": self.seat_depth_limit,
+                    "screw_spacing": self.screw_spacing_limit,
+                }.items()
+                if value is not None
+            },
+            control_ranges={
+                "screw_spacing": {
+                    "min": self.screw_spacing_minimum,
+                    "max": self.screw_spacing_limit,
+                }
+            }
+            if self.screw_spacing_minimum is not None
+            else {},
             grip_inner=self.grip_inner,
             grip_outer=self.grip_outer,
             dimensions=np.round(self.mesh.extents, 2).tolist(),
@@ -319,6 +343,11 @@ class _NoRoomForScrews(ValueError):
     pass
 
 
+def automatic_seat(p: Parameters, jug: bool = False) -> float:
+    target = seat_height(p)
+    return 12.0 if jug else target
+
+
 def build(
     p: Parameters,
     quality: str = "preview",
@@ -326,6 +355,7 @@ def build(
     end_wrap: float = 0,
     arc_rise: float = 0,
     jug: bool = False,
+    screw_arc: float = 6.0,
 ) -> Model:
     """Builds the shape, growing the body height when that is what it takes:
     first to keep the shelf above the body, then until the screw recesses
@@ -335,16 +365,42 @@ def build(
     body_max = 300 if jug or end_wrap > 0 else BODY_MAX
     start = max(p.body_height, min(body_max, minimum_body_height(p)))
     heights = np.arange(start, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP)
+    if jug:
+        # Resolve the body from shape and hardware clearance once. Changing
+        # a recess depth must never grow the outside of the hold.
+        mounting_base = math.ceil(
+            (p.edge_depth + 6) * max(0, math.tan(math.radians(p.incut)))
+            + max(MIN_BACK_FACE, p.shank_diameter + 16, p.bolt_head_diameter + 10)
+        )
+        start = max(start, mounting_base)
+        # Complex arches can need more base than the center profile alone
+        # predicts. Resolve that using a standard automatic mount, without
+        # consulting the requested recess depth or screw span.
+        reference = replace(p, auto_seat=True, auto_spacing=True)
+        for height in np.arange(start, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP):
+            reference = replace(reference, body_height=float(height))
+            reference_mesh = _loft(reference, "preview", end_wrap, arc_rise)[0]
+            if fit_bolt_and_screw(
+                reference, _solid(reference_mesh), reference_mesh.bounds,
+                automatic_seat(reference, jug), edge_clearance=5.0,
+            ):
+                start = float(height)
+                break
+        heights = np.array([start])
     # A taller body is preferred to a shallow seat: the seat may drop to
     # half its target first, and only once the body has grown as far as it
     # will may it go lower still.
-    floors = [max(3.0, seat_height(p) / 2), 0.5] if p.auto_seat else [0.5]
+    floors = [max(3.0, automatic_seat(p, jug) / 2), 0.5] if p.auto_seat else [0.5]
+    if jug and p.auto_seat:
+        # Prefer at least 6 mm in Jug Lab, while still allowing unusually
+        # compact profiles to lower the recess enough to remain printable.
+        floors = [6.0, 0.5]
     model = None
     for floor in floors:
         for height in heights:
             p = replace(p, body_height=float(height))
             try:
-                model = _build(p, quality, floor, end_wrap, arc_rise)
+                model = _build(p, quality, floor, end_wrap, arc_rise, jug, screw_arc)
                 break
             except _NoRoomForScrews:
                 continue
@@ -365,6 +421,8 @@ def _build(
     seat_floor: float = 0.5,
     end_wrap: float = 0,
     arc_rise: float = 0,
+    jug: bool = False,
+    screw_arc: float = 6.0,
 ) -> Model:
     mesh, profile, inner, outer, lip_radius = _loft(p, quality, end_wrap, arc_rise)
     solid = _solid(mesh)
@@ -374,13 +432,35 @@ def _build(
         )
     screws = []
     bolts = []
-    seat = seat_height(p)
+    arc_limit = None
+    spacing_limit = None
+    spacing_minimum = (
+        (p.screw_count - 1) * (p.head_diameter + 1.5)
+        if p.screws and not p.bolt_mount
+        else None
+    )
+    seat_limit = (
+        max(0.5, float(mesh.bounds[1, 2]) - p.head_diameter)
+        if p.screws
+        else None
+    )
+    seat = automatic_seat(p, jug) if p.auto_seat else seat_height(p)
+    if not p.auto_seat:
+        seat = min(seat, seat_limit)
     if p.screws and p.bolt_mount:
         mounting_mesh = (
             _loft(p, "preview", end_wrap, arc_rise)[0] if quality == "export" else mesh
         )
         mounting_solid = _solid(mounting_mesh) if quality == "export" else solid
-        holes = fit_bolt_and_screw(p, mounting_solid, mounting_mesh.bounds, seat)
+        holes = fit_bolt_and_screw(
+            p, mounting_solid, mounting_mesh.bounds, seat,
+            edge_clearance=5.0 if jug else None,
+            layout_target=(
+                min(automatic_seat(replace(p, auto_seat=True), jug), seat_limit)
+                if not p.auto_seat
+                else None
+            ),
+        )
         if not holes:
             raise _NoRoomForScrews()
         seat = holes[0].seat
@@ -391,6 +471,9 @@ def _build(
             result.vert_properties[:, :3], result.tri_verts, process=True
         )
     elif p.screws:
+        requested_seat = seat
+        if jug or not p.auto_seat:
+            seat = min(automatic_seat(replace(p, auto_seat=True), jug), seat_limit)
         cone_height = (p.head_diameter - p.shank_diameter) / 2
         # Resolve mounting on the same mesh for both qualities. Otherwise a
         # finer rounded end can shift automatic spacing between preview/STL.
@@ -399,21 +482,134 @@ def _build(
             if quality == "export"
             else solid
         )
-        candidates = _screw_candidates(p, jug=end_wrap > 0)
+        mounting_width = float(
+            (_loft(p, "preview", end_wrap, arc_rise)[0] if quality == "export" else mesh).extents[0]
+        )
+        maximum_span = math.floor(min(mounting_width, 360.0 if jug else 260.0))
+        minimum_span = max(0.0, (p.screw_count - 1) * (p.head_diameter + 1.5))
+        # Search broadly in 8 mm increments, then refine the first fitting
+        # interval to the slider's 1 mm precision.
+        limit_spans = np.unique(
+            np.append(
+                np.arange(maximum_span, minimum_span - 1e-9, -8.0),
+                math.ceil(minimum_span),
+            )
+        )[::-1]
+        limit_candidates = _screw_candidates(
+            p, jug=jug or end_wrap > 0, mounting_width=mounting_width,
+            spans=limit_spans,
+        )
+        candidates = _screw_candidates(p, jug=jug or end_wrap > 0, mounting_width=mounting_width)
         # An automatic seat is as high as the recesses allow: start at the
         # share of the depth and come down until the row fits.
         seats = (
             np.arange(seat, seat_floor - 1e-9, -0.5)
-            if p.auto_seat
+            if p.auto_seat or jug
             else np.array([seat])
         )
-        for seat in seats:
-            screws = _screw_positions(p, mounting_solid, float(seat), candidates)
+        arc_passes = (True, False) if jug else (False,)
+        selected_room = None
+        for require_arc in arc_passes:
+            for seat in seats:
+                room_polygons = _screw_room(
+                    p, mounting_solid, float(seat),
+                    edge_clearance=5.0 if jug else None,
+                )
+                widest = _screw_positions(
+                    p, mounting_solid, float(seat), limit_candidates,
+                    edge_clearance=5.0 if jug else None,
+                    arc_bias=screw_arc if jug else 6.0,
+                    room_polygons=room_polygons,
+                )
+                if widest:
+                    coarse_span = round(widest[-1][0] - widest[0][0], 6)
+                    refine_spans = np.arange(
+                        min(maximum_span, coarse_span + 7),
+                        coarse_span - 1e-9,
+                        -1.0,
+                    )
+                    refined = _screw_positions(
+                        p, mounting_solid, float(seat),
+                        _screw_candidates(
+                            p, jug=jug or end_wrap > 0,
+                            mounting_width=mounting_width, spans=refine_spans,
+                        ),
+                        edge_clearance=5.0 if jug else None,
+                        arc_bias=screw_arc if jug else 6.0,
+                        room_polygons=room_polygons,
+                    )
+                    spacing_limit = round(
+                        refined[-1][0] - refined[0][0] if refined else coarse_span,
+                        6,
+                    )
+                screws = _screw_positions(
+                    p, mounting_solid, float(seat), candidates,
+                    edge_clearance=5.0 if jug else None,
+                    arc_bias=6.0 if jug else screw_arc, require_arc=require_arc,
+                    room_polygons=room_polygons,
+                )
+                if screws and not p.auto_spacing:
+                    spacing_limit = max(
+                        spacing_limit or 0.0,
+                        round(screws[-1][0] - screws[0][0], 6),
+                    )
+                elif (
+                    not screws
+                    and not p.auto_spacing
+                    and spacing_limit is not None
+                    and p.screw_spacing > spacing_limit
+                    and math.isclose(float(seat), float(seats[-1]))
+                ):
+                    fitted_candidates = _screw_candidates(
+                        replace(p, screw_spacing=spacing_limit),
+                        jug=jug or end_wrap > 0,
+                        mounting_width=mounting_width,
+                    )
+                    screws = _screw_positions(
+                        p, mounting_solid, float(seat), fitted_candidates,
+                        edge_clearance=5.0 if jug else None,
+                        arc_bias=6.0 if jug else screw_arc,
+                        require_arc=require_arc,
+                        room_polygons=room_polygons,
+                    )
+                    if screws:
+                        candidates = fitted_candidates
+                if screws:
+                    selected_room = room_polygons
+                    break
             if screws:
                 break
         else:
             raise _NoRoomForScrews()
         seat = float(seat)
+        if jug:
+            # Resolve one mounting section for every arc setting, then apply
+            # the requested inner-hole offset without moving outer holes.
+            neutral = _screw_positions(
+                p, mounting_solid, seat, candidates,
+                edge_clearance=5.0, arc_bias=0,
+                room_polygons=selected_room,
+            )
+            deepest = _screw_positions(
+                p, mounting_solid, seat, candidates,
+                edge_clearance=5.0, arc_bias=1e6,
+                room_polygons=selected_room,
+            )
+            half_span = max(abs(neutral[0][0]), 1)
+            limits = []
+            for a, b in zip(neutral, deepest):
+                weight = max(0, 1 - (a[0] / half_span) ** 2)
+                if weight > 1e-8:
+                    limits.append((a[1] - b[1]) / weight)
+            arc_limit = math.floor((min(limits, default=0) + 1e-6) * 2) / 2
+            screws = _screw_positions(
+                p, mounting_solid, seat, candidates,
+                edge_clearance=5.0, arc_bias=min(screw_arc, arc_limit),
+                room_polygons=selected_room,
+            )
+        if not p.auto_seat:
+            seat = requested_seat
+        p = replace(p, seat_depth=seat)
         seat_top = seat + cone_height
         for x, hole_y in screws:
             shank = manifold.Manifold.cylinder(
@@ -430,12 +626,25 @@ def _build(
         mesh = trimesh.Trimesh(
             result.vert_properties[:, :3], result.tri_verts, process=True
         )
+    # Float32 Boolean vertices can merge into zero-area triangles when
+    # several symmetric recesses meet the same loft ring. Remove those
+    # collapsed faces before checking the resulting closed solid.
+    mesh.update_faces(mesh.nondegenerate_faces())
     if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
         raise ValueError("The generated mesh did not pass the closed-solid checks.")
-    return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p, bolts=bolts)
+    if screws and not p.auto_spacing:
+        actual_span = round(screws[-1][0] - screws[0][0], 6)
+        if not math.isclose(p.screw_spacing, actual_span):
+            p = replace(p, screw_spacing=actual_span)
+    return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p, bolts=bolts, screw_arc_limit=arc_limit, seat_depth_limit=seat_limit, screw_spacing_limit=spacing_limit, screw_spacing_minimum=spacing_minimum)
 
 
-def _screw_candidates(p: Parameters, jug: bool = False) -> np.ndarray:
+def _screw_candidates(
+    p: Parameters,
+    jug: bool = False,
+    mounting_width: float | None = None,
+    spans: np.ndarray | None = None,
+) -> np.ndarray:
     """Every row worth trying, in order of preference: wider spans first,
     then the smallest drop below the lip-limited height. Shape (rows,
     holes, 2) of x and y centres."""
@@ -467,45 +676,107 @@ def _screw_candidates(p: Parameters, jug: bool = False) -> np.ndarray:
 
     minimum_span = (p.screw_count - 1) * (p.head_diameter + 1.5)
     if jug and p.auto_spacing:
-        minimum_span = max(minimum_span, p.width * 0.32)
+        minimum_span = max(minimum_span, p.width * (0.20 + 0.06 * (p.screw_count - 2)))
     preferred_span = max(p.width * 0.6, minimum_span)
-    spans = (
-        np.arange(preferred_span, minimum_span - 1e-9, -1)
-        if p.auto_spacing
-        else np.array([float(p.screw_spacing)])
-    )
+    if jug and p.auto_spacing:
+        preferred_span = max((mounting_width or p.width) * (0.60 + 0.02 * (p.screw_count - 2)), minimum_span)
+    supplied_spans = spans is not None
+    if spans is None:
+        spans = (
+            np.arange(preferred_span, minimum_span - 1e-9, -1)
+            if p.auto_spacing
+            else np.array([float(p.screw_spacing)])
+        )
+    if jug and p.auto_spacing and not supplied_spans:
+        # Fit the count-dependent span by lowering the seat first, rather
+        # than silently packing extra holes into a narrower row.
+        spans = np.array([preferred_span])
     drops = np.arange(0, p.body_height + 1e-9, 0.5)
     rows = []
     for span in spans:
         xs = np.linspace(-span / 2, span / 2, p.screw_count)
         tops = np.array([hole_height(x) for x in xs])
-        if jug:
-            # A broad triangular mounting pattern: outer holes higher,
-            # middle lower. Slice checks still validate every full recess.
-            stagger = min(6, p.body_height * 0.08)
-            tops += stagger * (2 * np.abs(xs) / max(span / 2, 1) - 1)
         ys = tops[None, :] - drops[:, None]
         rows.append(np.stack((np.broadcast_to(xs, ys.shape), ys), axis=2))
     return np.concatenate(rows) if rows else np.zeros((0, p.screw_count, 2))
 
 
 def _screw_positions(
-    p: Parameters, solid: manifold.Manifold, seat: float, candidates: np.ndarray
+    p: Parameters, solid: manifold.Manifold, seat: float, candidates: np.ndarray,
+    *, edge_clearance: float | None = None, arc_bias: float = 6.0,
+    require_arc: bool = False,
+    room_polygons=None,
 ) -> list[tuple[float, float]]:
-    """The first candidate row whose holes sit inside the body all the way
-    through, or an empty list. The row drops as far as it must when a deep
-    edge or incut thins the top of the body."""
+    """Fit holes within inset body slices, or return an empty list.
+
+    Crimps use the first valid row. Jug mounting follows the usable sections
+    with an additional rearward arc, strongest at the center.
+    """
+    polygons = (
+        room_polygons
+        if room_polygons is not None
+        else _screw_room(p, solid, seat, edge_clearance=edge_clearance)
+    )
+    if not polygons or not len(candidates):
+        return []
+    centres = candidates.reshape(-1, 2)
+    inside = _inside_mask(centres, polygons).reshape(len(candidates), -1)
+    if edge_clearance is not None:
+        # Jug shoulders sweep back into the wall. Fit each screw in its
+        # own usable section, then deepen the mounting arc toward the base.
+        # Keep the widest span that fits every hole; all centers still pass
+        # the same shank and head clearance checks.
+        starts = np.r_[0, np.flatnonzero(np.diff(candidates[:, 0, 0])) + 1]
+        ends = np.r_[starts[1:], len(candidates)]
+        for start, end in zip(starts, ends):
+            allowed = inside[start:end]
+            if not allowed.any(axis=0).all():
+                continue
+            row = []
+            half_span = max(abs(float(candidates[start, 0, 0])), 1.0)
+            for index in range(p.screw_count):
+                options = candidates[start:end, index][allowed[:, index]]
+                # Use the midpoint of the sampled interval (not one grid
+                # endpoint), keeping symmetric sections symmetric.
+                midpoint = (options[0] + options[-1]) / 2
+                if not _inside_mask(midpoint[None, :], polygons)[0]:
+                    midpoint = options[len(options) // 2]
+                # Outer holes stay put; inner holes move progressively
+                # away from the lip. Even counts get a matched inner pair.
+                weight = max(0.0, 1.0 - (midpoint[0] / half_span) ** 2)
+                if require_arc and midpoint[1] - options[-1, 1] < min(3.0, arc_bias * weight):
+                    return []
+                target = midpoint.copy()
+                target[1] = max(options[-1, 1], midpoint[1] - arc_bias * weight)
+                if not _inside_mask(target[None, :], polygons)[0]:
+                    rear = options[options[:, 1] <= midpoint[1]]
+                    target = rear[np.argmin(abs(rear[:, 1] - target[1]))]
+                midpoint = target
+                row.append(tuple(map(float, midpoint)))
+            if len(row) == p.screw_count:
+                return row
+        return []
+    fits = inside.all(axis=1)
+    if not fits.any():
+        return []
+    row = candidates[int(np.argmax(fits))]
+    return [(float(x), float(y)) for x, y in row]
+
+
+def _screw_room(p: Parameters, solid: manifold.Manifold, seat: float, *, edge_clearance=None):
     cone_height = (p.head_diameter - p.shank_diameter) / 2
-    head = p.head_diameter / 2 + 0.75
+    head = p.head_diameter / 2 + (0.75 if edge_clearance is None else edge_clearance)
     # Where a hole centre may sit: the body's slices, each inset by what
     # the hole needs there, intersected. The shank must come out through
     # the flat back with material around it (a steep shelf leaves only a
     # strip of back face), and the head recess must fit from the seat up.
     checks = [
-        (0.5, p.shank_diameter / 2 + 2.0),
+        (0.5, p.shank_diameter / 2 + (2.0 if edge_clearance is None else edge_clearance)),
         (seat + 0.5, head),
         (seat + cone_height + 0.5, head),
     ]
+    if edge_clearance is not None:
+        checks.insert(1, (seat / 2, p.shank_diameter / 2 + edge_clearance))
     room = None
     for height, inset in checks:
         section = solid.slice(height)
@@ -515,15 +786,7 @@ def _screw_positions(
             )
         region = section.offset(-inset, manifold.JoinType.Round, 2.0, 32)
         room = region if room is None else room ^ region
-    polygons = room.to_polygons() if room is not None else []
-    if not polygons or not len(candidates):
-        return []
-    centres = candidates.reshape(-1, 2)
-    fits = _inside_mask(centres, polygons).reshape(len(candidates), -1).all(axis=1)
-    if not fits.any():
-        return []
-    row = candidates[int(np.argmax(fits))]
-    return [(float(x), float(y)) for x, y in row]
+    return room.to_polygons() if room is not None else []
 
 
 def _inside_mask(points: np.ndarray, contours) -> np.ndarray:

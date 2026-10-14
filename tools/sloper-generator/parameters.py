@@ -25,6 +25,8 @@ class Parameters:
     bolt_diameter: float = 10.5
     bolt_head_diameter: float = 20
     screw_count: int = 3
+    auto_spacing: bool = True
+    screw_spacing: float = 60
     shank_diameter: float = 5.5
     head_diameter: float = 11
     auto_seat: bool = True
@@ -145,6 +147,7 @@ CONTROLS = [
         "",
         "Two to six holes spread around the body. Turn mounting holes off for none.",
     ),
+    control("screw_spacing", "manual screw span", "Mounting", 6, MAX_WIDTH, 0.25, "mm", "Distance between the outer screw centres."),
     control(
         "shank_diameter",
         "screw hole diameter",
@@ -238,7 +241,7 @@ def parse_parameters(values: dict) -> Parameters:
             raise ValueError(f"{item['label']} must be a finite number.")
         # Typed values outside the sliders snap to the supported range.
         parsed[item["key"]] = min(item["max"], max(item["min"], value))
-    for key in ("screws", "auto_seat", "bolt_mount"):
+    for key in ("screws", "auto_spacing", "auto_seat", "bolt_mount"):
         if not isinstance(parsed[key], bool):
             raise ValueError("Mounting switches must be on or off.")
     if parsed["screw_count"] != int(parsed["screw_count"]):

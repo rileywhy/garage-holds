@@ -9,6 +9,7 @@ import { Download, LoaderCircle, RotateCcw, Shuffle } from "lucide-react";
 import {
   DESIGN_FILE_LIMIT,
   loadSchema,
+  limitControl,
   parseDesignFile,
   post,
   type Control,
@@ -119,9 +120,31 @@ export function CrimpLab() {
         setDesign(data.design);
         // The generator may have changed a setting to make the shape work;
         // the sliders follow, and this preview already shows the result.
+        const autoSpan: Parameters =
+          Boolean(latest.current.auto_spacing) && data.screw_spacing !== null
+            ? { screw_spacing: data.screw_spacing }
+            : {};
+        const autoSeat: Parameters = latest.current.auto_seat
+          ? { seat_depth: data.seat_depth }
+          : {};
+        const fittedSeat: Parameters =
+          typeof data.design.parameters.seat_depth === "number"
+            ? { seat_depth: data.design.parameters.seat_depth }
+            : {};
         const changed = Object.keys(data.adjusted);
-        if (changed.length) {
-          latest.current = { ...latest.current, ...data.adjusted };
+        if (
+          changed.length ||
+          Object.keys(autoSpan).length ||
+          Object.keys(autoSeat).length ||
+          Object.keys(fittedSeat).length
+        ) {
+          latest.current = {
+            ...latest.current,
+            ...data.adjusted,
+            ...autoSpan,
+            ...autoSeat,
+            ...fittedSeat,
+          };
           setParameters(latest.current);
           setPreset(CUSTOM);
         }
@@ -166,7 +189,12 @@ export function CrimpLab() {
   );
   const change = useCallback(
     (key: string, value: number | boolean) =>
-      edit((current) => ({ ...current, [key]: value })),
+      edit((current) => ({
+        ...current,
+        [key]: value,
+        ...(key === "screw_spacing" ? { auto_spacing: false } : {}),
+        ...(key === "seat_depth" ? { auto_seat: false } : {}),
+      })),
     [edit],
   );
 
@@ -268,10 +296,7 @@ export function CrimpLab() {
 
   const screws = Boolean(parameters.screws);
   const disabledFor = (control: Control) =>
-    control.group === "Mounting" &&
-    (!screws ||
-      (control.key === "screw_spacing" && Boolean(parameters.auto_spacing)) ||
-      (control.key === "seat_depth" && Boolean(parameters.auto_seat)));
+    control.group === "Mounting" && !screws;
 
   return (
     <div className="lab">
@@ -364,37 +389,6 @@ export function CrimpLab() {
                       hardware.
                     </p>
                   )}
-                  <label className="lab-toggle">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(parameters.auto_spacing)}
-                      disabled={!screws || Boolean(parameters.bolt_mount)}
-                      onChange={(event) =>
-                        change("auto_spacing", event.target.checked)
-                      }
-                    />
-                    Space screws to fit the body
-                  </label>
-                  <label className="lab-toggle">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(parameters.auto_seat)}
-                      disabled={!screws}
-                      onChange={(event) => {
-                        // Turning it off starts from the seat in use, so the
-                        // slider does not jump.
-                        const seat = preview?.seat_depth;
-                        edit((current) => ({
-                          ...current,
-                          auto_seat: event.target.checked,
-                          ...(event.target.checked || seat === undefined
-                            ? {}
-                            : { seat_depth: seat }),
-                        }));
-                      }}
-                    />
-                    Seat the screws for the edge depth
-                  </label>
                 </>
               )}
               {schema.controls
@@ -406,10 +400,52 @@ export function CrimpLab() {
                 .map((control) => (
                   <ControlRow
                     key={control.key}
-                    control={control}
+                    control={limitControl(control, preview)}
                     value={Number(parameters[control.key])}
                     disabled={disabledFor(control)}
                     onChange={(value) => change(control.key, value)}
+                    onReset={() => {
+                      if (control.key === "screw_spacing")
+                        change("auto_spacing", true);
+                      else if (control.key === "seat_depth")
+                        edit((current) => ({
+                          ...current,
+                          auto_seat: true,
+                          seat_depth: Number(schema.defaults.seat_depth),
+                        }));
+                      else
+                        change(
+                          control.key,
+                          Number(schema.defaults[control.key]),
+                        );
+                    }}
+                    autoSpacing={
+                      control.key === "screw_spacing" && !parameters.bolt_mount
+                    }
+                    autoSpacingChecked={Boolean(parameters.auto_spacing)}
+                    onAutoSpacing={(checked) =>
+                      edit((current) => ({
+                        ...current,
+                        auto_spacing: checked,
+                        ...(checked && preview?.screw_spacing != null
+                          ? { screw_spacing: preview.screw_spacing }
+                          : {}),
+                      }))
+                    }
+                    autoSeat={control.key === "seat_depth"}
+                    autoSeatChecked={Boolean(parameters.auto_seat)}
+                    onAutoSeat={(checked) => {
+                      const seat = preview?.seat_depth;
+                      edit((current) => ({
+                        ...current,
+                        auto_seat: checked,
+                        ...(checked
+                          ? { seat_depth: seat ?? current.seat_depth }
+                          : seat === undefined
+                            ? {}
+                            : { seat_depth: seat }),
+                      }));
+                    }}
                   />
                 ))}
               {name === "Shape" && (
@@ -657,13 +693,28 @@ function ControlRow({
   value,
   disabled,
   onChange,
+  onReset,
+  autoSpacing,
+  autoSpacingChecked,
+  onAutoSpacing,
+  autoSeat,
+  autoSeatChecked,
+  onAutoSeat,
 }: {
   control: Control;
   value: number;
   disabled: boolean;
   onChange: (value: number) => void;
+  onReset: () => void;
+  autoSpacing: boolean;
+  autoSpacingChecked: boolean;
+  onAutoSpacing: (checked: boolean) => void;
+  autoSeat: boolean;
+  autoSeatChecked: boolean;
+  onAutoSeat: (checked: boolean) => void;
 }) {
   const id = `lab-${control.key}`;
+  const sliderDisabled = disabled;
   return (
     <div className="lab-control">
       <div className="lab-control-head">
@@ -676,27 +727,62 @@ function ControlRow({
             max={control.max}
             step={control.step}
             value={Number.isFinite(value) ? value : ""}
-            disabled={disabled}
+            disabled={sliderDisabled}
             aria-describedby={`${id}-hint`}
             onChange={(event) => {
               const next = event.target.valueAsNumber;
-              if (Number.isFinite(next)) onChange(next);
+              if (Number.isFinite(next))
+                onChange(Math.min(control.max, Math.max(control.min, next)));
             }}
           />
           <span>{control.unit}</span>
+          <button
+            type="button"
+            className="lab-control-reset"
+            disabled={disabled}
+            aria-label={`Reset ${control.label}`}
+            title={`Reset ${control.label}`}
+            onClick={onReset}
+          >
+            <RotateCcw size={14} aria-hidden="true" />
+          </button>
         </span>
       </div>
-      <input
-        type="range"
-        min={control.min}
-        max={control.max}
-        step={control.step}
-        value={Number.isFinite(value) ? value : control.min}
-        disabled={disabled}
-        aria-label={`${control.label} slider`}
-        aria-describedby={`${id}-hint`}
-        onChange={(event) => onChange(event.target.valueAsNumber)}
-      />
+      <div className="lab-slider-with-auto">
+        <input
+          type="range"
+          min={control.min}
+          max={control.max}
+          step={control.step}
+          value={Number.isFinite(value) ? value : control.min}
+          disabled={sliderDisabled}
+          aria-label={`${control.label} slider`}
+          aria-describedby={`${id}-hint`}
+          onChange={(event) =>
+            onChange(
+              Math.min(
+                control.max,
+                Math.max(control.min, event.target.valueAsNumber),
+              ),
+            )
+          }
+          onDoubleClick={onReset}
+        />
+        {(autoSpacing || autoSeat) && (
+          <label className="lab-toggle">
+            <input
+              type="checkbox"
+              checked={autoSpacing ? autoSpacingChecked : autoSeatChecked}
+              onChange={(event) =>
+                autoSpacing
+                  ? onAutoSpacing(event.target.checked)
+                  : onAutoSeat(event.target.checked)
+              }
+            />
+            auto
+          </label>
+        )}
+      </div>
       <p id={`${id}-hint`} className="lab-hint">
         {control.help}
       </p>
