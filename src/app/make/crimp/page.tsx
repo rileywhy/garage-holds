@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
 import { CrimpLab } from "@/features/crimp-lab/crimp-lab";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Crimp Lab",
   description:
     "Shape a 3D printable climbing crimp: edge depth, incut, lip rounding, body shape, and screw holes, with a live preview and STL export.",
-};
+  path: "/make/crimp",
+});
 
 export default function CrimpLabPage() {
   return (

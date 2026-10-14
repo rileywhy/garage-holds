@@ -2,17 +2,22 @@ import type { MetadataRoute } from "next";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { siteUrl } from "@/lib/site-url";
 
-// The home page and every published design. Reads as a signed-out visitor,
-// so drafts never appear. Refreshed at most hourly.
+// The home page, the labs, the guide, and every published design. Reads as
+// a signed-out visitor, so drafts never appear. Refreshed at most hourly.
 export const revalidate = 3600;
+
+const LABS = ["/make/crimp", "/make/sloper", "/make/jug", "/make/custom-shape"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const entries: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: "daily", priority: 1 },
-    { url: `${base}/make/crimp`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${base}/make/sloper`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${base}/make/jug`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/make`, changeFrequency: "monthly", priority: 0.7 },
+    ...LABS.map((path) => ({
+      url: `${base}${path}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     {
       url: `${base}/how-to-3d-print-climbing-holds`,
       changeFrequency: "monthly",

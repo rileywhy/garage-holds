@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
 import { HoldLab } from "@/features/hold-lab/hold-lab";
-export const metadata: Metadata = {
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata = pageMetadata({
   title: "Jug Lab",
   description:
     "Design a printable climbing jug with a rounded incut grip, curved arch and screw holes. Preview it on a 40° board and export an STL.",
-};
+  path: "/make/jug",
+});
+
 export default function JugLabPage() {
   return (
     <main className="main-container lab-page">

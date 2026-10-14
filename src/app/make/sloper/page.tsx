@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
 import { SloperLab } from "@/features/sloper-lab/sloper-lab";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Sloper Lab",
   description:
     "Design a printable climbing sloper with adjustable curve, incut, shape and screw holes. Preview it on a 40° board and export an STL.",
-};
+  path: "/make/sloper",
+});
 
 export default function SloperLabPage() {
   return (

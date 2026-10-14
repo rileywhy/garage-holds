@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
+import { pageMetadata } from "@/lib/page-metadata";
 import styles from "./page.module.css";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Hold Labs",
   description:
     "Choose a climbing hold lab to design crimps, slopers, jugs, or your own custom shape and export an STL.",
-};
+  path: "/make",
+});
 
 const labs = [
   {
