@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   linkSearch,
   parseLinkValue,
+  presetNamed,
   readLink,
   replaceSearch,
 } from "../src/features/lab-link/lab-link";
@@ -129,6 +130,22 @@ test("mounting holes travel as canvas coordinates", () => {
       [171, 140.1],
     ],
   );
+});
+
+test("a preset name in a link matches without case or punctuation", () => {
+  const named = { "Rock tooth": { ...defaults, shape: "rock" } };
+  for (const search of [
+    "?preset=Rock+tooth",
+    "?preset=rock+tooth",
+    "?preset=ROCK_TOOTH",
+    "?preset=rock-tooth",
+  ])
+    assert.deepEqual(readLink(search, defaults, named), {
+      parameters: named["Rock tooth"],
+      preset: "Rock tooth",
+    });
+  assert.equal(readLink("?preset=rock+teeth", defaults, named), null);
+  assert.equal(presetNamed("  rock   tooth ", named), "Rock tooth");
 });
 
 test("the address is only rewritten while the lab's own page is showing", () => {

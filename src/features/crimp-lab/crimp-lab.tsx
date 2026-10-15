@@ -144,6 +144,11 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
             presetName = link.preset ?? CUSTOM;
             trackEvent({ name: "lab_settings", lab: "crimp", action: "open" });
           } catch (error) {
+            // A timeout, lost connection or server failure says nothing
+            // about the link: it goes to the outer catch, which keeps the
+            // address and offers Retry. Only a refusal by the generator
+            // means the settings themselves are the problem.
+            if (errorReason(error) !== "rejected") throw error;
             linkNote.current = LAB_COPY.linkRefused((error as Error).message);
           }
         }
@@ -388,9 +393,11 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
         defaultPresetName("crimp", latest.current),
         saved.map((p) => p.name),
       );
+      // The full settings, not a preset name: a renamed generator preset
+      // must not break a saved one.
       const list = await store.save(
         name,
-        linkSearch(latest.current, schema.defaults, schema.presets),
+        linkSearch(latest.current, schema.defaults),
       );
       const made = list.find((p) => p.name === name) ?? list[0];
       setSaved(list);

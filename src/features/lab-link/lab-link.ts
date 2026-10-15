@@ -51,6 +51,24 @@ export function formatLinkValue(value: LinkValue): string {
     : String(value);
 }
 
+// Preset names compare without case, and with runs of spaces, hyphens or
+// underscores as one space: links shared as "?preset=rock+tooth" kept
+// working when the presets moved to sentence case (RIL-73).
+export function presetNamed(
+  name: string,
+  presets: Record<string, LinkParameters>,
+): string | null {
+  const wanted = looseName(name);
+  return Object.keys(presets).find((key) => looseName(key) === wanted) ?? null;
+}
+
+function looseName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ");
+}
+
 // The settings a link asks for, as a complete parameter set ready for the
 // generator's validate action, or null when the query says nothing the lab
 // understands. A preset is applied first; explicit values override it.
@@ -61,8 +79,7 @@ export function readLink(
 ): { parameters: LinkParameters; preset: string | null } | null {
   const query = new URLSearchParams(search);
   const presetName = query.get(PRESET_KEY);
-  const preset =
-    presetName !== null && presetName in presets ? presetName : null;
+  const preset = presetName !== null ? presetNamed(presetName, presets) : null;
   const parameters: LinkParameters = {
     ...defaults,
     ...(preset ? presets[preset] : {}),
