@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { pageMetadata } from "@/lib/page-metadata";
+import { LABS } from "@/features/labs/labs";
 import styles from "./page.module.css";
 
 export const metadata = pageMetadata({
@@ -10,51 +11,6 @@ export const metadata = pageMetadata({
     "Choose a climbing hold lab to design crimps, slopers, jugs, footholds, or your own custom shape and export an STL.",
   path: "/make",
 });
-
-const labs: {
-  name: string;
-  href: string;
-  image: string;
-  description: string;
-  experimental?: boolean;
-}[] = [
-  {
-    name: "Crimp Lab",
-    href: "/make/crimp",
-    image: "/images/hold-labs/crimp.webp",
-    description:
-      "Dial in a precise edge, adjust the incut, and soften the lip for your fingertips.",
-  },
-  {
-    name: "Sloper Lab",
-    href: "/make/sloper",
-    image: "/images/hold-labs/sloper.webp",
-    description:
-      "Shape a rounded hold with broad curves and a surface built for open-hand grip.",
-  },
-  {
-    name: "Jug Lab",
-    href: "/make/jug",
-    image: "/images/hold-labs/jug.webp",
-    description:
-      "Make a board jug, a deep jug, or a two-handed jug with a comfortable grabbing edge.",
-  },
-  {
-    name: "Foot Lab",
-    href: "/make/foot",
-    image: "/images/hold-labs/foot.webp",
-    description:
-      "Board edges, toe-in edges, chips, smears, balls and dishes, sized for one, two or three screws.",
-    experimental: true,
-  },
-  {
-    name: "Custom Shape Lab",
-    href: "/make/custom-shape",
-    image: "/images/hold-labs/custom-shape.webp",
-    description:
-      "Paint your own silhouette, shape the grip, and place mounting holes where you need them.",
-  },
-];
 
 export default function HoldLabsPage() {
   return (
@@ -67,7 +23,7 @@ export default function HoldLabsPage() {
         </p>
       </div>
       <div className={styles.grid}>
-        {labs.map(({ name, href, image, description, experimental }) => (
+        {LABS.map(({ name, href, image, description, experimental }) => (
           <Link
             key={href}
             href={href}

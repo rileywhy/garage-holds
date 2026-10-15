@@ -1,4 +1,5 @@
 import { CrimpLab } from "@/features/crimp-lab/crimp-lab";
+import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
@@ -11,6 +12,7 @@ export const metadata = pageMetadata({
 export default function CrimpLabPage() {
   return (
     <main className="main-container lab-page">
+      <LabNav current="crimp" />
       <div className="page-intro">
         <p className="eyebrow">SHAPE YOUR NEXT EDGE</p>
         <h1>Crimp Lab</h1>

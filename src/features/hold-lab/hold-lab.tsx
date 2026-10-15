@@ -9,6 +9,8 @@ import {
   LoaderCircle,
   RotateCcw,
   Shuffle,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   Viewer,
@@ -702,6 +704,23 @@ export function HoldLab({ kind }: { kind: Kind }) {
           <button
             type="button"
             className="lab-toolbar-end"
+            aria-label="Zoom in"
+            title="Zoom in (+)"
+            onClick={() => viewer.current?.zoom(1.25)}
+          >
+            <ZoomIn size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out (−)"
+            onClick={() => viewer.current?.zoom(0.8)}
+          >
+            <ZoomOut size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            title="Fit the whole hold in view (0)"
             onClick={() => viewer.current?.fit()}
           >
             fit view
@@ -750,10 +769,10 @@ export function HoldLab({ kind }: { kind: Kind }) {
           ref={box}
           className="lab-viewer"
           role="img"
-          aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll to zoom.`}
+          aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view.`}
         />
         <p className="lab-caption">
-          <span>drag to rotate · scroll to zoom</span>
+          <span>drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
             {view === "board"
               ? `mounted on a ${boardAngle}° board`

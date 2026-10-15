@@ -6,7 +6,7 @@ import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { trackEvent } from "@/features/analytics/events";
 import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
 import {
@@ -681,6 +681,23 @@ export function CustomShapeLab() {
           <button
             type="button"
             className="lab-toolbar-end"
+            aria-label="Zoom in"
+            title="Zoom in (+)"
+            onClick={() => viewer.current?.zoom(1.25)}
+          >
+            <ZoomIn size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out (−)"
+            onClick={() => viewer.current?.zoom(0.8)}
+          >
+            <ZoomOut size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            title="Fit the whole hold in view (0)"
             onClick={() => viewer.current?.fit()}
           >
             fit view
@@ -737,7 +754,7 @@ export function CustomShapeLab() {
           ref={container}
           className="lab-viewer"
           role="img"
-          aria-label="Interactive 3D hold preview"
+          aria-label="Interactive 3D hold preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view."
         >
           {viewerFailed && (
             <p>
@@ -747,7 +764,7 @@ export function CustomShapeLab() {
           )}
         </div>
         <p className="lab-caption">
-          <span>drag to rotate · scroll to zoom</span>
+          <span>drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
             {view === "board"
               ? `mounted on a ${boardAngle}° board`

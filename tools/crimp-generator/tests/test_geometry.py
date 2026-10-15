@@ -311,6 +311,40 @@ class GeometryTests(unittest.TestCase):
                 exported += 1
         self.assertGreater(exported, 10)
 
+    def test_manual_seat_recess_stays_inside_the_body(self):
+        # The row is fitted at the automatic seat, then drilled at the seat
+        # the person asked for. On a steep rail a high manual seat used to put
+        # the countersink rim outside the body (measured 7 mm outside on this
+        # preset). Now the seat comes down to the highest height at which every
+        # recess is enclosed, the screws stay where the automatic fit put
+        # them, and the change is reported.
+        from geometry import _loft, _screw_room
+
+        rail = replace(PRESETS["Sloping rail"], auto_seat=False, seat_depth=30)
+        automatic = build(replace(rail, auto_seat=True))
+        model = build(rail)
+        self.assertLess(model.seat_depth, 30)
+        self.assertEqual(model.screws, automatic.screws)
+        self.assertAlmostEqual(model.adjusted["seat_depth"], model.seat_depth)
+        self.assertAlmostEqual(model.parameters.seat_depth, model.seat_depth)
+        p = model.parameters
+        undrilled = _solid(_loft(p, "preview")[0])
+        room = _screw_room(p, undrilled, model.seat_depth)
+        for x, y in model.screws:
+            self.assertTrue(_inside_contours(x, y, room))
+        # Half a millimetre higher no longer fits: the seat is the highest safe one.
+        higher = _screw_room(p, undrilled, model.seat_depth + 0.5)
+        self.assertFalse(all(_inside_contours(x, y, higher) for x, y in model.screws))
+        # A manual seat that does fit is used exactly, with nothing reported.
+        low = build(replace(rail, seat_depth=6))
+        self.assertEqual(low.seat_depth, 6)
+        self.assertNotIn("seat_depth", low.adjusted)
+        # The bolt-and-screw mount follows the same rule.
+        bolted = build(replace(rail, bolt_mount=True))
+        self.assertLess(bolted.seat_depth, 30)
+        self.assertTrue(bolted.mesh.is_watertight)
+        self.assertEqual(len(bolted.bolts), 1)
+
     def test_manual_seat_survives_turning_screws_off(self):
         # The seat slider turns auto_seat off; the mounting checkbox then only
         # flips screws. Both qualities must build with no seat limit to clamp

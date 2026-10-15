@@ -1,4 +1,5 @@
 import { HoldLab } from "@/features/hold-lab/hold-lab";
+import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
@@ -11,6 +12,7 @@ export const metadata = pageMetadata({
 export default function FootLabPage() {
   return (
     <main className="main-container lab-page">
+      <LabNav current="foot" />
       <div className="page-intro">
         <p className="eyebrow eyebrow-tags">
           <span>feet first</span>

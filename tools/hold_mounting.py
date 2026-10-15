@@ -71,7 +71,10 @@ def _room(solid, shank, head, seat, bolt, edge_clearance=None):
     return region.to_polygons()
 
 
-def fit_bolt_and_screw(p, solid, bounds, target, *, edge_clearance=None, layout_target=None):
+def fit_bolt_and_screw(
+    p, solid, bounds, target, *, edge_clearance=None, layout_target=None,
+    enclose_requested=True,
+):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
 
     Every recess and shank is checked in inset slices before drilling. Manual
@@ -116,7 +119,16 @@ def fit_bolt_and_screw(p, solid, bounds, target, *, edge_clearance=None, layout_
             )
             screw = eligible[np.argmax(score)]
             if layout_target is not None and not p.auto_seat:
-                seat = requested_seat
+                # The layout was found at the automatic seat; the requested
+                # seat is used only as high as both recesses stay enclosed,
+                # unless the caller lets a seat run above the body (jug).
+                seat = (
+                    _highest_enclosed_seat(
+                        p, solid, bolt, screw, requested_seat, float(seat), edge_clearance
+                    )
+                    if enclose_requested
+                    else requested_seat
+                )
             return [
                 Hole(
                     *map(float, bolt),
@@ -134,6 +146,29 @@ def fit_bolt_and_screw(p, solid, bounds, target, *, edge_clearance=None, layout_
                 ),
             ]
     return []
+
+
+def _highest_enclosed_seat(p, solid, bolt, screw, requested, fitted, edge_clearance=None):
+    """From the requested seat down to the fitted one, the first height at
+    which the bolt counterbore and the screw recess both sit inside the
+    body. A request at or below the fitted seat is used as is."""
+    if requested <= fitted + 1e-9:
+        return float(requested)
+    for candidate in np.arange(requested, fitted - 1e-9, -0.5):
+        bolt_room = _room(
+            solid, p.bolt_diameter, p.bolt_head_diameter, float(candidate), True, edge_clearance
+        )
+        screw_room = _room(
+            solid, p.shank_diameter, p.head_diameter, float(candidate), False, edge_clearance
+        )
+        if (
+            bolt_room
+            and screw_room
+            and _inside(np.array([bolt]), bolt_room)[0]
+            and _inside(np.array([screw]), screw_room)[0]
+        ):
+            return float(candidate)
+    return float(fitted)
 
 
 def drill(solid, holes, top):

@@ -1,4 +1,5 @@
 import { SloperLab } from "@/features/sloper-lab/sloper-lab";
+import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
@@ -11,6 +12,7 @@ export const metadata = pageMetadata({
 export default function SloperLabPage() {
   return (
     <main className="main-container lab-page">
+      <LabNav current="sloper" />
       <div className="page-intro">
         <p className="eyebrow">shape your next sloper</p>
         <h1>sloper lab</h1>

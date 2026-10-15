@@ -2863,6 +2863,61 @@ svg {
   gap: 12px;
   min-width: 0;
 }
+/* Above every lab: the way back to the list, and the other labs one tap
+   away. One row that scrolls sideways on a phone instead of wrapping. */
+.lab-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.lab-nav::-webkit-scrollbar {
+  display: none;
+}
+.lab-nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  text-decoration: none;
+  flex: none;
+}
+.lab-nav-back:hover {
+  color: var(--ink);
+}
+.lab-nav ul {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-nav li a {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  text-decoration: none;
+}
+.lab-nav li a:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.lab-nav li a[aria-current="page"] {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--subtle-bg);
+}
+.lab-viewer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .lab-toolbar {
   display: flex;
   gap: 6px;

@@ -28,6 +28,8 @@ import {
   LoaderCircle,
   RotateCcw,
   Shuffle,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   DESIGN_FILE_LIMIT,
@@ -214,6 +216,9 @@ export function CrimpLab() {
         const notes = [
           data.adjusted.body_height !== undefined
             ? `Body height raised to ${data.adjusted.body_height} mm so the screws fit.`
+            : "",
+          data.adjusted.seat_depth !== undefined
+            ? `Seat lowered to ${Number(data.adjusted.seat_depth.toFixed(1))} mm so the screw recesses stay inside the body.`
             : "",
           data.lip_radius < Number(data.design.parameters.lip_radius)
             ? `The edge only has room for ${data.lip_radius} mm of lip rounding; deepen the edge or raise the body for more.`
@@ -738,6 +743,23 @@ export function CrimpLab() {
           <button
             type="button"
             className="lab-toolbar-end"
+            aria-label="Zoom in"
+            title="Zoom in (+)"
+            onClick={() => viewer.current?.zoom(1.25)}
+          >
+            <ZoomIn size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out (−)"
+            onClick={() => viewer.current?.zoom(0.8)}
+          >
+            <ZoomOut size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            title="Fit the whole hold in view (0)"
             onClick={() => viewer.current?.fit()}
           >
             Fit view
@@ -789,10 +811,10 @@ export function CrimpLab() {
           ref={viewerBox}
           className="lab-viewer"
           role="img"
-          aria-label="Interactive 3D crimp preview. Drag to rotate; scroll to zoom."
+          aria-label="Interactive 3D crimp preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view."
         />
         <p className="lab-caption">
-          <span>Drag to rotate · scroll to zoom</span>
+          <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
             {view === "board"
               ? `Mounted on a ${boardAngle}° board · side view`

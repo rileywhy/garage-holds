@@ -1,5 +1,6 @@
-﻿import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
+import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
 import { pageMetadata } from "@/lib/page-metadata";
+import { LabNav } from "@/features/labs/lab-nav";
 
 export const metadata = pageMetadata({
   title: "Custom Shape Lab",
@@ -11,6 +12,7 @@ export const metadata = pageMetadata({
 export default function Page() {
   return (
     <main className="main-container lab-page">
+      <LabNav current="custom-shape" />
       <div className="page-intro">
         <p className="eyebrow">PAINT YOUR NEXT HOLD</p>
         <h1>Custom Shape Lab</h1>

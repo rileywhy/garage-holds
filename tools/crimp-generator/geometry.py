@@ -411,6 +411,10 @@ def build(
         )
     if p.body_height != requested:
         model.adjusted["body_height"] = p.body_height
+    # A manual seat that had to come down (to the body's limit, or to keep
+    # the recesses inside the body) is reported like any other change.
+    if not p.auto_seat and model.seat_depth < p.seat_depth - 1e-9:
+        model.adjusted["seat_depth"] = model.seat_depth
     return model
 
 
@@ -456,6 +460,7 @@ def _build(
         holes = fit_bolt_and_screw(
             p, mounting_solid, mounting_mesh.bounds, seat,
             edge_clearance=5.0 if jug else None,
+            enclose_requested=not jug,
             layout_target=(
                 min(automatic_seat(replace(p, auto_seat=True), jug), seat_limit)
                 if not p.auto_seat
@@ -605,8 +610,19 @@ def _build(
                 edge_clearance=5.0, arc_bias=min(screw_arc, arc_limit),
                 room_polygons=selected_room,
             )
-        if not p.auto_seat:
+        if not p.auto_seat and jug:
+            # Jug Lab lets the seat climb to the top of the body on purpose:
+            # a seat above the profile simply removes the recess.
             seat = requested_seat
+        elif not p.auto_seat:
+            # The row was fitted at the automatic seat. A manual seat above
+            # it is only drilled where every recess still sits inside the
+            # body; otherwise the seat comes down to the highest height that
+            # does. Before this check a high seat on a steep rail could put
+            # the countersink rim outside the body (RIL-37).
+            seat = _highest_enclosed_seat(
+                p, mounting_solid, screws, requested_seat, seat
+            )
         p = replace(p, seat_depth=seat)
         seat_top = seat + cone_height
         for x, hole_y in screws:
@@ -634,6 +650,26 @@ def _build(
         if not math.isclose(p.screw_spacing, actual_span):
             p = replace(p, screw_spacing=actual_span)
     return Model(mesh, profile, screws, inner, outer, lip_radius, seat, p, bolts=bolts, screw_arc_limit=arc_limit, seat_depth_limit=seat_limit, screw_spacing_limit=spacing_limit, screw_spacing_minimum=spacing_minimum)
+
+
+def _highest_enclosed_seat(
+    p: Parameters, solid: manifold.Manifold, screws, requested: float,
+    fitted: float, *, edge_clearance=None,
+) -> float:
+    """The highest seat, from the requested one down to the fitted one in
+    half-millimetre steps, at which every chosen hole still has body around
+    its shank and head recess. A request below the fitted seat is used as
+    is: a lower recess only has more body around it."""
+    if requested <= fitted + 1e-9:
+        return float(requested)
+    for candidate in np.arange(requested, fitted - 1e-9, -0.5):
+        try:
+            room = _screw_room(p, solid, float(candidate), edge_clearance=edge_clearance)
+        except ValueError:
+            continue  # the seat is above the body here
+        if room and all(_inside_contours(x, y, room) for x, y in screws):
+            return float(candidate)
+    return float(fitted)
 
 
 def _screw_candidates(
