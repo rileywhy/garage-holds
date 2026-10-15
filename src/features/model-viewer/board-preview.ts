@@ -3,6 +3,14 @@ import * as THREE from "three";
 export const DEFAULT_BOARD_ANGLE = 40;
 export const MAX_BOARD_ANGLE = 70;
 
+// The board behind the hold is a fixed panel the size of a Bambu Lab A1
+// print bed, 256 × 256 mm, so moving the size sliders changes the hold
+// against a constant reference instead of rescaling the board with it. A
+// hold wider than the bed overhangs the panel, which is the cue that it
+// will not print on an A1 in one piece (RIL-66).
+export const BOARD_PANEL_MM = 256;
+export const BOARD_THICKNESS_MM = 8;
+
 // Native model axes: X across the board, Y up it, Z out of its face.
 // Positive rotation tips the top towards the climber: angle FROM vertical.
 export function mountOnBoard(group: THREE.Group, angle: number) {
@@ -32,16 +40,11 @@ export class BoardPanel {
     this.mesh.visible = false;
   }
 
-  fitToHold(bounds: THREE.Box3) {
-    const size = bounds.getSize(new THREE.Vector3());
+  // Centres the fixed panel behind the hold; its size never changes.
+  placeBehind(bounds: THREE.Box3) {
     const centre = bounds.getCenter(new THREE.Vector3());
-    // A local section of board keeps the edge large enough to inspect.
-    this.mesh.scale.set(
-      Math.max(160, size.x * 1.6),
-      Math.max(140, size.y * 2.8),
-      8,
-    );
-    this.mesh.position.set(centre.x, centre.y, -4);
+    this.mesh.scale.set(BOARD_PANEL_MM, BOARD_PANEL_MM, BOARD_THICKNESS_MM);
+    this.mesh.position.set(centre.x, centre.y, -BOARD_THICKNESS_MM / 2);
   }
 
   dispose() {

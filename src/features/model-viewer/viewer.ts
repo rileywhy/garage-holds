@@ -136,7 +136,7 @@ export class Viewer {
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.model.add(this.mesh);
     geometry.computeBoundingBox();
-    this.board.fitToHold(geometry.boundingBox!);
+    this.board.placeBehind(geometry.boundingBox!);
     if (first) this.setView(this.view);
     else if (fit) this.fit();
     this.render();
@@ -205,11 +205,17 @@ export class Viewer {
     }
   }
 
+  // What a fit frames: the hold, and on the board a margin of board around
+  // it rather than the whole panel, so the hold stays the subject and the
+  // framing does not depend on the panel's fixed size.
   private viewBounds() {
     this.model.updateWorldMatrix(true, true);
     const bounds = new THREE.Box3().setFromObject(this.mesh!);
-    if (this.view === "board")
-      bounds.union(new THREE.Box3().setFromObject(this.board.mesh));
+    if (this.view === "board") {
+      const size = bounds.getSize(new THREE.Vector3());
+      bounds.expandByScalar(Math.max(30, Math.max(size.x, size.y) * 0.35));
+      bounds.intersect(new THREE.Box3().setFromObject(this.board.mesh));
+    }
     return bounds;
   }
 
