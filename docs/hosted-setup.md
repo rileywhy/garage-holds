@@ -284,18 +284,28 @@ keeps for an hour. In development that log is the terminal running
 
 ## Outage alerts
 
-Outages cannot report themselves, so `.github/workflows/uptime.yml` checks
-the site from GitHub Actions every 5 minutes (and on demand from the Actions
-tab). It fetches the home page and one published design page, which proves
-Supabase and R2 signing work, and passes on HTTP 200 within 20 seconds,
-retrying once after 10 seconds. When a page goes down it posts one line to a
-Discord webhook naming the URL and the status code or timeout, and one line
-when the page is back; it remembers the previous state in the Actions cache,
-so nothing repeats while the site stays down. The webhook is the repository
-secret `DISCORD_ALERT_WEBHOOK`, set under the repo's Settings → Secrets and
-variables → Actions (the same URL as `ALERT_WEBHOOK_URL` works). GitHub
-pauses scheduled workflows in a repository with no commits for 60 days, and
-sends an email when it does; re-enable it from the Actions tab.
+Outages cannot report themselves. `/api/health` (`src/app/api/health/route.ts`)
+answers 200 when the public Supabase client can read a published model
+file's row and that object answers a HEAD in R2, and 503 when either fails;
+a page render alone cannot tell, because signing happens locally and the
+catalog degrades quietly. The response is never cached.
+
+`.github/workflows/uptime.yml` fetches the home page and `/api/health` on a
+schedule (and on demand from the Actions tab), passing on HTTP 200 within
+20 seconds with one retry after 10 seconds. When a URL goes down it posts
+one line to a Discord webhook naming the URL and the status code or
+timeout, and one line when it is back; it remembers the previous state in
+the Actions cache, so nothing repeats while the site stays down. The
+webhook is the repository secret `DISCORD_ALERT_WEBHOOK`, set under the
+repo's Settings → Secrets and variables → Actions (the same URL as
+`ALERT_WEBHOOK_URL` works).
+
+GitHub runs schedules on a best-effort basis: the 5-minute schedule ran
+once in 6.5 hours on 15 Oct 2026, and GitHub pauses scheduled workflows in
+a repository with no commits for 60 days. Treat the workflow as a backstop
+and point an outside monitor (UptimeRobot or Better Stack, free tiers check
+every 5 minutes and can post to the same Discord webhook) at
+`https://garageholds.com/api/health`.
 
 ## Crimp Lab's Python function
 

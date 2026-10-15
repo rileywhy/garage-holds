@@ -1,8 +1,12 @@
 name: Uptime
 
+# GitHub runs scheduled workflows on a best-effort basis and drops many of
+# them at busy minutes; a 5-minute schedule here ran once in 6.5 hours. The
+# off-the-hour minutes below are scheduled more reliably, but an outside
+# monitor on /api/health is the real check (docs/hosted-setup.md).
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 # One run at a time, so two overlapping runs cannot both post the same line.
@@ -33,7 +37,7 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
           URLS: >-
             https://garageholds.com/
-            https://garageholds.com/holds/f7f425b3-0ca4-457c-a8e8-490694af3d83
+            https://garageholds.com/api/health
         run: |
           mkdir -p state
           # Posts one line to Discord. Without the secret the line is only logged.
