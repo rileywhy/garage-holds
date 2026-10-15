@@ -99,6 +99,9 @@ export function CrimpLab() {
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
+  // The settings the person started from: the preset they picked, a saved
+  // preset, a loaded file or a shared link. A slider's reset returns there.
+  const origin = useRef<Parameters>({});
   // Presets saved in this browser, and the small form that names a new one.
   const [saved, setSaved] = useState<SavedPreset[]>([]);
   const [naming, setNaming] = useState(false);
@@ -131,6 +134,7 @@ export function CrimpLab() {
         }
         if (cancelled) return;
         latest.current = start;
+        origin.current = { ...start };
         setParameters(start);
         setSaved(loadSavedPresets("crimp"));
         setSchema(loaded);
@@ -282,7 +286,8 @@ export function CrimpLab() {
       return;
     }
     fitNext.current = true;
-    edit(() => ({ ...(schema.presets[name] ?? schema.defaults) }), name);
+    origin.current = { ...(schema.presets[name] ?? schema.defaults) };
+    edit(() => ({ ...origin.current }), name);
   }
 
   // A saved preset goes through the generator's validation first, so one
@@ -297,6 +302,7 @@ export function CrimpLab() {
       });
       const data = (await checked.json()) as { parameters: Parameters };
       fitNext.current = true;
+      origin.current = { ...data.parameters };
       edit(() => data.parameters, savedValue(name));
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
@@ -339,6 +345,7 @@ export function CrimpLab() {
     fitNext.current = true;
     setBoardAngle(DEFAULT_BOARD_ANGLE);
     viewer.current?.setBoardAngle(DEFAULT_BOARD_ANGLE);
+    origin.current = { ...schema.defaults };
     edit(() => ({ ...schema.defaults }), Object.keys(schema.presets)[0]);
   }
 
@@ -435,6 +442,7 @@ export function CrimpLab() {
       const checked = await post("validate", saved);
       const data = (await checked.json()) as { parameters: Parameters };
       fitNext.current = true;
+      origin.current = { ...data.parameters };
       edit(() => data.parameters);
       trackEvent({ name: "lab_settings", lab: "crimp", action: "load" });
     } catch (error) {
@@ -562,18 +570,35 @@ export function CrimpLab() {
                     disabled={disabledFor(control)}
                     onChange={(value) => change(control.key, value)}
                     onReset={() => {
+                      // Back to the starting point the person chose (preset,
+                      // saved preset, loaded file or link), not the
+                      // generator's base values.
+                      const start = origin.current;
                       if (control.key === "screw_spacing")
-                        change("auto_spacing", true);
+                        edit((current) => ({
+                          ...current,
+                          ...(start.auto_spacing === false &&
+                          typeof start.screw_spacing === "number"
+                            ? {
+                                auto_spacing: false,
+                                screw_spacing: start.screw_spacing,
+                              }
+                            : { auto_spacing: true }),
+                        }));
                       else if (control.key === "seat_depth")
                         edit((current) => ({
                           ...current,
-                          auto_seat: true,
-                          seat_depth: Number(schema.defaults.seat_depth),
+                          auto_seat: start.auto_seat !== false,
+                          seat_depth: Number(
+                            start.seat_depth ?? schema.defaults.seat_depth,
+                          ),
                         }));
                       else
                         change(
                           control.key,
-                          Number(schema.defaults[control.key]),
+                          Number(
+                            start[control.key] ?? schema.defaults[control.key],
+                          ),
                         );
                     }}
                     autoSpacing={

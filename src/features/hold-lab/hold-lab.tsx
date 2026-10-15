@@ -104,6 +104,9 @@ export function HoldLab({ kind }: { kind: Kind }) {
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
+  // The settings the person started from: the preset they picked, a saved
+  // preset, a loaded file or a shared link. A slider's reset returns there.
+  const origin = useRef<Parameters>({});
   // Presets saved in this browser, and the small form that names a new one.
   const [saved, setSaved] = useState<SavedPreset[]>([]);
   const [naming, setNaming] = useState(false);
@@ -137,6 +140,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
         }
         if (cancelled) return;
         latest.current = start;
+        origin.current = { ...start };
         setParameters(start);
         setSaved(loadSavedPresets(kind));
         setNaming(false);
@@ -262,6 +266,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
   function reset() {
     if (!schema) return;
     changeBoardAngle(DEFAULT_BOARD_ANGLE);
+    origin.current = { ...schema.defaults };
     edit(() => ({ ...schema.defaults }), Object.keys(schema.presets)[0], true);
   }
   function variation(seed: number) {
@@ -283,6 +288,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
       ).json()) as {
         parameters: Parameters;
       };
+      origin.current = { ...data.parameters };
       edit(() => data.parameters, "custom", true);
       trackEvent({ name: "lab_settings", lab: kind, action: "load" });
     } catch (error) {
@@ -295,6 +301,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
       applySavedPreset(savedName(name));
       return;
     }
+    origin.current = { ...schema.presets[name] };
     edit(() => ({ ...schema.presets[name] }), name, true);
   }
   // A saved preset goes through the generator's validation first, so one
@@ -311,6 +318,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
           kind,
         )
       ).json()) as { parameters: Parameters };
+      origin.current = { ...data.parameters };
       edit(() => data.parameters, savedValue(name), true);
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
@@ -533,18 +541,35 @@ export function HoldLab({ kind }: { kind: Kind }) {
                     disabled={name === "Mounting" && !screws}
                     onChange={change}
                     onReset={() => {
+                      // Back to the starting point the person chose (preset,
+                      // saved preset, loaded file or link), not the
+                      // generator's base values.
+                      const start = origin.current;
                       if (control.key === "screw_spacing")
-                        change("auto_spacing", true);
+                        edit((p) => ({
+                          ...p,
+                          ...(start.auto_spacing === false &&
+                          typeof start.screw_spacing === "number"
+                            ? {
+                                auto_spacing: false,
+                                screw_spacing: start.screw_spacing,
+                              }
+                            : { auto_spacing: true }),
+                        }));
                       else if (control.key === "seat_depth")
                         edit((p) => ({
                           ...p,
-                          auto_seat: true,
-                          seat_depth: Number(schema.defaults.seat_depth),
+                          auto_seat: start.auto_seat !== false,
+                          seat_depth: Number(
+                            start.seat_depth ?? schema.defaults.seat_depth,
+                          ),
                         }));
                       else
                         change(
                           control.key,
-                          Number(schema.defaults[control.key]),
+                          Number(
+                            start[control.key] ?? schema.defaults[control.key],
+                          ),
                         );
                     }}
                   />
