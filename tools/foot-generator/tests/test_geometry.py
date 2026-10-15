@@ -8,7 +8,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import build
-from parameters import CONTROLS, PRESETS, parse_parameters
+from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
 SHAPES = ("edge", "ball", "rock", "dish")
 
@@ -125,6 +125,53 @@ class FootTests(unittest.TestCase):
                 self.assertGreater(model.mesh.volume, 0)
                 exported += 1
         self.assertGreater(exported, 8)
+
+    def test_growth_stays_within_the_sliders(self):
+        # Three screws on a small dish: the hardware needs a bigger body.
+        # The body used to grow past the width slider's maximum, so the
+        # exported design was clamped on reopening and built a different
+        # hold from the preview (RIL-78).
+        limits = {control["key"]: control["max"] for control in CONTROLS}
+        model = build(
+            parse_parameters(
+                dict(
+                    shape="dish", size=50, width=110, edge_depth=6, screw_count=3,
+                    auto_screw_count=False,
+                )
+            )
+        )
+        self.assertEqual(len(model.holes), 3)
+        self.assertLessEqual(model.parameters.width, limits["width"])
+        self.assertLessEqual(model.parameters.body_height, limits["body_height"])
+        self.assertLessEqual(model.parameters.edge_depth, limits["edge_depth"])
+
+    def test_designs_reopen_and_rebuild_the_same_hold(self):
+        # The exported design carries the settings actually built, so
+        # parsing it back and building again gives the same hold: links,
+        # presets and settings files depend on it.
+        rng = random.Random(78)
+        cases = [
+            dict(
+                shape="dish", size=50, width=110, edge_depth=6, screw_count=3,
+                auto_screw_count=False,
+            )
+        ] + [random_settings(rng) for _ in range(30)]
+        rebuilt = 0
+        for values in cases:
+            p = parse_parameters(values)
+            try:
+                model = build(p)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                again = build(parse_parameters(design_document(model.parameters)["parameters"]))
+                self.assertEqual(again.parameters, model.parameters)
+                self.assertEqual(again.holes, model.holes)
+                self.assertEqual(again.mesh.vertices.shape, model.mesh.vertices.shape)
+                self.assertTrue(np.allclose(again.mesh.vertices, model.mesh.vertices))
+                self.assertEqual(again.adjusted, {})
+                rebuilt += 1
+        self.assertGreater(rebuilt, 15)
 
     def test_manual_seat_survives_turning_screws_off(self):
         # Dragging the seat slider sets auto_seat off; turning the mounting

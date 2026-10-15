@@ -360,7 +360,7 @@ async function main() {
         new Blob([JSON.stringify(currentDesign, null, 2)], {
           type: "application/json",
         }),
-        `jug-${parameters.width}mm.json`,
+        `${config.slug ?? "jug"}-${parameters.width}mm.json`,
       );
   });
   $("#load-settings").addEventListener("change", async (event) => {
@@ -371,14 +371,16 @@ async function main() {
         throw new Error("settings files must be smaller than 16 KB.");
       const design = JSON.parse(await file.text());
       if (
-        design.generator !== "garage-holds-jug" ||
+        design.generator !== (config.generator ?? "garage-holds-jug") ||
         design.version !== 2 ||
         design.units !== "mm" ||
         !design.parameters ||
         typeof design.parameters !== "object" ||
         Array.isArray(design.parameters)
       )
-        throw new Error("this is not a Jug Lab settings file.");
+        throw new Error(
+          `this is not a ${config.label ?? "Jug Lab"} settings file.`,
+        );
       const checked = await (
         await post("/api/validate", design.parameters)
       ).json();
@@ -399,7 +401,7 @@ async function main() {
     try {
       download(
         await (await post("/api/stl", snapshot)).blob(),
-        `jug-${snapshot.width}mm.stl`,
+        `${config.slug ?? "jug"}-${snapshot.width}mm.stl`,
       );
       if (request === sequence)
         status(

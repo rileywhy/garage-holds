@@ -171,7 +171,10 @@ def design_document(p):
 
 def schema():
     return dict(
+        generator="garage-holds-jug",
         version=2,
+        slug="jug",
+        label="Jug Lab",
         defaults=asdict(Parameters()),
         controls=CONTROLS,
         presets={name: asdict(p) for name, p in PRESETS.items()},

@@ -13,10 +13,10 @@ import trimesh
 
 if __package__:
     from .crimp_engine import geometry as crimp
-    from .parameters import parse_parameters
+    from .parameters import CONTROLS, parse_parameters
 else:
     from crimp_engine import geometry as crimp
-    from parameters import parse_parameters
+    from parameters import CONTROLS, parse_parameters
 
 from tools.hold_mounting import (
     Hole,
@@ -257,7 +257,12 @@ def build(requested, quality="preview"):
     if p.auto_screw_count and not p.bolt_mount:
         p = replace(p, screw_count=2 if p.width * p.size / 100 >= 50 else 1)
     holes = []
-    for attempt in range(60):
+    # The body may grow for the hardware, but never past what the sliders
+    # allow: the design carries the settings built, and a reopened design
+    # is clamped to the sliders, so growth past them would export a
+    # different hold from the one previewed (RIL-78).
+    limits = {control["key"]: control["max"] for control in CONTROLS}
+    for attempt in range(120):
         solid, profile, radius = body(p, "preview")
         if not p.screws:
             break
@@ -275,12 +280,17 @@ def build(requested, quality="preview"):
             p = replace(p, seat_depth=holes[0].seat)
             break
         # Hardware doesn't shrink. Grow the body explicitly and echo that change.
-        p = replace(
+        grown = replace(
             p,
-            width=p.width + 2,
-            body_height=p.body_height + 4,
-            edge_depth=p.edge_depth + 0.5,
+            width=min(limits["width"], p.width + 2),
+            body_height=min(limits["body_height"], p.body_height + 4),
+            edge_depth=min(limits["edge_depth"], p.edge_depth + 0.5),
         )
+        if grown == p:
+            raise ValueError(
+                "Hardware could not fit this body, even at the largest size the sliders allow. Use fewer holes or smaller recesses, or turn holes off."
+            )
+        p = grown
     else:
         raise ValueError("Hardware could not fit this body.")
     if quality == "export":
