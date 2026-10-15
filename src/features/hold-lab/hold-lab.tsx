@@ -903,7 +903,9 @@ export function HoldLab({
               type="number"
               min={0}
               max={MAX_BOARD_ANGLE}
+              step={1}
               value={boardAngle}
+              aria-describedby={`${kind}-board-angle-hint`}
               onChange={(e) => changeBoardAngle(e.target.valueAsNumber)}
             />
             <span>°</span>
@@ -911,8 +913,10 @@ export function HoldLab({
               type="range"
               min={0}
               max={MAX_BOARD_ANGLE}
+              step={1}
               value={boardAngle}
               aria-label="Board angle slider"
+              aria-describedby={`${kind}-board-angle-hint`}
               onChange={(e) => changeBoardAngle(e.target.valueAsNumber)}
             />
             <button
@@ -927,7 +931,7 @@ export function HoldLab({
             >
               Exact side
             </button>
-            <p>From vertical · 0° is upright</p>
+            <p id={`${kind}-board-angle-hint`}>From vertical · 0° is upright</p>
           </div>
         )}
         <div

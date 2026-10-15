@@ -24,10 +24,9 @@ export function FeedbackWidget({
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState("");
-  const [state, action, pending] = useActionState<FeedbackState, FormData>(
-    submitFeedback,
-    { errors: [], sent: false },
-  );
+  // Counts openings. The form below is keyed on it, so each opening gets a
+  // fresh form and a fresh action state instead of last time's "Sent".
+  const [opening, setOpening] = useState(0);
 
   useEffect(() => {
     const element = dialog.current;
@@ -38,21 +37,16 @@ export function FeedbackWidget({
     } else if (!open && element.open) element.close();
   }, [open]);
 
-  useEffect(() => {
-    if (state.sent)
-      trackEvent({
-        name: "feedback_sent",
-        kind: icon === "report" ? "report" : "feedback",
-      });
-  }, [state.sent, icon]);
-
   const Icon = icon === "report" ? Flag : MessageSquare;
   return (
     <>
       <button
         type="button"
         className="feedback-trigger"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpening((n) => n + 1);
+          setOpen(true);
+        }}
       >
         <Icon size={14} /> {label}
       </button>
@@ -75,81 +69,121 @@ export function FeedbackWidget({
             <X size={16} />
           </button>
         </div>
-        {state.sent ? (
-          <div className="feedback-sent" role="status">
-            <p>
-              <strong>Sent. Thank you.</strong>
-            </p>
-            <p className="small-note">
-              It goes straight to the person running the site.
-            </p>
-            <button
-              type="button"
-              className="button button-outline"
-              onClick={() => setOpen(false)}
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          <form action={action} className="feedback-form" noValidate>
-            <input type="hidden" name="page" value={page} />
-            <input
-              type="text"
-              name="website"
-              tabIndex={-1}
-              autoComplete="off"
-              className="sr-only"
-              aria-hidden
+        <FeedbackForm
+          key={opening}
+          icon={icon}
+          page={page}
+          prefill={prefill}
+          signedIn={signedIn}
+          close={() => setOpen(false)}
+        />
+      </dialog>
+    </>
+  );
+}
+
+function FeedbackForm({
+  icon,
+  page,
+  prefill,
+  signedIn,
+  close,
+}: {
+  icon: "feedback" | "report";
+  page: string;
+  prefill: string;
+  signedIn: boolean;
+  close: () => void;
+}) {
+  const [state, action, pending] = useActionState<FeedbackState, FormData>(
+    submitFeedback,
+    { errors: [], sent: false },
+  );
+
+  useEffect(() => {
+    if (state.sent)
+      trackEvent({
+        name: "feedback_sent",
+        kind: icon === "report" ? "report" : "feedback",
+      });
+  }, [state.sent, icon]);
+
+  return (
+    <>
+      {state.sent ? (
+        <div className="feedback-sent" role="status">
+          <p>
+            <strong>Sent. Thank you.</strong>
+          </p>
+          <p className="small-note">
+            It goes straight to the person running the site.
+          </p>
+          <button
+            type="button"
+            className="button button-outline"
+            onClick={close}
+          >
+            Close
+          </button>
+        </div>
+      ) : (
+        <form action={action} className="feedback-form" noValidate>
+          <input type="hidden" name="page" value={page} />
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            className="sr-only"
+            aria-hidden
+          />
+          <label>
+            <span>
+              {icon === "report"
+                ? "What is wrong with it?"
+                : "What happened, or what would help?"}
+            </span>
+            <textarea
+              name="body"
+              rows={5}
+              maxLength={MAX_BODY}
+              required
+              defaultValue={prefill}
+              placeholder={
+                icon === "report"
+                  ? "Stolen model, broken file, wrong license, something else…"
+                  : "Steps to reproduce help a lot."
+              }
             />
+          </label>
+          {!signedIn && (
             <label>
-              <span>
-                {icon === "report"
-                  ? "What is wrong with it?"
-                  : "What happened, or what would help?"}
-              </span>
-              <textarea
-                name="body"
-                rows={5}
-                maxLength={MAX_BODY}
-                required
-                defaultValue={prefill}
-                placeholder={
-                  icon === "report"
-                    ? "Stolen model, broken file, wrong license, something else…"
-                    : "Steps to reproduce help a lot."
-                }
+              <span>How to reach you (optional)</span>
+              <input
+                type="text"
+                name="contact"
+                maxLength={120}
+                placeholder="Email or a handle"
               />
             </label>
-            {!signedIn && (
-              <label>
-                <span>How to reach you (optional)</span>
-                <input
-                  type="text"
-                  name="contact"
-                  maxLength={120}
-                  placeholder="Email or a handle"
-                />
-              </label>
-            )}
-            <FieldErrors errors={state.errors} />
-            <div className="feedback-actions">
-              <button
-                type="submit"
-                className="button button-dark"
-                disabled={pending}
-              >
-                {pending ? (
-                  <LoaderCircle size={16} className="spin" />
-                ) : (
-                  <Send size={16} />
-                )}{" "}
-                {pending ? "Sending…" : "Send"}
-              </button>
-            </div>
-          </form>
-        )}
-      </dialog>
+          )}
+          <FieldErrors errors={state.errors} />
+          <div className="feedback-actions">
+            <button
+              type="submit"
+              className="button button-dark"
+              disabled={pending}
+            >
+              {pending ? (
+                <LoaderCircle size={16} className="spin" />
+              ) : (
+                <Send size={16} />
+              )}{" "}
+              {pending ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </form>
+      )}
     </>
   );
 }

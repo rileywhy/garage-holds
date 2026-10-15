@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { reportClientError } from "@/features/feedback/actions";
+import { SITE_NAME } from "@/lib/page-metadata";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -26,7 +27,7 @@ export default function GlobalError({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>Something went wrong | Garage Holds</title>
+        <title>{`Something went wrong | ${SITE_NAME}`}</title>
         <script
           dangerouslySetInnerHTML={{ __html: THEME_INITIALIZATION_SCRIPT }}
         />

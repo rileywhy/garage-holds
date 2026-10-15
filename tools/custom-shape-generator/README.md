@@ -1,4 +1,4 @@
-﻿# Custom Shape Lab
+# Custom Shape Lab
 
 This feature is isolated from the existing labs. Its only modification to an
 existing source file is an additive navigation link in `site-shell.tsx`.

@@ -1,4 +1,4 @@
-﻿import type { ShapeParameters } from "./mask";
+import type { ShapeParameters } from "./mask";
 
 export const DEFAULT_PARAMETERS: ShapeParameters = {
   scale: 200,

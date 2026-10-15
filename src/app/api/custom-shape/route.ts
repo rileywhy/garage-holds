@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 // Development-only bridge to the isolated Python service. Hosted builds use
 // the dedicated Python function directly, like the established labs.
 export async function POST(request: Request) {

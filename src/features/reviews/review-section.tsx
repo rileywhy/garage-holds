@@ -166,8 +166,8 @@ export function ReviewSection({
               <div className="avatar">{review.author[0]?.toUpperCase()}</div>
               <div>
                 <strong>{review.author}</strong>
-                <span>
-                  {new Date(review.createdAt).toLocaleDateString("en-US", {
+                <span suppressHydrationWarning>
+                  {new Date(review.createdAt).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
