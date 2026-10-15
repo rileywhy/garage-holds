@@ -11,6 +11,7 @@ import {
   deleteObject,
   headObject,
   isR2Configured,
+  MODEL_CONTENT_TYPE,
   signImage,
   signUpload,
 } from "@/lib/r2";
@@ -98,7 +99,7 @@ export async function listPhonePhotos(
 }
 
 export type SignPhotoResult =
-  { photoId: string; url: string } | { error: string };
+  { photoId: string; url: string; contentType: string } | { error: string };
 
 // Phone side, step 1: reserve a slot and sign one PUT URL.
 export async function signPhonePhoto(
@@ -139,7 +140,12 @@ export async function signPhonePhoto(
     console.error("phone photo insert failed", { sessionId, error });
     return { error: "Could not prepare the upload. Try again." };
   }
-  return { photoId, url: await signUpload(key) };
+  const contentType = photoContentType(extension) ?? MODEL_CONTENT_TYPE;
+  return {
+    photoId,
+    url: await signUpload(key, { bytes: file.bytes, contentType }),
+    contentType,
+  };
 }
 
 // Phone side, step 2: confirm the object landed with the declared size.

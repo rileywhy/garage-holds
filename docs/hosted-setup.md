@@ -377,7 +377,9 @@ Analytics tab.
   phone page needs no sign-in; the unguessable session id is the credential,
   it expires after 15 minutes, and the server checks it on every upload.
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
-  and sign one PUT URL per file, the browser uploads directly to R2, then the
+  and sign one PUT URL per file, bound to the declared size and content type
+  (R2 refuses a PUT that sends anything else, so a signed URL cannot be
+  reused for a larger object), the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
   publishes. A failure after the draft exists abandons it again.
 - `src/features/uploads/lifecycle.ts` is the nightly reconciliation

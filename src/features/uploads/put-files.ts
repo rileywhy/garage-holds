@@ -3,7 +3,9 @@
 
 const PARALLEL_UPLOADS = 3;
 
-export async function uploadAll(jobs: { url: string; file: File }[]) {
+export async function uploadAll(
+  jobs: { url: string; file: File; contentType: string }[],
+) {
   const queue = [...jobs];
   const failed: string[] = [];
   await Promise.all(
@@ -13,9 +15,8 @@ export async function uploadAll(jobs: { url: string; file: File }[]) {
           const response = await fetch(job.url, {
             method: "PUT",
             body: job.file,
-            headers: {
-              "Content-Type": job.file.type || "application/octet-stream",
-            },
+            // The signed URL is bound to this type and the file's size.
+            headers: { "Content-Type": job.contentType },
           });
           if (!response.ok) failed.push(job.file.name);
         } catch {

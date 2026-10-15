@@ -107,6 +107,7 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
           start.uploads.map((upload, index) => ({
             url: upload.url,
             file: files[index],
+            contentType: upload.contentType,
           })),
         );
         const finished = await finishPhotoUpload(

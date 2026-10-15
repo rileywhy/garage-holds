@@ -150,6 +150,7 @@ function UploadDesignForm({
           draft.uploads.map((upload, index) => ({
             url: upload.url,
             file: allFiles[index],
+            contentType: upload.contentType,
           })),
         );
         if (failed.length) {

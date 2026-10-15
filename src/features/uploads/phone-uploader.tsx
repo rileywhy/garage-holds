@@ -50,7 +50,7 @@ export function PhoneUploader({ sessionId }: { sessionId: string }) {
         const response = await fetch(signed.url, {
           method: "PUT",
           body: file,
-          headers: { "Content-Type": file.type || "application/octet-stream" },
+          headers: { "Content-Type": signed.contentType },
         });
         if (!response.ok) {
           update(key, {

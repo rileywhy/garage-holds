@@ -12,6 +12,7 @@ import {
   getObject,
   headObject,
   isR2Configured,
+  MODEL_CONTENT_TYPE,
   putObject,
   signUpload,
 } from "@/lib/r2";
@@ -117,11 +118,18 @@ export async function startPhotoUpload(
     return { errors: ["Your photos could not be registered. Try again."] };
   }
   const uploads = await Promise.all(
-    rows.map(async (row) => ({
-      fileId: row.id,
-      name: row.name,
-      url: await signUpload(row.object_key),
-    })),
+    rows.map(async (row) => {
+      const contentType = photoContentType(row.extension) ?? MODEL_CONTENT_TYPE;
+      return {
+        fileId: row.id,
+        name: row.name,
+        url: await signUpload(row.object_key, {
+          bytes: row.bytes,
+          contentType,
+        }),
+        contentType,
+      };
+    }),
   );
   return { uploads };
 }

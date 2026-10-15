@@ -65,11 +65,36 @@ function r2() {
   return client;
 }
 
-export function signUpload(key: string) {
+// Model files are stored and served as attachments, whatever the browser
+// thinks their type is.
+export const MODEL_CONTENT_TYPE = "application/octet-stream";
+
+// A PUT URL for one object, bound to the size and type the browser
+// declared: the Content-Length and Content-Type headers are part of the
+// signature, so R2 refuses a PUT that sends anything else. The browser
+// must send exactly this content type, which the caller hands back to it.
+// Before this, a signed URL accepted an object of any size for 30 minutes,
+// invisible to the allowance until the sweep removed it.
+export function signUpload(
+  key: string,
+  { bytes, contentType }: { bytes: number; contentType: string },
+) {
   const { s3, bucket } = r2();
-  return getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key }), {
-    expiresIn: UPLOAD_URL_SECONDS,
-  });
+  return getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentLength: bytes,
+      ContentType: contentType,
+    }),
+    {
+      expiresIn: UPLOAD_URL_SECONDS,
+      // The presigner signs content-length on its own; content-type has to
+      // be asked for, or the URL would accept any type.
+      signableHeaders: new Set(["content-length", "content-type"]),
+    },
+  );
 }
 
 // The download name and type are fixed server-side so a stored object is

@@ -7,7 +7,13 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { deleteObject, headObject, isR2Configured, signUpload } from "@/lib/r2";
+import {
+  deleteObject,
+  headObject,
+  isR2Configured,
+  MODEL_CONTENT_TYPE,
+  signUpload,
+} from "@/lib/r2";
 import { getUserId } from "@/features/holds/repository";
 import {
   fileExtension,
@@ -47,6 +53,8 @@ export interface PendingUpload {
   fileId: string;
   name: string;
   url: string;
+  // The Content-Type the PUT must carry; the signed URL accepts no other.
+  contentType: string;
 }
 
 export type CreateDraftResult =
@@ -164,11 +172,21 @@ export async function createDraft(
     return { errors: ["Your files could not be registered. Try again."] };
   }
   const uploads = await Promise.all(
-    rows.map(async (row) => ({
-      fileId: row.id,
-      name: row.name,
-      url: await signUpload(row.object_key),
-    })),
+    rows.map(async (row) => {
+      const contentType =
+        row.kind === "photo"
+          ? (photoContentType(row.extension) ?? MODEL_CONTENT_TYPE)
+          : MODEL_CONTENT_TYPE;
+      return {
+        fileId: row.id,
+        name: row.name,
+        url: await signUpload(row.object_key, {
+          bytes: row.bytes,
+          contentType,
+        }),
+        contentType,
+      };
+    }),
   );
   return { designId: design.id, uploads };
 }
