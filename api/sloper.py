@@ -79,7 +79,7 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
                     model.preview()
                     | dict(design=contract.design_document(model.parameters)),
                 )
-        except (ValueError, TypeError, json.JSONDecodeError) as error:
+        except (ValueError, TypeError, OverflowError, json.JSONDecodeError) as error:
             self.send(400, dict(error=str(error)))
         except Exception:
             import traceback

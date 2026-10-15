@@ -128,6 +128,15 @@ PRESETS = {
 }
 
 
+def finite_number(value) -> bool:
+    """An int or float that fits a finite float; an integer too large for
+    a float would make isfinite raise."""
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def parse_parameters(values):
     if not isinstance(values, dict):
         raise ValueError("Settings must be a JSON object.")
@@ -136,7 +145,7 @@ def parse_parameters(values):
     for item in CONTROLS:
         value = merged[item["key"]]
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            if not math.isfinite(value):
+            if not finite_number(value):
                 raise ValueError(f"{item['label']} must be a finite number.")
             merged[item["key"]] = min(item["max"], max(item["min"], value))
     if isinstance(merged["width"], (int, float)) and isinstance(

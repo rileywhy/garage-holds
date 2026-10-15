@@ -85,6 +85,9 @@ class VercelApiTests(unittest.TestCase):
             '{"action":"nope"}',
             '{"action":"preview","parameters":{"width":1}}',
             '{"action":"validate","parameters":{"screw_count":1}}',
+            # 400 digits: too big for a float, and a 500 until RIL-71.
+            '{"action":"validate","parameters":{"width":' + "9" * 400 + "}}",
+            '{"action":"preview","parameters":{"seed":' + "9" * 400 + "}}",
         ):
             with self.subTest(body=body):
                 self.assertEqual(self.request("POST", body)[0], 400)

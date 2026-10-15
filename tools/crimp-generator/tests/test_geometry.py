@@ -10,7 +10,14 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import _inside_contours, _solid, build, cross_section, estimate_material
+from geometry import (
+    _inside_contours,
+    _inside_mask,
+    _solid,
+    build,
+    cross_section,
+    estimate_material,
+)
 from parameters import (
     CONTROLS,
     PRESETS,
@@ -381,6 +388,45 @@ class GeometryTests(unittest.TestCase):
         )
         self.assertEqual(model.preview()["screw_spacing"], model.parameters.screw_spacing)
 
+    def test_point_containment_matches_the_edge_by_edge_test(self):
+        # The vectorised even/odd test must agree with the plain one on a
+        # concave contour with a hole, including points on the bounding
+        # box and far outside it.
+        outer = [(-10, -10), (10, -10), (10, 10), (0, 2), (-10, 10)]
+        hole = [(-3, -6), (3, -6), (3, -2), (-3, -2)]
+        rng = np.random.default_rng(71)
+        points = np.vstack(
+            [rng.uniform(-14, 14, (400, 2)), [[-10, 0], [10, 0], [0, -10], [0, 9]]]
+        )
+
+        def plain(x, y):
+            inside = False
+            for contour in (outer, hole):
+                for (ax, ay), (bx, by) in zip(contour, contour[-1:] + contour[:-1]):
+                    if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / (by - ay) + ax:
+                        inside = not inside
+            return inside
+
+        expected = np.array([plain(x, y) for x, y in points])
+        self.assertTrue((_inside_mask(points, [outer, hole]) == expected).all())
+        self.assertTrue(expected.any() and not expected.all())
+
+    def test_wide_six_screw_rows_fit_inside_the_budget(self):
+        # This preview took 33 s locally and timed out on Vercel; the
+        # vectorised containment test brings it to a few seconds. A
+        # budget of 12 s turns a regression into a failure here.
+        p = parse_parameters(
+            dict(
+                width=260, edge_depth=60, incut=0, lip_radius=20, body_height=20,
+                body_rounding=30, end_rounding=60, bow=-60, screw_count=6,
+                head_diameter=15, shank_diameter=4,
+            )
+        )
+        model = build(p, budget_s=12)
+        self.assertEqual(len(model.screws), 6)
+        with self.assertRaisesRegex(ValueError, "too long"):
+            build(p, budget_s=0)
+
     def test_manual_seat_recess_stays_inside_the_body(self):
         # The row is fitted at the automatic seat, then drilled at the seat
         # the person asked for. On a steep rail a high manual seat used to put
@@ -631,6 +677,14 @@ class ParameterTests(unittest.TestCase):
         self.assertEqual(p.screw_count, 3)
         self.assertIsInstance(parse_parameters({"screw_count": 3.0}).screw_count, int)
         self.assertEqual(parse_parameters(design_document(p)["parameters"]), p)
+
+    def test_huge_numbers_are_refused_in_words(self):
+        # 400 digits overflow a float; math.isfinite raised and the hosted
+        # handlers answered 500 instead of 400.
+        with self.assertRaisesRegex(ValueError, "finite number"):
+            parse_parameters({"width": 10**400})
+        with self.assertRaises(ValueError):
+            parse_parameters({"seed": 10**400})
 
     def test_invalid_values(self):
         cases = [
