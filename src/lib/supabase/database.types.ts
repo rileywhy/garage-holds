@@ -429,7 +429,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      can_view_design: { Args: { design: string }; Returns: boolean };
+      [_ in never]: never;
     };
     Enums: {
       [_ in never]: never;
