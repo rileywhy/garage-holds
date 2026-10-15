@@ -1,5 +1,5 @@
 import "server-only";
-import { createAlertLimiter } from "./error-reports";
+import { clipMessage, createAlertLimiter, escapeSlack } from "./error-reports";
 
 // One-line notices for the site owner: someone hit an upload limit, or is
 // close to one. ALERT_WEBHOOK_URL is a Discord or Slack incoming webhook;
@@ -11,16 +11,20 @@ export async function notifyOwner(message: string) {
     console.warn("owner alert", message);
     return;
   }
+  const line = clipMessage(message);
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // Messages quote visitor text, so Discord must not turn an @everyone
-      // in it into a ping. Slack ignores the field.
+      // in it into a ping, nor unfurl a link in it (flags 4 suppresses
+      // embeds). Slack ignores those fields and reads `text`, where `<`
+      // and `&` are markup, so they are escaped as its API asks.
       body: JSON.stringify({
-        content: message,
-        text: message,
+        content: line,
+        text: escapeSlack(line),
         allowed_mentions: { parse: [] },
+        flags: 4,
       }),
     });
     if (!response.ok)

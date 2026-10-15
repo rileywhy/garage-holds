@@ -257,10 +257,14 @@ before anyone reports it. Two sources feed it:
   string, so a phone-session id in the address cannot leak), and the error's
   name, message, and digest.
 - **Browser.** `src/app/error.tsx` and `src/app/global-error.tsx` call
-  `reportClientError` once when they appear. The line names the page path
-  and the message the browser saw; for a server-side failure that is a
-  generic message plus the same digest as the server's line, so the two can
-  be matched. The server validates and clips the report and stores nothing.
+  `reportClientError` once when they appear. The line names the page's
+  route template (again `/holds/[id]`, never the real id) and the message
+  the browser saw, flattened to one line with no markdown; for a
+  server-side failure that is a generic message plus the same digest as the
+  server's line, so the two can be matched. The server validates and clips
+  the report and stores nothing. Because anyone can call the action, each
+  address gets five reports a quarter hour and the site thirty, like the
+  feedback form; the rest are dropped.
 
 Nothing else is sent: no headers, cookies, request bodies, or stack traces.
 The line is clipped to 500 characters. A storm of the same error on the

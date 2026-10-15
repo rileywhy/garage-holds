@@ -91,11 +91,22 @@ async function requestIp() {
   );
 }
 
+// Error reports get a smaller allowance than feedback: a real visitor's
+// page fails a few times at most, while a script choosing its own digest
+// would otherwise get a fresh line through the dedupe on every call.
+const allowReporter = createRateLimiter(5, PER_SENDER_WINDOW_MS);
+const allowAnyReport = createRateLimiter(30, PER_SENDER_WINDOW_MS);
+
 // Called once by the error boundary when a page fails in the browser. The
-// report is whatever the browser sent, so it is validated and clipped here
-// and never stored; the owner gets one line per distinct error per minute.
+// report is whatever the browser sent, so it is validated, flattened to one
+// plain line and redacted to the route template here, and never stored; the
+// owner gets one line per distinct error per minute, within the allowances
+// above. Refused reports are dropped silently: the browser has nothing to
+// do about them.
 export async function reportClientError(input: unknown): Promise<void> {
   const report = validateClientReport(input);
   if (!report) return;
+  if (!allowReporter(`ip:${await requestIp()}`) || !allowAnyReport("all"))
+    return;
   await notifyOwnerOnce(clientErrorKey(report), formatClientError(report));
 }

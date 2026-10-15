@@ -6,6 +6,9 @@
 export const MAX_MESSAGE = 500;
 export const MAX_PATH = 300;
 export const ALERT_WINDOW_MS = 60_000;
+// Discord refuses anything over 2000 characters; feedback is up to 2000 on
+// its own, so a webhook line is cut with room for its prefix.
+export const MAX_WEBHOOK_MESSAGE = 1900;
 
 export interface ErrorSummary {
   name: string;
@@ -83,18 +86,43 @@ export function redactPath(path: string, routePath: string): string {
   return segments.join("/");
 }
 
-// What the browser's error boundary sends. Every field is untrusted.
+// What the browser's error boundary sends. Every field is untrusted, and
+// the line it becomes is posted to a chat channel, so the message is
+// flattened to plain text and the path is reduced to its route template.
 export interface ClientErrorReport {
   message: string;
   digest: string;
   path: string;
 }
 
+// The app's page routes, for redacting what the browser reports. A test
+// checks this list against `src/app`, so a new dynamic route cannot leak
+// its segment by being forgotten here.
+export const CLIENT_ROUTES = [
+  "/",
+  "/account",
+  "/designs",
+  "/holds/[id]",
+  "/holds/[id]/edit",
+  "/how-to-3d-print-climbing-holds",
+  "/make",
+  "/make/crimp",
+  "/make/custom-shape",
+  "/make/foot",
+  "/make/jug",
+  "/make/sloper",
+  "/phone/[session]",
+  "/saved",
+  "/sign-in",
+  "/upload",
+  "/welcome",
+];
+
 export function validateClientReport(input: unknown): ClientErrorReport | null {
   if (typeof input !== "object" || input === null) return null;
   const record = input as Record<string, unknown>;
   const message =
-    typeof record.message === "string" ? record.message.trim() : "";
+    typeof record.message === "string" ? plainLine(record.message) : "";
   const digest = typeof record.digest === "string" ? record.digest : "";
   const path = typeof record.path === "string" ? record.path : "";
   if (!message && !digest) return null;
@@ -103,8 +131,41 @@ export function validateClientReport(input: unknown): ClientErrorReport | null {
   return {
     message: clip(message, MAX_MESSAGE),
     digest,
-    path: clip(path.split("?")[0] ?? "", MAX_PATH),
+    path: path ? clip(redactClientPath(path), MAX_PATH) : "",
   };
+}
+
+// `/phone/abc123?x=1` becomes `/phone/[session]`: the path is matched
+// against the route list, and a path that matches nothing keeps only its
+// first segment, so an unknown address can never carry a secret through.
+export function redactClientPath(path: string): string {
+  const bare = plainLine(path.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
+  for (const route of CLIENT_ROUTES)
+    if (matchesRoute(bare, route)) return route;
+  const [, first = ""] = bare.split("/");
+  return first ? `/${first}/[…]` : "/";
+}
+
+function matchesRoute(path: string, route: string): boolean {
+  const actual = path.split("/");
+  const template = route.split("/");
+  return (
+    actual.length === template.length &&
+    template.every(
+      (pattern, index) =>
+        pattern.startsWith("[") || pattern === (actual[index] ?? ""),
+    )
+  );
+}
+
+// Visitor text on one line with no markdown: newlines become spaces, and
+// the characters Discord and Slack read as formatting, links or mentions
+// are dropped. Error messages lose a little punctuation and stay readable.
+export function plainLine(text: string): string {
+  return text
+    .replace(/[`*_~|\[\]<>@#]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function formatClientError(report: ClientErrorReport): string {
@@ -133,6 +194,19 @@ export function createAlertLimiter(
     lastSent.set(key, time);
     return true;
   };
+}
+
+export function clipMessage(message: string): string {
+  return clip(message, MAX_WEBHOOK_MESSAGE);
+}
+
+// Slack reads `<!channel>` and `<@user>` as mentions and `&` as the start
+// of an entity, so visitor text has to be escaped before it is quoted.
+export function escapeSlack(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function digestSuffix(summary: { digest?: string }): string {
