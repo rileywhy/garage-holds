@@ -15,7 +15,7 @@ export default function FootLabPage() {
       <LabNav current="foot" />
       <div className="page-intro">
         <p className="eyebrow eyebrow-tags">
-          <span>feet first</span>
+          <span>FEET FIRST</span>
           <span
             className="tag tag-tip"
             tabIndex={0}
@@ -24,7 +24,7 @@ export default function FootLabPage() {
             experimental
           </span>
         </p>
-        <h1>foot lab</h1>
+        <h1>Foot Lab</h1>
         <p>
           Positive edges, neutral chips, slopey wedges, balls and dishes. Pick a
           starting point, dial in the bite, then export an STL.

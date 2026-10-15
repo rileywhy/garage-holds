@@ -19,6 +19,25 @@ const VIEWS: Record<ViewName, [number, number, number]> = {
   board: [1, 0.08, 0.28],
 };
 
+// The toolbar every lab draws: the same views, in the same order, with the
+// same names.
+export const VIEW_ORDER: ViewName[] = [
+  "three-quarter",
+  "board",
+  "side",
+  "angled-side",
+  "top",
+  "front",
+];
+export const VIEW_LABELS: Record<ViewName, string> = {
+  "three-quarter": "3D",
+  board: "Board preview",
+  side: "Side",
+  "angled-side": "Angled side",
+  top: "Above",
+  front: "Front",
+};
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.

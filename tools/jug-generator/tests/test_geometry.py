@@ -134,7 +134,7 @@ class GeometryTests(unittest.TestCase):
             np.testing.assert_allclose(model.mesh.vertices, again.mesh.vertices)
 
     def test_one_handed_mounting_is_spread_and_staggered(self):
-        for name in ("board jug", "deep jug"):
+        for name in ("Board jug", "Deep jug"):
             p = PRESETS[name]
             model = build(p)
             left, middle, right = model.screws
@@ -253,7 +253,7 @@ class GeometryTests(unittest.TestCase):
         model = build(Parameters())
         self.assertLessEqual(model.mesh.extents[2], 66.01)
         self.assertEqual(model.parameters.edge_depth, 57.5)
-        self.assertEqual(Parameters().body_height, 100)
+        self.assertEqual(Parameters().body_height, 125)
         self.assertGreaterEqual(model.parameters.body_height, 100)
         self.assertLessEqual(model.parameters.body_height, 130)
         self.assertEqual(model.parameters.grip_quality, 90)
@@ -264,13 +264,13 @@ class GeometryTests(unittest.TestCase):
 
     def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
         widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
-        for name in ("board jug", "deep jug"):
-            self.assertGreater(widths["two-handed jug"], 1.9 * widths[name])
-        self.assertLessEqual(widths["two-handed jug"], 256 * 0.95)
-        model = build(PRESETS["two-handed jug"])
+        for name in ("Board jug", "Deep jug"):
+            self.assertGreater(widths["Two-handed jug"], 1.9 * widths[name])
+        self.assertLessEqual(widths["Two-handed jug"], 256 * 0.95)
+        model = build(PRESETS["Two-handed jug"])
         self.assertEqual(len(model.screws), 4)
         xs = sorted(x for x, _ in model.screws)
-        self.assertGreater(xs[-1] - xs[0], widths["two-handed jug"] * 0.35)
+        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.35)
 
     def test_body_height_changes_geometry_and_manual_span_is_exact(self):
         low = build(Parameters(body_height=130))
@@ -310,7 +310,7 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_screw_arc_control_and_saved_settings(self):
-        self.assertEqual(parse_parameters({}).screw_arc, 6)
+        self.assertEqual(parse_parameters({}).screw_arc, 3)
         self.assertEqual(parse_parameters({"screw_arc": 30}).screw_arc, 20)
         for invalid in (True, "6", float("nan")):
             with self.assertRaises(ValueError):

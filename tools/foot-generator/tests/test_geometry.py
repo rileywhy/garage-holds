@@ -48,7 +48,7 @@ class FootTests(unittest.TestCase):
                 np.testing.assert_allclose(a.mesh.extents, c.mesh.extents)
 
     def test_scale_without_hardware_is_direct(self):
-        p = replace(PRESETS["board edge"], screws=False)
+        p = replace(PRESETS["Board edge"], screws=False)
         small, large = build(p), build(replace(p, size=200))
         np.testing.assert_allclose(
             large.mesh.extents, small.mesh.extents * 2, rtol=1e-5
@@ -74,7 +74,7 @@ class FootTests(unittest.TestCase):
             for size in (50, 250):
                 m = build(
                     replace(
-                        PRESETS["board edge"],
+                        PRESETS["Board edge"],
                         incut=angle,
                         size=size,
                         screw_count=1,
@@ -84,7 +84,7 @@ class FootTests(unittest.TestCase):
                 self.assertTrue(m.mesh.is_watertight)
 
     def test_ball_auto_screws_scale_both_directions(self):
-        p = PRESETS["ball"]
+        p = PRESETS["Ball"]
         small = build(p)
         large = build(replace(small.parameters, size=150))
         back = build(replace(large.parameters, size=100))
@@ -96,13 +96,13 @@ class FootTests(unittest.TestCase):
     def test_ball_is_spherical_and_rock_is_distinct(self):
         from geometry import body
 
-        p = replace(PRESETS["ball"], screws=False)
+        p = replace(PRESETS["Ball"], screws=False)
         solid, _, _ = body(p, "preview")
         verts = solid.to_mesh().vert_properties[:, :3]
         outer = verts[verts[:, 2] > 0.001]
         radii = np.linalg.norm(outer - [0, 0, p.edge_depth - p.width / 2], axis=1)
         np.testing.assert_allclose(radii, p.width / 2, rtol=1e-5)
-        rock = build(replace(PRESETS["rock tooth"], screws=False))
+        rock = build(replace(PRESETS["Rock tooth"], screws=False))
         self.assertGreater(rock.mesh.extents[2], p.edge_depth)
         self.assertGreater(abs(rock.mesh.bounds[0, 0] + rock.mesh.bounds[1, 0]), 0.1)
 
@@ -138,7 +138,7 @@ class FootTests(unittest.TestCase):
                 self.assertEqual(model.holes, [])
 
     def test_manual_seat_is_used_when_it_fits(self):
-        model = build(replace(PRESETS["board edge"], auto_seat=False, seat_depth=5))
+        model = build(replace(PRESETS["Board edge"], auto_seat=False, seat_depth=5))
         self.assertEqual(model.holes[0].seat, 5)
         self.assertEqual(model.parameters.seat_depth, 5)
 

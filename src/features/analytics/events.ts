@@ -1,6 +1,7 @@
 "use client";
 
 import { track } from "@vercel/analytics";
+import type { LabErrorReason } from "@/features/labs/lab-request";
 
 // The few clicks worth counting. Vercel records the page each one happened
 // on by itself; the properties say which thing was clicked. Names and
@@ -11,7 +12,15 @@ type Event =
   // The labs: an export is the conversion, an error says a generator call
   // failed (cold start, timeout, or a shape it refused) and at which step.
   | { name: "export_stl"; lab: Lab }
-  | { name: "lab_error"; lab: Lab; stage: "start" | "preview" | "export" }
+  | {
+      name: "lab_error";
+      lab: Lab;
+      stage: "start" | "preview" | "export";
+      // Why: a cold start that ran out of time, no connection, a failure in
+      // the generator, settings it refused, no generator at this address,
+      // or a browser without WebGL.
+      reason: LabErrorReason | "webgl";
+    }
   // Settings saved to a file, loaded from one, copied as a link, or opened
   // from a link someone shared.
   | {

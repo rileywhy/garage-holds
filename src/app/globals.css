@@ -3055,13 +3055,99 @@ svg {
   margin: 0;
   text-align: right;
 }
+/* Status and export sit under the viewer, so a failure is read next to the
+   model on every screen instead of two scrolls down on a phone. */
+.lab-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lab-stage-row > .button {
+  flex: 0 0 auto;
+}
 .lab-status {
-  font-size: 11px;
-  color: var(--muted);
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   min-height: 2.6em;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lab-status p {
+  margin: 0;
+  flex: 1 1 200px;
 }
 .lab-status.error {
+  padding: 8px 12px;
+  border: 1px solid var(--error-ink);
+  border-radius: 8px;
+  background: var(--paper);
   color: var(--error-ink);
+}
+.lab-status button {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+/* While the generator wakes up, or when it cannot draw: a note in the box. */
+.lab-viewer {
+  position: relative;
+}
+.lab-viewer-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.lab-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 6px 0;
+}
+.lab-skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--subtle-bg) 25%,
+    var(--line) 50%,
+    var(--subtle-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: lab-shimmer 1.4s linear infinite;
+}
+.lab-skeleton span:nth-child(2n) {
+  width: 70%;
+}
+.lab-skeleton span:nth-child(3n) {
+  height: 28px;
+}
+@keyframes lab-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-skeleton span {
+    animation: none;
+  }
 }
 @media (max-width: 900px) {
   .lab {

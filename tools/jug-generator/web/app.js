@@ -17,7 +17,7 @@ function dirty() {
   sequence++;
   currentDesign = null;
   $("#export").disabled = $("#save-settings").disabled = true;
-  status("updating preview…");
+  status("Updating preview…");
   controller?.abort();
   clearTimeout(timer);
   timer = setTimeout(preview, 180);
@@ -135,7 +135,7 @@ async function preview() {
     );
   } catch (error) {
     if (error.name !== "AbortError" && request === sequence)
-      status(`${error.message} showing the last valid model.`, true);
+      status(`${error.message} Showing the last valid model.`, true);
   }
 }
 
@@ -265,7 +265,7 @@ function createControls() {
         button = document.createElement("button"),
         hint = document.createElement("p");
       label.htmlFor = "seed";
-      label.textContent = "variation seed";
+      label.textContent = "Variation seed";
       input.id = "seed";
       input.type = "number";
       input.min = 0;
@@ -273,7 +273,7 @@ function createControls() {
       input.step = 1;
       input.addEventListener("input", () => variation(input.valueAsNumber));
       button.type = "button";
-      button.textContent = "new variation";
+      button.textContent = "New variation";
       button.addEventListener("click", () =>
         variation(
           (parameters.seed +
@@ -312,7 +312,7 @@ function boardAngle(angle) {
   if (!Number.isFinite(angle) || angle < 0 || angle > 70) return;
   $("#board-angle").value = $("#board-slider").value = angle;
   viewer.setBoardAngle(angle);
-  $("#view-caption").textContent = `mounted on a ${angle}° board`;
+  $("#view-caption").textContent = `Mounted on a ${angle}° board`;
 }
 
 async function main() {
@@ -343,8 +343,8 @@ async function main() {
       $("#board-controls").hidden = button.dataset.view !== "board";
       $("#view-caption").textContent =
         button.dataset.view === "board"
-          ? `mounted on a ${viewer.boardAngle}° board`
-          : "flat back on the wall plane";
+          ? `Mounted on a ${viewer.boardAngle}° board`
+          : "Flat back on the wall plane";
       for (const other of document.querySelectorAll("[data-view]"))
         other.setAttribute("aria-pressed", String(other === button));
     });
@@ -395,14 +395,16 @@ async function main() {
     const snapshot = { ...currentDesign.parameters },
       request = sequence;
     $("#export").disabled = true;
-    status("building a fine STL…");
+    status("Building a fine STL…");
     try {
       download(
         await (await post("/api/stl", snapshot)).blob(),
         `jug-${snapshot.width}mm.stl`,
       );
       if (request === sequence)
-        status("STL downloaded. save settings to keep it editable.");
+        status(
+          "STL downloaded. Save settings or copy the address to come back to this shape.",
+        );
     } catch (error) {
       if (request === sequence) status(error.message, true);
     } finally {
@@ -418,5 +420,5 @@ async function main() {
 }
 
 main().catch((error) =>
-  status(`could not start the preview: ${error.message}`, true),
+  status(`Could not start the preview: ${error.message}`, true),
 );

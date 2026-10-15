@@ -92,10 +92,10 @@ class GeometryTests(unittest.TestCase):
 
     def test_presets_are_larger_without_changing_their_proportions(self):
         previous = {
-            "rounded board sloper": (110, 85, 45, 1.5),
-            "round ball": (95, 95, 78, 120 / 95),
-            "broad sloper": (145, 100, 42, 1.5),
-            "sloping rail": (210, 65, 38, 1.5),
+            "Rounded board sloper": (110, 85, 45, 1.5),
+            "Round ball": (95, 95, 78, 120 / 95),
+            "Broad sloper": (145, 100, 42, 1.5),
+            "Sloping rail": (210, 65, 38, 1.5),
         }
         for name, (width, height, depth, scale) in previous.items():
             with self.subTest(preset=name):
@@ -138,10 +138,10 @@ class GeometryTests(unittest.TestCase):
 
     def test_presets_have_less_positive_contact_than_the_previous_incut(self):
         for name, previous_incut in (
-            ("rounded board sloper", 35),
-            ("round ball", 20),
-            ("broad sloper", 45),
-            ("sloping rail", 40),
+            ("Rounded board sloper", 35),
+            ("Round ball", 20),
+            ("Broad sloper", 45),
+            ("Sloping rail", 40),
         ):
             with self.subTest(preset=name):
                 p = replace(PRESETS[name], screws=False)
@@ -370,7 +370,9 @@ class GeometryTests(unittest.TestCase):
                 self.assertEqual(len(a.screws), p.screw_count if p.screws else 0)
                 if p.screws and p.auto_seat:
                     self.assertGreaterEqual(a.parameters.seat_depth, 3)
-                self.assertTrue(a.adjusted or not p.screws)
+                # Automatic values moving is the feature and is not reported
+                # as an adjustment; either way the fitted settings differ.
+                self.assertTrue(not p.screws or a.parameters != p)
                 # Saved adjusted settings must reproduce exactly the same model.
                 rebuilt = build(a.parameters)
                 self.assertEqual(a.parameters, rebuilt.parameters)

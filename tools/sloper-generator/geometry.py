@@ -323,10 +323,17 @@ def build(requested: Parameters, quality="preview") -> Model:
         mesh = closed_mesh(solid, message)
     else:
         assert_closed(mesh, message)
+    # Only report changes the person did not ask for: an automatic span or
+    # seat landing somewhere is the feature, not an adjustment.
+    automatic = set()
+    if requested.auto_spacing:
+        automatic.add("screw_spacing")
+    if requested.auto_seat:
+        automatic.add("seat_depth")
     adjusted = {
         key: value
         for key, value in asdict(p).items()
-        if value != asdict(requested)[key]
+        if key not in automatic and value != asdict(requested)[key]
     }
     spacing_limit = max(6.0, p.width - p.head_diameter - 4.0)
     return Model(mesh, profile, screws, p, adjusted, bolts, seat_limit, spacing_limit)

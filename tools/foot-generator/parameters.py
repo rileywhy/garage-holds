@@ -46,7 +46,7 @@ def control(key, label, group, low, high, step, unit, help):
 CONTROLS = [
     control(
         "size",
-        "overall scale",
+        "Overall scale",
         "Grip",
         50,
         250,
@@ -56,7 +56,7 @@ CONTROLS = [
     ),
     control(
         "incut",
-        "bite / slope",
+        "Bite / slope",
         "Grip",
         -50,
         60,
@@ -66,7 +66,7 @@ CONTROLS = [
     ),
     control(
         "edge_depth",
-        "toe depth",
+        "Toe depth",
         "Grip",
         6,
         45,
@@ -76,7 +76,7 @@ CONTROLS = [
     ),
     control(
         "lip_radius",
-        "edge rounding",
+        "Edge rounding",
         "Grip",
         0.5,
         14,
@@ -84,10 +84,10 @@ CONTROLS = [
         "mm",
         "A small radius gives a precise edge. More rounding makes it softer and less defined.",
     ),
-    control("width", "width", "Shape", 22, 110, 1, "mm", "Width before overall scale."),
+    control("width", "Width", "Shape", 22, 110, 1, "mm", "Width before overall scale."),
     control(
         "body_height",
-        "body height",
+        "Body height",
         "Shape",
         20,
         240,
@@ -97,7 +97,7 @@ CONTROLS = [
     ),
     control(
         "end_rounding",
-        "rounded ends",
+        "Rounded ends",
         "Shape",
         0,
         100,
@@ -107,7 +107,7 @@ CONTROLS = [
     ),
     control(
         "taper",
-        "toe surface taper",
+        "Toe surface taper",
         "Shape",
         -40,
         60,
@@ -117,7 +117,7 @@ CONTROLS = [
     ),
     control(
         "crown",
-        "surface crown",
+        "Surface crown",
         "Shape",
         0,
         70,
@@ -127,7 +127,7 @@ CONTROLS = [
     ),
     control(
         "character",
-        "asymmetry",
+        "Asymmetry",
         "Shape",
         0,
         1,
@@ -137,7 +137,7 @@ CONTROLS = [
     ),
     control(
         "screw_count",
-        "screw count",
+        "Screw count",
         "Mounting",
         1,
         3,
@@ -147,7 +147,7 @@ CONTROLS = [
     ),
     control(
         "seat_depth",
-        "screw seat",
+        "Screw seat",
         "Mounting",
         2,
         12,
@@ -157,7 +157,7 @@ CONTROLS = [
     ),
     control(
         "shank_diameter",
-        "screw hole",
+        "Screw hole",
         "Mounting",
         3,
         6,
@@ -167,7 +167,7 @@ CONTROLS = [
     ),
     control(
         "head_diameter",
-        "screw head recess",
+        "Screw head recess",
         "Mounting",
         6,
         12,
@@ -177,7 +177,7 @@ CONTROLS = [
     ),
     control(
         "bolt_diameter",
-        "bolt hole",
+        "Bolt hole",
         "Mounting",
         8,
         14,
@@ -187,7 +187,7 @@ CONTROLS = [
     ),
     control(
         "bolt_head_diameter",
-        "bolt head recess",
+        "Bolt head recess",
         "Mounting",
         16,
         30,
@@ -198,9 +198,11 @@ CONTROLS = [
 ]
 BASE = Parameters()
 PRESETS = {
-    "board edge": BASE,
-    "toe-in edge": replace(BASE, incut=55, edge_depth=24, crown=8, taper=25),
-    "neutral chip": replace(
+    "Board edge": BASE,
+    "Toe-in edge": replace(
+        BASE, width=50, body_height=51, incut=55, edge_depth=24.5, crown=8, taper=25
+    ),
+    "Neutral chip": replace(
         BASE,
         width=38,
         body_height=28,
@@ -210,10 +212,10 @@ PRESETS = {
         screw_count=1,
         end_rounding=85,
     ),
-    "slopey wedge": replace(
+    "Slopey wedge": replace(
         BASE, incut=-30, edge_depth=20, lip_radius=6, end_rounding=85, taper=40
     ),
-    "ball": replace(
+    "Ball": replace(
         BASE,
         shape="ball",
         width=36,
@@ -224,7 +226,7 @@ PRESETS = {
         screw_count=1,
         auto_screw_count=True,
     ),
-    "rounded dish": replace(
+    "Rounded dish": replace(
         BASE,
         shape="dish",
         width=48,
@@ -234,7 +236,7 @@ PRESETS = {
         screw_count=1,
         auto_screw_count=True,
     ),
-    "rock tooth": replace(
+    "Rock tooth": replace(
         BASE,
         shape="rock",
         width=50,
@@ -286,7 +288,7 @@ def schema():
         label="Foot Lab",
         defaults=asdict(BASE),
         presets={key: asdict(value) for key, value in PRESETS.items()},
-        shapes={"edge": "edge", "ball": "ball", "rock": "rock tooth", "dish": "dish"},
+        shapes={"edge": "Edge", "ball": "Ball", "rock": "Rock tooth", "dish": "Dish"},
         autoScrewCount=True,
         controls=[
             dict(

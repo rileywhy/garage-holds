@@ -1,6 +1,12 @@
 // The schema is supplied by Python, so limits and defaults have one authority.
 // Sloper, Jug and Foot Labs share this contract and the HoldLab component;
 // only the generator behind /api/<kind> differs.
+import {
+  EXPORT_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+  labRequest,
+} from "@/features/labs/lab-request";
+
 export type Kind = "sloper" | "jug" | "foot";
 export const KIND_LABELS: Record<Kind, string> = {
   sloper: "Sloper",
@@ -81,8 +87,7 @@ export function limitControl(
 export const DESIGN_FILE_LIMIT = 16384;
 
 export async function loadSchema(kind: Kind = "sloper"): Promise<Schema> {
-  const response = await fetch(`/api/${kind}`);
-  if (!response.ok) throw new Error(`${kind} generator is not configured.`);
+  const response = await labRequest(`/api/${kind}`);
   return response.json();
 }
 
@@ -92,22 +97,13 @@ export async function post(
   signal?: AbortSignal,
   kind: Kind = "sloper",
 ) {
-  const response = await fetch(`/api/${kind}`, {
+  return labRequest(`/api/${kind}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, parameters }),
     signal,
+    timeoutMs: action === "stl" ? EXPORT_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
   });
-  if (!response.ok) {
-    let message = "the generator could not complete this request.";
-    try {
-      message = (await response.json()).error || message;
-    } catch {
-      /* Non-JSON failures keep the fallback. */
-    }
-    throw new Error(message);
-  }
-  return response;
 }
 
 export function parseDesignFile(
@@ -124,7 +120,7 @@ export function parseDesignFile(
     typeof design.parameters !== "object" ||
     Array.isArray(design.parameters)
   )
-    throw new Error(`this is not a ${KIND_LABELS[kind]} Lab settings file.`);
+    throw new Error(`This is not a ${KIND_LABELS[kind]} Lab settings file.`);
   return kind === "sloper"
     ? { incut: 0, ...design.parameters }
     : design.parameters;

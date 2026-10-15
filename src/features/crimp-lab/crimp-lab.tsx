@@ -18,6 +18,13 @@ import {
   savedValue,
   type SavedPreset,
 } from "@/features/lab-presets/saved-presets";
+import {
+  LAB_COPY,
+  PREVIEW_DEBOUNCE_MS,
+  labFilename,
+  withInches,
+} from "@/features/labs/conventions";
+import { errorReason } from "@/features/labs/lab-request";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -45,6 +52,8 @@ import {
 } from "./api";
 import { Profile } from "./profile";
 import {
+  VIEW_LABELS,
+  VIEW_ORDER,
   Viewer,
   isDarkTheme,
   type ViewName,
@@ -59,16 +68,14 @@ import { GEAR } from "@/features/gear/gear";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
-const VIEW_LABELS: Record<ViewName, string> = {
-  "three-quarter": "3D",
-  board: "Board preview",
-  side: "Side",
-  "angled-side": "Angled side",
-  top: "Above",
-  front: "Front",
-};
-const DEBOUNCE_MS = 180;
 const CUSTOM = "Custom";
+
+// What the status line says, and the step to try again when it failed.
+interface Status {
+  text: string;
+  error: boolean;
+  retry?: () => void;
+}
 
 // Crimp Lab: sliders on the left, the generated hold on the right; on a
 // phone the hold stays pinned above the sliders. Every change asks
@@ -79,23 +86,27 @@ export function CrimpLab() {
   // Each edit bumps the revision, which is what triggers a preview; the
   // ref holds the latest parameters for that effect to read.
   const [revision, setRevision] = useState(0);
+  // Bumped by Retry after the generator failed to start.
+  const [attempt, setAttempt] = useState(0);
   const latest = useRef<Parameters>({});
   const [preset, setPreset] = useState("");
   const [group, setGroup] = useState<Group>("Grip");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [design, setDesign] = useState<Design | null>(null);
-  const [status, setStatus] = useState({
-    text: "Loading generator…",
+  const [status, setStatus] = useState<Status>({
+    text: LAB_COPY.starting,
     error: false,
   });
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
+  const [viewerFailed, setViewerFailed] = useState(false);
   const viewerBox = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const controller = useRef<AbortController | null>(null);
   const sequence = useRef(0);
   const fitNext = useRef(true);
+  const shown = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
@@ -129,7 +140,7 @@ export function CrimpLab() {
             presetName = link.preset ?? CUSTOM;
             trackEvent({ name: "lab_settings", lab: "crimp", action: "open" });
           } catch (error) {
-            linkNote.current = ` The link's settings could not be applied (${(error as Error).message}), so this is the default crimp.`;
+            linkNote.current = LAB_COPY.linkRefused((error as Error).message);
           }
         }
         if (cancelled) return;
@@ -141,26 +152,51 @@ export function CrimpLab() {
         setPreset(presetName);
       } catch (error) {
         if (cancelled) return;
-        trackEvent({ name: "lab_error", lab: "crimp", stage: "start" });
+        trackEvent({
+          name: "lab_error",
+          lab: "crimp",
+          stage: "start",
+          reason: errorReason(error),
+        });
         setStatus({
-          text: `Could not start the generator: ${(error as Error).message}`,
+          text: (error as Error).message,
           error: true,
+          retry: () => {
+            setStatus({ text: LAB_COPY.starting, error: false });
+            setAttempt((n) => n + 1);
+          },
         });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     const box = viewerBox.current;
     if (!box || viewer.current) return;
-    viewer.current = new Viewer(box, { dark: isDarkTheme() });
+    try {
+      viewer.current = new Viewer(box, { dark: isDarkTheme() });
+    } catch {
+      // No WebGL: the sliders and export still work without a picture.
+      queueMicrotask(() => setViewerFailed(true));
+      trackEvent({
+        name: "lab_error",
+        lab: "crimp",
+        stage: "start",
+        reason: "webgl",
+      });
+    }
     return () => {
       viewer.current?.dispose();
       viewer.current = null;
     };
+  }, []);
+
+  const retryPreview = useCallback(() => {
+    setStatus({ text: LAB_COPY.updating, error: false });
+    setRevision((current) => current + 1);
   }, []);
 
   // Debounced preview after every change; superseded requests are dropped.
@@ -180,6 +216,7 @@ export function CrimpLab() {
         if (request !== sequence.current) return;
         viewer.current?.setGeometry(previewGeometry(data), fitNext.current);
         fitNext.current = false;
+        shown.current = true;
         setPreview(data);
         setDesign(data.design);
         // The generator may have changed a setting to make the shape work;
@@ -232,8 +269,7 @@ export function CrimpLab() {
           text:
             (notes.length
               ? `Preview is current. ${notes.join(" ")}`
-              : "Preview is current. Export builds a finer version of this shape.") +
-            linkNote.current,
+              : LAB_COPY.current) + linkNote.current,
           error: false,
         });
         linkNote.current = "";
@@ -244,16 +280,24 @@ export function CrimpLab() {
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         if (request === sequence.current) {
-          trackEvent({ name: "lab_error", lab: "crimp", stage: "preview" });
+          trackEvent({
+            name: "lab_error",
+            lab: "crimp",
+            stage: "preview",
+            reason: errorReason(error),
+          });
           setStatus({
-            text: `${(error as Error).message} Showing the last valid model.`,
+            text:
+              (error as Error).message +
+              (shown.current ? LAB_COPY.lastValid : ""),
             error: true,
+            retry: retryPreview,
           });
         }
       }
-    }, DEBOUNCE_MS);
+    }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [schema, revision]);
+  }, [schema, revision, retryPreview]);
 
   // Every edit goes through here so the stale design is cleared (export
   // disabled) and the status says a preview is on its way.
@@ -261,7 +305,7 @@ export function CrimpLab() {
     (next: (current: Parameters) => Parameters, presetName = CUSTOM) => {
       setPreset(presetName);
       setDesign(null);
-      setStatus({ text: "Updating preview…", error: false });
+      setStatus({ text: LAB_COPY.updating, error: false });
       latest.current = next(latest.current);
       setParameters(latest.current);
       setRevision((current) => current + 1);
@@ -323,10 +367,7 @@ export function CrimpLab() {
       setPreset(savedValue(name));
       setNaming(false);
       trackEvent({ name: "lab_settings", lab: "crimp", action: "preset" });
-      setStatus({
-        text: `Saved as “${name}”. Presets live in this browser; Copy link or Save settings takes a shape elsewhere.`,
-        error: false,
-      });
+      setStatus({ text: LAB_COPY.presetSaved(name), error: false });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
@@ -337,7 +378,7 @@ export function CrimpLab() {
     const name = savedName(preset);
     setSaved(deletePreset("crimp", name));
     setPreset(CUSTOM);
-    setStatus({ text: `Deleted the preset “${name}”.`, error: false });
+    setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
   }
 
   function reset() {
@@ -383,27 +424,33 @@ export function CrimpLab() {
   }
 
   async function exportStl() {
-    if (!design) return;
+    if (!design || !preview) return;
     const snapshot = { ...design.parameters };
     const request = sequence.current;
     setExporting(true);
-    setStatus({ text: "Building a fine STL…", error: false });
+    setStatus({ text: LAB_COPY.building, error: false });
     try {
       const response = await post("stl", snapshot);
       download(
         await response.blob(),
-        `crimp-${snapshot.edge_depth}mm-${snapshot.incut}deg.stl`,
+        labFilename("crimp", preview.dimensions, "stl"),
       );
       trackEvent({ name: "export_stl", lab: "crimp" });
       if (request === sequence.current)
-        setStatus({
-          text: "STL downloaded. Save settings too if you want to revisit this design.",
-          error: false,
-        });
+        setStatus({ text: LAB_COPY.exported, error: false });
     } catch (error) {
       if (request === sequence.current) {
-        trackEvent({ name: "lab_error", lab: "crimp", stage: "export" });
-        setStatus({ text: (error as Error).message, error: true });
+        trackEvent({
+          name: "lab_error",
+          lab: "crimp",
+          stage: "export",
+          reason: errorReason(error),
+        });
+        setStatus({
+          text: (error as Error).message,
+          error: true,
+          retry: () => void exportStl(),
+        });
       }
     } finally {
       setExporting(false);
@@ -417,18 +464,16 @@ export function CrimpLab() {
     if (copied)
       trackEvent({ name: "lab_settings", lab: "crimp", action: "link" });
     setStatus({
-      text: copied
-        ? "Link copied. Anyone who opens it gets this exact shape."
-        : "Could not reach the clipboard. Copy the address from the address bar instead.",
+      text: copied ? LAB_COPY.linkCopied : LAB_COPY.clipboard,
       error: !copied,
     });
   }
 
   function saveSettings() {
-    if (!design) return;
+    if (!design || !preview) return;
     download(
       new Blob([JSON.stringify(design, null, 2)], { type: "application/json" }),
-      `crimp-${design.parameters.edge_depth}mm.json`,
+      labFilename("crimp", preview.dimensions, "json"),
     );
     trackEvent({ name: "lab_settings", lab: "crimp", action: "save" });
   }
@@ -515,6 +560,7 @@ export function CrimpLab() {
             </button>
           ))}
         </div>
+        {!schema && !status.error && <Skeleton />}
         {schema &&
           GROUPS.map((name) => (
             <div
@@ -752,7 +798,7 @@ export function CrimpLab() {
       </aside>
       <section className="lab-stage" aria-label="Model preview">
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {(Object.keys(VIEW_LABELS) as ViewName[]).map((name) => (
+          {VIEW_ORDER.map((name) => (
             <button
               key={name}
               type="button"
@@ -837,7 +883,16 @@ export function CrimpLab() {
           className="lab-viewer"
           role="img"
           aria-label="Interactive 3D crimp preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view."
-        />
+        >
+          {viewerFailed ? (
+            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
+          ) : (
+            !preview &&
+            !status.error && (
+              <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
+            )
+          )}
+        </div>
         <p className="lab-caption">
           <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
@@ -846,6 +901,31 @@ export function CrimpLab() {
               : "Flat back on the wall plane"}
           </span>
         </p>
+        <div className="lab-stage-row">
+          <div className={`lab-status ${status.error ? "error" : ""}`}>
+            <p role="status" aria-live="polite">
+              {status.text}
+            </p>
+            {status.error && status.retry && (
+              <button type="button" onClick={status.retry}>
+                Retry
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="button button-dark"
+            disabled={!design || exporting}
+            onClick={exportStl}
+          >
+            {exporting ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Download size={16} />
+            )}{" "}
+            Export STL
+          </button>
+        </div>
       </section>
       <div className="lab-details">
         <section className="lab-card">
@@ -853,7 +933,7 @@ export function CrimpLab() {
           {preview ? (
             <Profile data={preview} parameters={parameters} />
           ) : (
-            <p className="small-note">Waiting for the first preview…</p>
+            <p className="small-note">{LAB_COPY.waiting}</p>
           )}
         </section>
         <section className="lab-card">
@@ -863,7 +943,7 @@ export function CrimpLab() {
               <>
                 <Metric
                   label="Dimensions"
-                  value={`${preview.dimensions.join(" × ")} mm`}
+                  value={withInches(preview.dimensions)}
                 />
                 <Metric
                   label="Estimated material"
@@ -910,32 +990,23 @@ export function CrimpLab() {
               </Link>
             </p>
           )}
-          <p
-            className={`lab-status ${status.error ? "error" : ""}`}
-            role="status"
-            aria-live="polite"
-          >
-            {status.text}
-          </p>
-          <button
-            type="button"
-            className="button button-dark"
-            disabled={!design || exporting}
-            onClick={exportStl}
-          >
-            {exporting ? (
-              <LoaderCircle size={16} className="spin" />
-            ) : (
-              <Download size={16} />
-            )}{" "}
-            Export STL
-          </button>
           <p className="small-note">
             Millimetres · flat back · original geometry. Upload it like any
             other design when it has earned a place in the library.
           </p>
         </section>
       </div>
+    </div>
+  );
+}
+
+// Stand-ins for the sliders while the generator wakes up.
+function Skeleton() {
+  return (
+    <div className="lab-skeleton" aria-hidden="true">
+      {Array.from({ length: 7 }, (_, i) => (
+        <span key={i} />
+      ))}
     </div>
   );
 }

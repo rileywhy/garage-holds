@@ -13,6 +13,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import {
+  VIEW_LABELS,
+  VIEW_ORDER,
   Viewer,
   isDarkTheme,
   type ViewName,
@@ -54,22 +56,29 @@ import {
   savedValue,
   type SavedPreset,
 } from "@/features/lab-presets/saved-presets";
+import {
+  LAB_COPY,
+  PREVIEW_DEBOUNCE_MS,
+  labFilename,
+  withInches,
+} from "@/features/labs/conventions";
+import { errorReason } from "@/features/labs/lab-request";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
-const VIEWS: [ViewName, string][] = [
-  ["three-quarter", "3d"],
-  ["board", "board preview"],
-  ["side", "side"],
-  ["angled-side", "angled side"],
-  ["top", "above"],
-  ["front", "front"],
-];
+const CUSTOM = "Custom";
 
 // Each lab gets its own hold colour so the three read as different tools.
 const COLORS: Partial<Record<Kind, number>> = { jug: 0xc2aadf, foot: 0xa9c4ae };
+
+// What the status line says, and the step to try again when it failed.
+interface Status {
+  text: string;
+  error: boolean;
+  retry?: () => void;
+}
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -85,22 +94,26 @@ export function HoldLab({ kind }: { kind: Kind }) {
   const [parameters, setParameters] = useState<Parameters>({});
   const latest = useRef<Parameters>({});
   const [revision, setRevision] = useState(0);
+  // Bumped by Retry after the generator failed to start.
+  const [attempt, setAttempt] = useState(0);
   const [preset, setPreset] = useState("");
   const [group, setGroup] = useState<Group>("Grip");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [design, setDesign] = useState<Design | null>(null);
-  const [status, setStatus] = useState({
-    text: "loading generator…",
+  const [status, setStatus] = useState<Status>({
+    text: LAB_COPY.starting,
     error: false,
   });
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
+  const [viewerFailed, setViewerFailed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const controller = useRef<AbortController | null>(null);
   const sequence = useRef(0);
   const fitNext = useRef(true);
+  const shown = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
@@ -120,7 +133,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
       try {
         const loaded = await loadSchema(kind);
         let start: Parameters = { ...loaded.defaults };
-        let presetName = Object.keys(loaded.presets)[0] ?? "custom";
+        let presetName = Object.keys(loaded.presets)[0] ?? CUSTOM;
         const link = readLink(currentSearch(), loaded.defaults, loaded.presets);
         if (link) {
           try {
@@ -132,10 +145,10 @@ export function HoldLab({ kind }: { kind: Kind }) {
             );
             start = ((await checked.json()) as { parameters: Parameters })
               .parameters;
-            presetName = link.preset ?? "custom";
+            presetName = link.preset ?? CUSTOM;
             trackEvent({ name: "lab_settings", lab: kind, action: "open" });
           } catch (error) {
-            linkNote.current = ` the link's settings could not be applied (${(error as Error).message}), so this is the default.`;
+            linkNote.current = LAB_COPY.linkRefused((error as Error).message);
           }
         }
         if (cancelled) return;
@@ -148,26 +161,54 @@ export function HoldLab({ kind }: { kind: Kind }) {
         setSchema(loaded);
       } catch (error) {
         if (cancelled) return;
-        trackEvent({ name: "lab_error", lab: kind, stage: "start" });
-        setStatus({ text: (error as Error).message, error: true });
+        trackEvent({
+          name: "lab_error",
+          lab: kind,
+          stage: "start",
+          reason: errorReason(error),
+        });
+        setStatus({
+          text: (error as Error).message,
+          error: true,
+          retry: () => {
+            setStatus({ text: LAB_COPY.starting, error: false });
+            setAttempt((n) => n + 1);
+          },
+        });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [kind]);
+  }, [kind, attempt]);
 
   useEffect(() => {
     if (!box.current) return;
-    viewer.current = new Viewer(box.current, {
-      dark: isDarkTheme(),
-      color: COLORS[kind],
-    });
+    try {
+      viewer.current = new Viewer(box.current, {
+        dark: isDarkTheme(),
+        color: COLORS[kind],
+      });
+    } catch {
+      // No WebGL: the sliders and export still work without a picture.
+      queueMicrotask(() => setViewerFailed(true));
+      trackEvent({
+        name: "lab_error",
+        lab: kind,
+        stage: "start",
+        reason: "webgl",
+      });
+    }
     return () => {
       viewer.current?.dispose();
       viewer.current = null;
     };
   }, [kind]);
+
+  const retryPreview = useCallback(() => {
+    setStatus({ text: LAB_COPY.updating, error: false });
+    setRevision((r) => r + 1);
+  }, []);
 
   useEffect(() => {
     if (!schema) return;
@@ -185,6 +226,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
           fitNext.current,
         );
         fitNext.current = false;
+        shown.current = true;
         latest.current = {
           ...data.parameters,
           ...(kind === "jug"
@@ -194,15 +236,15 @@ export function HoldLab({ kind }: { kind: Kind }) {
         setParameters(latest.current);
         setPreview(data);
         setDesign(data.design);
-        const notes = Object.entries(data.adjusted).map(
-          ([key, value]) =>
-            `${schema.controls.find((c) => c.key === key)?.label ?? key}: ${Number(value.toFixed(2))}`,
-        );
+        // The generator only lists settings it had to change against what
+        // was asked for, so a fresh preset reads as current, not adjusted.
+        const notes = Object.entries(data.adjusted).map(([key, value]) => {
+          const control = schema.controls.find((c) => c.key === key);
+          return `${control?.label ?? key} ${Number(value.toFixed(2))}${control?.unit === "°" ? "°" : ` ${control?.unit ?? ""}`}`.trimEnd();
+        });
         setStatus({
           text:
-            (notes.length
-              ? `preview is current. adjusted to fit — ${notes.join("; ")}.`
-              : "preview is current. export builds a finer mesh.") +
+            (notes.length ? LAB_COPY.adjusted(notes) : LAB_COPY.current) +
             linkNote.current,
           error: false,
         });
@@ -216,29 +258,37 @@ export function HoldLab({ kind }: { kind: Kind }) {
           (error as Error).name !== "AbortError" &&
           request === sequence.current
         ) {
-          trackEvent({ name: "lab_error", lab: kind, stage: "preview" });
+          trackEvent({
+            name: "lab_error",
+            lab: kind,
+            stage: "preview",
+            reason: errorReason(error),
+          });
           setStatus({
-            text: `${(error as Error).message} showing the last valid model.`,
+            text:
+              (error as Error).message +
+              (shown.current ? LAB_COPY.lastValid : ""),
             error: true,
+            retry: retryPreview,
           });
         }
       }
-    }, 180);
+    }, PREVIEW_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.current?.abort();
     };
-  }, [schema, revision, kind]);
+  }, [schema, revision, kind, retryPreview]);
 
   const edit = useCallback(
-    (next: (p: Parameters) => Parameters, name = "custom", fit = false) => {
+    (next: (p: Parameters) => Parameters, name = CUSTOM, fit = false) => {
       ++sequence.current;
       controller.current?.abort();
       latest.current = next(latest.current);
       setParameters(latest.current);
       setPreset(name);
       setDesign(null);
-      setStatus({ text: "updating preview…", error: false });
+      setStatus({ text: LAB_COPY.updating, error: false });
       fitNext.current = fitNext.current || fit;
       setRevision((r) => r + 1);
     },
@@ -281,7 +331,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
     if (!file) return;
     try {
       if (file.size > DESIGN_FILE_LIMIT)
-        throw new Error("settings files must be smaller than 16 KB.");
+        throw new Error("Settings files must be smaller than 16 KB.");
       const saved = parseDesignFile(await file.text(), kind);
       const data = (await (
         await post("validate", saved, undefined, kind)
@@ -289,7 +339,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
         parameters: Parameters;
       };
       origin.current = { ...data.parameters };
-      edit(() => data.parameters, "custom", true);
+      edit(() => data.parameters, CUSTOM, true);
       trackEvent({ name: "lab_settings", lab: kind, action: "load" });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
@@ -337,10 +387,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
       setPreset(savedValue(name));
       setNaming(false);
       trackEvent({ name: "lab_settings", lab: kind, action: "preset" });
-      setStatus({
-        text: `saved as “${name}”. presets live in this browser; copy link or save settings takes a shape elsewhere.`,
-        error: false,
-      });
+      setStatus({ text: LAB_COPY.presetSaved(name), error: false });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
@@ -349,8 +396,8 @@ export function HoldLab({ kind }: { kind: Kind }) {
     if (!isSavedValue(preset)) return;
     const name = savedName(preset);
     setSaved(deletePreset(kind, name));
-    setPreset("custom");
-    setStatus({ text: `deleted the preset “${name}”.`, error: false });
+    setPreset(CUSTOM);
+    setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
   }
   async function copyLink() {
     if (!design || !schema) return;
@@ -358,37 +405,51 @@ export function HoldLab({ kind }: { kind: Kind }) {
     const copied = await copyCurrentLink();
     if (copied) trackEvent({ name: "lab_settings", lab: kind, action: "link" });
     setStatus({
-      text: copied
-        ? "link copied. anyone who opens it gets this exact shape."
-        : "could not reach the clipboard. copy the address from the address bar instead.",
+      text: copied ? LAB_COPY.linkCopied : LAB_COPY.clipboard,
       error: !copied,
     });
   }
   async function exportStl() {
-    if (!design) return;
+    if (!design || !preview) return;
     const snapshot = { ...design.parameters },
       request = sequence.current;
     setExporting(true);
-    setStatus({ text: "building a fine STL…", error: false });
+    setStatus({ text: LAB_COPY.building, error: false });
     try {
       download(
         await (await post("stl", snapshot, undefined, kind)).blob(),
-        `${kind}-${snapshot.width}mm.stl`,
+        labFilename(kind, preview.dimensions, "stl"),
       );
       trackEvent({ name: "export_stl", lab: kind });
       if (request === sequence.current)
-        setStatus({
-          text: "STL downloaded. save settings to keep it editable.",
-          error: false,
-        });
+        setStatus({ text: LAB_COPY.exported, error: false });
     } catch (error) {
       if (request === sequence.current) {
-        trackEvent({ name: "lab_error", lab: kind, stage: "export" });
-        setStatus({ text: (error as Error).message, error: true });
+        trackEvent({
+          name: "lab_error",
+          lab: kind,
+          stage: "export",
+          reason: errorReason(error),
+        });
+        setStatus({
+          text: (error as Error).message,
+          error: true,
+          retry: () => void exportStl(),
+        });
       }
     } finally {
       setExporting(false);
     }
+  }
+  function saveSettings() {
+    if (!design || !preview) return;
+    download(
+      new Blob([JSON.stringify(design, null, 2)], {
+        type: "application/json",
+      }),
+      labFilename(kind, preview.dimensions, "json"),
+    );
+    trackEvent({ name: "lab_settings", lab: kind, action: "save" });
   }
 
   const screws = Boolean(parameters.screws);
@@ -396,7 +457,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
     <div className="lab">
       <aside className="lab-controls" aria-label={`${kind} controls`}>
         <label className="lab-field">
-          <span>starting point</span>
+          <span>Starting point</span>
           <select
             value={preset}
             disabled={!schema}
@@ -407,7 +468,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
                 <option key={name}>{name}</option>
               ))}
             {saved.length > 0 && (
-              <optgroup label="my presets">
+              <optgroup label="My presets">
                 {saved.map((p) => (
                   <option key={p.name} value={savedValue(p.name)}>
                     {p.name}
@@ -415,8 +476,8 @@ export function HoldLab({ kind }: { kind: Kind }) {
                 ))}
               </optgroup>
             )}
-            <option value="custom" disabled>
-              custom
+            <option value={CUSTOM} disabled>
+              {CUSTOM}
             </option>
           </select>
         </label>
@@ -449,10 +510,11 @@ export function HoldLab({ kind }: { kind: Kind }) {
                 document.getElementById(`${kind}-tab-${GROUPS[next]}`)?.focus();
               }}
             >
-              {name.toLowerCase()}
+              {name}
             </button>
           ))}
         </div>
+        {!schema && !status.error && <Skeleton />}
         {schema &&
           GROUPS.map((name) => (
             <div
@@ -471,7 +533,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
                       checked={screws}
                       onChange={(e) => change("screws", e.target.checked)}
                     />
-                    mounting holes
+                    Mounting holes
                   </label>
                   <label className="lab-toggle">
                     <input
@@ -480,7 +542,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
                       disabled={!screws}
                       onChange={(e) => change("bolt_mount", e.target.checked)}
                     />
-                    bolt + one screw
+                    Bolt + one screw
                   </label>
                   {Boolean(parameters.bolt_mount) && (
                     <p className="lab-hint">
@@ -499,20 +561,20 @@ export function HoldLab({ kind }: { kind: Kind }) {
                           change("auto_screw_count", e.target.checked)
                         }
                       />
-                      choose the screw count from the size
+                      Choose the screw count from the size
                     </label>
                   )}
                 </>
               )}
               {name === "Shape" && schema.shapes && (
                 <label className="lab-field">
-                  <span>body shape</span>
+                  <span>Body shape</span>
                   <select
                     value={String(parameters.shape)}
                     onChange={(e) =>
                       edit(
                         (p) => ({ ...p, shape: e.target.value }),
-                        "custom",
+                        CUSTOM,
                         true,
                       )
                     }
@@ -536,7 +598,6 @@ export function HoldLab({ kind }: { kind: Kind }) {
                   <ControlRow
                     key={control.key}
                     control={limitControl(control, preview)}
-                    dualUnits={kind === "jug"}
                     value={Number(parameters[control.key])}
                     disabled={name === "Mounting" && !screws}
                     onChange={change}
@@ -577,7 +638,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
               {name === "Shape" && (
                 <div className="lab-seed">
                   <label className="lab-field">
-                    <span>variation seed</span>
+                    <span>Variation seed</span>
                     <div className="lab-seed-row">
                       <input
                         type="number"
@@ -601,7 +662,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
                         }
                       >
                         <Shuffle size={15} />
-                        new variation
+                        New variation
                       </button>
                     </div>
                   </label>
@@ -618,18 +679,9 @@ export function HoldLab({ kind }: { kind: Kind }) {
             className="button button-outline"
             type="button"
             disabled={!design}
-            onClick={() => {
-              if (!design) return;
-              download(
-                new Blob([JSON.stringify(design, null, 2)], {
-                  type: "application/json",
-                }),
-                `${kind}-${design.parameters.width}mm.json`,
-              );
-              trackEvent({ name: "lab_settings", lab: kind, action: "save" });
-            }}
+            onClick={saveSettings}
           >
-            save settings
+            Save settings
           </button>
           <button
             className="button button-outline"
@@ -637,7 +689,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
             disabled={!schema}
             onClick={() => fileInput.current?.click()}
           >
-            load settings
+            Load settings
           </button>
           <button
             className="button button-outline"
@@ -646,7 +698,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
             onClick={copyLink}
             title="Copy a link that opens this exact shape"
           >
-            <Link2 size={15} aria-hidden="true" /> copy link
+            <Link2 size={15} aria-hidden="true" /> Copy link
           </button>
           <button
             className="button button-outline"
@@ -655,7 +707,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
             onClick={startNaming}
             title="Keep this shape in the starting-point menu, in this browser"
           >
-            <Bookmark size={15} aria-hidden="true" /> save as preset
+            <Bookmark size={15} aria-hidden="true" /> Save as preset
           </button>
           {isSavedValue(preset) && !naming && (
             <button
@@ -663,7 +715,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
               type="button"
               onClick={removePreset}
             >
-              delete preset
+              Delete preset
             </button>
           )}
           <input
@@ -686,21 +738,21 @@ export function HoldLab({ kind }: { kind: Kind }) {
               maxLength={40}
               autoFocus
               aria-label="Preset name"
-              placeholder="name this preset"
+              placeholder="Name this preset"
               onChange={(e) => setPresetName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNaming(false);
               }}
             />
             <button type="submit" className="button button-dark">
-              save
+              Save
             </button>
             <button
               className="button button-outline"
               type="button"
               onClick={() => setNaming(false)}
             >
-              cancel
+              Cancel
             </button>
           </form>
         )}
@@ -711,9 +763,9 @@ export function HoldLab({ kind }: { kind: Kind }) {
       </aside>
       <section className="lab-stage" aria-label="Model preview">
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {VIEWS.filter(
-            ([name]) => kind !== "sloper" || name !== "angled-side",
-          ).map(([name, label]) => (
+          {VIEW_ORDER.filter(
+            (name) => kind !== "sloper" || name !== "angled-side",
+          ).map((name) => (
             <button
               type="button"
               key={name}
@@ -723,7 +775,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
                 viewer.current?.setView(name);
               }}
             >
-              {label}
+              {VIEW_LABELS[name]}
             </button>
           ))}
           <button
@@ -748,16 +800,16 @@ export function HoldLab({ kind }: { kind: Kind }) {
             title="Fit the whole hold in view (0)"
             onClick={() => viewer.current?.fit()}
           >
-            fit view
+            Fit view
           </button>
           <button type="button" disabled={!schema} onClick={reset}>
             <RotateCcw size={13} />
-            reset
+            Reset
           </button>
         </div>
         {view === "board" && (
           <div className="lab-board-controls">
-            <label htmlFor={`${kind}-board-angle`}>board angle</label>
+            <label htmlFor={`${kind}-board-angle`}>Board angle</label>
             <input
               id={`${kind}-board-angle`}
               type="number"
@@ -785,9 +837,9 @@ export function HoldLab({ kind }: { kind: Kind }) {
               type="button"
               onClick={() => viewer.current?.setBoardSideView()}
             >
-              exact side
+              Exact side
             </button>
-            <p>from vertical · 0° is upright</p>
+            <p>From vertical · 0° is upright</p>
           </div>
         )}
         <div
@@ -795,74 +847,35 @@ export function HoldLab({ kind }: { kind: Kind }) {
           className="lab-viewer"
           role="img"
           aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view.`}
-        />
+        >
+          {viewerFailed ? (
+            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
+          ) : (
+            !preview &&
+            !status.error && (
+              <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
+            )
+          )}
+        </div>
         <p className="lab-caption">
-          <span>drag to rotate · scroll or pinch to zoom · + − keys</span>
+          <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
             {view === "board"
-              ? `mounted on a ${boardAngle}° board`
-              : "flat back on the wall plane"}
+              ? `Mounted on a ${boardAngle}° board`
+              : "Flat back on the wall plane"}
           </span>
         </p>
-      </section>
-      <div className="lab-details">
-        <section className="lab-card">
-          <h3>side profile</h3>
-          {preview ? (
-            <Profile data={preview} kind={kind} />
-          ) : (
-            <p className="small-note">waiting for the first preview…</p>
-          )}
-        </section>
-        <section className="lab-card">
-          <h3>your model</h3>
-          <dl className="lab-metrics">
-            {preview && (
-              <>
-                <Metric
-                  label="dimensions"
-                  value={`${preview.dimensions.join(" × ")} mm${kind === "jug" ? ` · ${preview.dimensions.map((mm) => (mm / 25.4).toFixed(2)).join(" × ")} in` : ""}`}
-                />
-                <Metric
-                  label="estimated material"
-                  value={`≈ ${preview.material_grams.join("–")} g`}
-                />
-                <Metric
-                  label="mesh"
-                  value={`${preview.triangles.toLocaleString()} triangles · closed`}
-                />
-                <Metric
-                  label="screw holes"
-                  value={String(preview.screws.length)}
-                />
-                {(preview.bolts?.length ?? 0) > 0 && (
-                  <Metric
-                    label="bolt holes"
-                    value={String(preview.bolts?.length)}
-                  />
-                )}
-                <Metric
-                  label="seat above wall"
-                  value={`${preview.parameters.seat_depth} mm${kind === "jug" ? ` · ${(Number(preview.parameters.seat_depth) / 25.4).toFixed(2)} in` : ""}`}
-                />
-              </>
+        <div className="lab-stage-row">
+          <div className={`lab-status ${status.error ? "error" : ""}`}>
+            <p role="status" aria-live="polite">
+              {status.text}
+            </p>
+            {status.error && status.retry && (
+              <button type="button" onClick={status.retry}>
+                Retry
+              </button>
             )}
-          </dl>
-          <p className="small-note">
-            25–40% infill · <GearLink item={GEAR.petg}>PETG</GearLink> at 1.27
-            g/cm³ · estimated 1.6 mm shell. Excludes supports and waste; check
-            your slicer.{" "}
-            <Link href="/how-to-3d-print-climbing-holds#settings">
-              How we print holds.
-            </Link>
-          </p>
-          <p
-            className={`lab-status ${status.error ? "error" : ""}`}
-            role="status"
-            aria-live="polite"
-          >
-            {status.text}
-          </p>
+          </div>
           <button
             className="button button-dark"
             type="button"
@@ -874,10 +887,80 @@ export function HoldLab({ kind }: { kind: Kind }) {
             ) : (
               <Download size={16} />
             )}
-            export STL
+            Export STL
           </button>
+        </div>
+      </section>
+      <div className="lab-details">
+        <section className="lab-card">
+          <h3>Side profile</h3>
+          {preview ? (
+            <Profile data={preview} kind={kind} />
+          ) : (
+            <p className="small-note">{LAB_COPY.waiting}</p>
+          )}
+        </section>
+        <section className="lab-card">
+          <h3>Your model</h3>
+          <dl className="lab-metrics">
+            {preview ? (
+              <>
+                <Metric
+                  label="Dimensions"
+                  value={withInches(preview.dimensions)}
+                />
+                <Metric
+                  label="Estimated material"
+                  value={`≈ ${preview.material_grams.join("–")} g`}
+                />
+                <Metric
+                  label="Mesh"
+                  value={`${preview.triangles.toLocaleString()} triangles · closed`}
+                />
+                <Metric
+                  label="Screw holes"
+                  value={String(preview.screws.length)}
+                />
+                {(preview.bolts?.length ?? 0) > 0 && (
+                  <Metric
+                    label="Bolt holes"
+                    value={String(preview.bolts?.length)}
+                  />
+                )}
+                <Metric
+                  label="Seat above wall"
+                  value={`${preview.parameters.seat_depth} mm`}
+                />
+              </>
+            ) : (
+              <Metric label="Mesh" value="Preparing…" />
+            )}
+          </dl>
+          <p className="small-note">
+            25–40% infill · <GearLink item={GEAR.petg}>PETG</GearLink> at 1.27
+            g/cm³ · estimated 1.6 mm shell. Excludes supports and waste; check
+            your slicer.{" "}
+            <Link href="/how-to-3d-print-climbing-holds#settings">
+              How we print holds.
+            </Link>
+          </p>
+          <p className="small-note">
+            Millimetres · flat back · original geometry. Upload it like any
+            other design when it has earned a place in the library.
+          </p>
         </section>
       </div>
+    </div>
+  );
+}
+
+// Stand-ins for the sliders while the generator wakes up.
+function Skeleton() {
+  return (
+    <div className="lab-skeleton" aria-hidden="true">
+      {Array.from({ length: 7 }, (_, i) => (
+        <span key={i} />
+      ))}
     </div>
   );
 }
@@ -887,11 +970,9 @@ function ControlRow({
   value,
   disabled,
   onChange,
-  dualUnits,
   onReset,
 }: {
   control: Control;
-  dualUnits: boolean;
   onReset: () => void;
   value: number;
   disabled: boolean;
@@ -939,16 +1020,13 @@ function ControlRow({
         min={control.min}
         max={control.max}
         step={control.step}
-        value={value}
+        value={Number.isFinite(value) ? value : control.min}
         disabled={disabled}
         aria-label={`${control.label} slider`}
         aria-describedby={`${id}-hint`}
         onChange={(e) => handle(e.target.valueAsNumber)}
         onDoubleClick={onReset}
       />
-      {dualUnits && control.unit === "mm" && (
-        <p className="lab-hint">{(value / 25.4).toFixed(2)} in</p>
-      )}
       <p className="lab-hint" id={`${id}-hint`}>
         {control.help}
       </p>

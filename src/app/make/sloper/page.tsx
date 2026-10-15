@@ -14,8 +14,8 @@ export default function SloperLabPage() {
     <main className="main-container lab-page">
       <LabNav current="sloper" />
       <div className="page-intro">
-        <p className="eyebrow">shape your next sloper</p>
-        <h1>sloper lab</h1>
+        <p className="eyebrow">SHAPE YOUR NEXT SLOPER</p>
+        <h1>Sloper Lab</h1>
         <p>Start rounded. Find your curve and slope, then export an STL.</p>
       </div>
       <SloperLab />

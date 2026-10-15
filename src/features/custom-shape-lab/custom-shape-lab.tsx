@@ -1,7 +1,24 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
+import {
+  VIEW_LABELS,
+  VIEW_ORDER,
+  Viewer,
+  isDarkTheme,
+} from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
+import {
+  LAB_COPY,
+  PREVIEW_DEBOUNCE_MS,
+  labFilename,
+  meshExtents,
+  withInches,
+} from "@/features/labs/conventions";
+import {
+  EXPORT_TIMEOUT_MS,
+  errorReason,
+  labRequest,
+} from "@/features/labs/lab-request";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -63,14 +80,6 @@ const endpoint =
     ? "/api/custom-shape"
     : "/api/custom_shape";
 type Tool = "brush" | "eraser" | "hole";
-const VIEWS: [ViewName, string][] = [
-  ["three-quarter", "3d"],
-  ["board", "board preview"],
-  ["side", "side"],
-  ["angled-side", "angled side"],
-  ["top", "above"],
-  ["front", "front"],
-];
 export function CustomShapeLab() {
   const canvas = useRef<HTMLCanvasElement>(null),
     container = useRef<HTMLDivElement>(null),
@@ -95,8 +104,12 @@ export function CustomShapeLab() {
     [brush, setBrush] = useState(30),
     [eraser, setEraser] = useState(30);
   const [parameters, setParameters] = useState(defaults),
-    [message, setMessage] = useState("Preparing preview…"),
+    [message, setMessage] = useState(LAB_COPY.firstPreview),
     [notice, setNotice] = useState("");
+  // The step to try again after the generator failed, shown as a button.
+  const [retry, setRetry] = useState<(() => void) | null>(null);
+  // The hold's bounding box, for the status line and the export filename.
+  const [extents, setExtents] = useState<number[] | null>(null);
   const [ready, setReady] = useState(false),
     [exporting, setExporting] = useState(false),
     [viewerFailed, setViewerFailed] = useState(false);
@@ -205,7 +218,14 @@ export function CustomShapeLab() {
         dark: isDarkTheme(),
       });
     } catch {
+      // No WebGL: drawing and export still work without a picture.
       queueMicrotask(() => setViewerFailed(true));
+      trackEvent({
+        name: "lab_error",
+        lab: "custom-shape",
+        stage: "start",
+        reason: "webgl",
+      });
     }
     return () => {
       viewer.current?.dispose();
@@ -284,9 +304,10 @@ export function CustomShapeLab() {
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setMessage("Updating preview…");
+      setMessage(LAB_COPY.updating);
+      setRetry(null);
       try {
-        const response = await fetch(endpoint, {
+        const response = await labRequest(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -297,25 +318,34 @@ export function CustomShapeLab() {
           signal: controller.signal,
         });
         const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error ?? "Could not generate the hold.");
         if (controller.signal.aborted || active.current?.changed) return;
         viewer.current?.setGeometry(previewGeometry(data), revision === 0);
+        const size = meshExtents(data.vertices);
+        setExtents(size);
         setReady(true);
         setFittedSeat(data.seatDepth);
-        setMessage(`Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`);
+        setMessage(
+          `Preview is current · ${withInches(size)} · ${data.volume_cm3} cm³`,
+        );
         void writeLink();
       } catch (error) {
         if (!controller.signal.aborted) {
+          trackEvent({
+            name: "lab_error",
+            lab: "custom-shape",
+            stage: "preview",
+            reason: errorReason(error),
+          });
           setReady(false);
           setMessage(
             error instanceof Error
               ? error.message
               : "Could not generate preview.",
           );
+          setRetry(() => () => setRevision((r) => r + 1));
         }
       }
-    }, 450);
+    }, PREVIEW_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -472,8 +502,10 @@ export function CustomShapeLab() {
   }
   async function download() {
     setExporting(true);
+    setMessage(LAB_COPY.building);
+    setRetry(null);
     try {
-      const response = await fetch(endpoint, {
+      const response = await labRequest(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -481,18 +513,29 @@ export function CustomShapeLab() {
           document: serializeDocument(drawing.current),
           parameters,
         }),
+        timeoutMs: EXPORT_TIMEOUT_MS,
       });
-      if (!response.ok) throw new Error((await response.json()).error);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = "custom-shape.stl";
+      link.download = labFilename(
+        "custom-shape",
+        extents ?? [parameters.scale, parameters.scale, parameters.depth],
+        "stl",
+      );
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       trackEvent({ name: "export_stl", lab: "custom-shape" });
+      setMessage(LAB_COPY.exported);
     } catch (error) {
-      trackEvent({ name: "lab_error", lab: "custom-shape", stage: "export" });
-      setNotice(error instanceof Error ? error.message : "Export failed.");
+      trackEvent({
+        name: "lab_error",
+        lab: "custom-shape",
+        stage: "export",
+        reason: errorReason(error),
+      });
+      setMessage(error instanceof Error ? error.message : "Export failed.");
+      setRetry(() => download);
     } finally {
       setExporting(false);
     }
@@ -665,7 +708,7 @@ export function CustomShapeLab() {
         aria-label="Generated hold"
       >
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {VIEWS.map(([name, label]) => (
+          {VIEW_ORDER.map((name) => (
             <button
               type="button"
               key={name}
@@ -675,7 +718,7 @@ export function CustomShapeLab() {
                 viewer.current?.setView(name);
               }}
             >
-              {label}
+              {VIEW_LABELS[name]}
             </button>
           ))}
           <button
@@ -700,7 +743,7 @@ export function CustomShapeLab() {
             title="Fit the whole hold in view (0)"
             onClick={() => viewer.current?.fit()}
           >
-            fit view
+            Fit view
           </button>
           <button
             type="button"
@@ -712,12 +755,12 @@ export function CustomShapeLab() {
             }}
           >
             <RotateCcw size={13} />
-            reset view
+            Reset view
           </button>
         </div>
         {view === "board" && (
           <div className="lab-board-controls">
-            <label htmlFor="custom-shape-board-angle">board angle</label>
+            <label htmlFor="custom-shape-board-angle">Board angle</label>
             <input
               id="custom-shape-board-angle"
               type="number"
@@ -745,9 +788,9 @@ export function CustomShapeLab() {
               type="button"
               onClick={() => viewer.current?.setBoardSideView()}
             >
-              exact side
+              Exact side
             </button>
-            <p>from vertical · 0° is upright</p>
+            <p>From vertical · 0° is upright</p>
           </div>
         )}
         <div
@@ -756,19 +799,19 @@ export function CustomShapeLab() {
           role="img"
           aria-label="Interactive 3D hold preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view."
         >
-          {viewerFailed && (
-            <p>
-              3D viewing is unavailable in this browser. Validated STL export
-              remains available.
-            </p>
+          {viewerFailed ? (
+            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
+          ) : (
+            !extents &&
+            !retry && <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
           )}
         </div>
         <p className="lab-caption">
-          <span>drag to rotate · scroll or pinch to zoom · + − keys</span>
+          <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
           <span>
             {view === "board"
-              ? `mounted on a ${boardAngle}° board`
-              : "flat back on the wall plane"}
+              ? `Mounted on a ${boardAngle}° board`
+              : "Flat back on the wall plane"}
           </span>
         </p>
         <div className={styles.controlScroll}>
@@ -944,11 +987,20 @@ export function CustomShapeLab() {
               </p>
             </div>
           ))}
-          <p className={styles.status} role="status">
-            {!ready && message.startsWith("Preview is current")
-              ? "Updating preview…"
-              : message}
-          </p>
+          <div
+            className={`lab-status ${retry ? "error" : ""} ${styles.status}`}
+          >
+            <p role="status" aria-live="polite">
+              {!ready && message.startsWith("Preview is current")
+                ? LAB_COPY.updating
+                : message}
+            </p>
+            {retry && (
+              <button type="button" onClick={retry}>
+                Retry
+              </button>
+            )}
+          </div>
           <div className={styles.actions}>
             <button
               className="button button-dark"
@@ -956,7 +1008,7 @@ export function CustomShapeLab() {
               disabled={!ready || exporting}
               onClick={download}
             >
-              {exporting ? "Exporting…" : "Download STL"}
+              {exporting ? "Exporting…" : "Export STL"}
             </button>
             <button
               className="button button-outline"

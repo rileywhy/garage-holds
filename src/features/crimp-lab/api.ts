@@ -1,5 +1,10 @@
 // The hosted generator's contract (api/crimp.py). The schema is fetched at
 // load so Python stays the one source of limits, defaults, and presets.
+import {
+  EXPORT_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+  labRequest,
+} from "@/features/labs/lab-request";
 
 export interface Control {
   key: string;
@@ -80,8 +85,7 @@ export function limitControl(
 export const DESIGN_FILE_LIMIT = 16384;
 
 export async function loadSchema(): Promise<Schema> {
-  const response = await fetch("/api/crimp");
-  if (!response.ok) throw new Error("Could not load the generator.");
+  const response = await labRequest("/api/crimp");
   return response.json();
 }
 
@@ -90,22 +94,13 @@ export async function post(
   parameters: Parameters,
   signal?: AbortSignal,
 ) {
-  const response = await fetch("/api/crimp", {
+  return labRequest("/api/crimp", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, parameters }),
     signal,
+    timeoutMs: action === "stl" ? EXPORT_TIMEOUT_MS : REQUEST_TIMEOUT_MS,
   });
-  if (!response.ok) {
-    let message = "The generator could not complete this request.";
-    try {
-      message = (await response.json()).error || message;
-    } catch {
-      // Not JSON: keep the generic message.
-    }
-    throw new Error(message);
-  }
-  return response;
 }
 
 // A settings file saved by this page or by the local tool.

@@ -204,7 +204,7 @@ CONTROLS.extend(
     [
         dict(
             key="bolt_diameter",
-            label="bolt hole diameter",
+            label="Bolt hole diameter",
             group="Mounting",
             min=8,
             max=14,
@@ -214,7 +214,7 @@ CONTROLS.extend(
         ),
         dict(
             key="bolt_head_diameter",
-            label="bolt head recess diameter",
+            label="Bolt head recess diameter",
             group="Mounting",
             min=16,
             max=30,
