@@ -9,10 +9,20 @@ import {
   readLink,
   replaceSearch,
 } from "@/features/lab-link/lab-link";
+import {
+  deletePreset,
+  isSavedValue,
+  loadSavedPresets,
+  savePreset,
+  savedName,
+  savedValue,
+  type SavedPreset,
+} from "@/features/lab-presets/saved-presets";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Bookmark,
   Download,
   Link2,
   LoaderCircle,
@@ -87,6 +97,10 @@ export function CrimpLab() {
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
+  // Presets saved in this browser, and the small form that names a new one.
+  const [saved, setSaved] = useState<SavedPreset[]>([]);
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState("");
 
   // Load the schema, then the settings a shared link asks for, so the first
   // preview is already the shared shape rather than the default.
@@ -116,6 +130,7 @@ export function CrimpLab() {
         if (cancelled) return;
         latest.current = start;
         setParameters(start);
+        setSaved(loadSavedPresets("crimp"));
         setSchema(loaded);
         setPreset(presetName);
       } catch (error) {
@@ -174,22 +189,27 @@ export function CrimpLab() {
           typeof data.design.parameters.seat_depth === "number"
             ? { seat_depth: data.design.parameters.seat_depth }
             : {};
-        const changed = Object.keys(data.adjusted);
-        if (
-          changed.length ||
-          Object.keys(autoSpan).length ||
-          Object.keys(autoSeat).length ||
-          Object.keys(fittedSeat).length
-        ) {
-          latest.current = {
-            ...latest.current,
-            ...data.adjusted,
-            ...autoSpan,
-            ...autoSeat,
-            ...fittedSeat,
-          };
+        const next: Parameters = {
+          ...latest.current,
+          ...data.adjusted,
+          ...autoSpan,
+          ...autoSeat,
+          ...fittedSeat,
+        };
+        // The sliders follow every fitted value, but the menu only drops
+        // to Custom when something other than an automatic value moved:
+        // the fitted span and seat are results of the preset, not edits.
+        const derived = new Set<string>([
+          ...(latest.current.auto_spacing ? ["screw_spacing"] : []),
+          ...(latest.current.auto_seat ? ["seat_depth"] : []),
+        ]);
+        const moved = Object.keys(next).filter(
+          (key) => next[key] !== latest.current[key],
+        );
+        if (moved.length) {
+          latest.current = next;
           setParameters(latest.current);
-          setPreset(CUSTOM);
+          if (moved.some((key) => !derived.has(key))) setPreset(CUSTOM);
         }
         const notes = [
           data.adjusted.body_height !== undefined
@@ -252,8 +272,61 @@ export function CrimpLab() {
 
   function applyPreset(name: string) {
     if (!schema) return;
+    if (isSavedValue(name)) {
+      applySavedPreset(savedName(name));
+      return;
+    }
     fitNext.current = true;
     edit(() => ({ ...(schema.presets[name] ?? schema.defaults) }), name);
+  }
+
+  // A saved preset goes through the generator's validation first, so one
+  // saved before a control changed still opens cleanly.
+  async function applySavedPreset(name: string) {
+    const found = saved.find((p) => p.name === name);
+    if (!schema || !found) return;
+    try {
+      const checked = await post("validate", {
+        ...schema.defaults,
+        ...(found.parameters as Parameters),
+      });
+      const data = (await checked.json()) as { parameters: Parameters };
+      fitNext.current = true;
+      edit(() => data.parameters, savedValue(name));
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
+  }
+
+  function startNaming() {
+    setPresetName(isSavedValue(preset) ? savedName(preset) : "");
+    setNaming(true);
+  }
+
+  function saveAsPreset(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const list = savePreset("crimp", presetName, latest.current);
+      const name = list[0].name;
+      setSaved(list);
+      setPreset(savedValue(name));
+      setNaming(false);
+      trackEvent({ name: "lab_settings", lab: "crimp", action: "preset" });
+      setStatus({
+        text: `Saved as “${name}”. Presets live in this browser; Copy link or Save settings takes a shape elsewhere.`,
+        error: false,
+      });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
+  }
+
+  function removePreset() {
+    if (!isSavedValue(preset)) return;
+    const name = savedName(preset);
+    setSaved(deletePreset("crimp", name));
+    setPreset(CUSTOM);
+    setStatus({ text: `Deleted the preset “${name}”.`, error: false });
   }
 
   function reset() {
@@ -384,6 +457,15 @@ export function CrimpLab() {
                   {name}
                 </option>
               ))}
+            {saved.length > 0 && (
+              <optgroup label="My presets">
+                {saved.map((p) => (
+                  <option key={p.name} value={savedValue(p.name)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             <option value={CUSTOM} disabled>
               {CUSTOM}
             </option>
@@ -577,6 +659,24 @@ export function CrimpLab() {
           >
             <Link2 size={15} aria-hidden="true" /> Copy link
           </button>
+          <button
+            type="button"
+            className="button button-outline"
+            disabled={!design || naming}
+            onClick={startNaming}
+            title="Keep this shape in the starting-point menu, in this browser"
+          >
+            <Bookmark size={15} aria-hidden="true" /> Save as preset
+          </button>
+          {isSavedValue(preset) && !naming && (
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={removePreset}
+            >
+              Delete preset
+            </button>
+          )}
           <input
             ref={fileInput}
             type="file"
@@ -589,6 +689,32 @@ export function CrimpLab() {
             }}
           />
         </div>
+        {naming && (
+          <form className="lab-preset-form" onSubmit={saveAsPreset}>
+            <input
+              type="text"
+              value={presetName}
+              maxLength={40}
+              autoFocus
+              aria-label="Preset name"
+              placeholder="Name this preset"
+              onChange={(event) => setPresetName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setNaming(false);
+              }}
+            />
+            <button type="submit" className="button button-dark">
+              Save
+            </button>
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={() => setNaming(false)}
+            >
+              Cancel
+            </button>
+          </form>
+        )}
         <p className="small-note">
           Geometry prototype. Mesh checks confirm a closed shape, not a printed
           hold’s strength.

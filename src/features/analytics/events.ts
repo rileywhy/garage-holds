@@ -17,7 +17,7 @@ type Event =
   | {
       name: "lab_settings";
       lab: Lab;
-      action: "save" | "load" | "link" | "open";
+      action: "save" | "load" | "link" | "open" | "preset";
     }
   // The library.
   | { name: "publish_design"; hold: string; files: number; photos: number }

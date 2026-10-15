@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Bookmark,
   Download,
   Link2,
   LoaderCircle,
@@ -42,6 +43,15 @@ import {
   readLink,
   replaceSearch,
 } from "@/features/lab-link/lab-link";
+import {
+  deletePreset,
+  isSavedValue,
+  loadSavedPresets,
+  savePreset,
+  savedName,
+  savedValue,
+  type SavedPreset,
+} from "@/features/lab-presets/saved-presets";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
@@ -92,6 +102,10 @@ export function HoldLab({ kind }: { kind: Kind }) {
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown with the first preview when a shared link's settings were refused.
   const linkNote = useRef("");
+  // Presets saved in this browser, and the small form that names a new one.
+  const [saved, setSaved] = useState<SavedPreset[]>([]);
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState("");
 
   // Load the schema, then the settings a shared link asks for, so the first
   // preview is already the shared shape rather than the default.
@@ -122,6 +136,8 @@ export function HoldLab({ kind }: { kind: Kind }) {
         if (cancelled) return;
         latest.current = start;
         setParameters(start);
+        setSaved(loadSavedPresets(kind));
+        setNaming(false);
         setPreset(presetName);
         setSchema(loaded);
       } catch (error) {
@@ -271,6 +287,61 @@ export function HoldLab({ kind }: { kind: Kind }) {
       setStatus({ text: (error as Error).message, error: true });
     }
   }
+  function applyPreset(name: string) {
+    if (!schema) return;
+    if (isSavedValue(name)) {
+      applySavedPreset(savedName(name));
+      return;
+    }
+    edit(() => ({ ...schema.presets[name] }), name, true);
+  }
+  // A saved preset goes through the generator's validation first, so one
+  // saved before a control changed still opens cleanly.
+  async function applySavedPreset(name: string) {
+    const found = saved.find((p) => p.name === name);
+    if (!schema || !found) return;
+    try {
+      const data = (await (
+        await post(
+          "validate",
+          { ...schema.defaults, ...found.parameters },
+          undefined,
+          kind,
+        )
+      ).json()) as { parameters: Parameters };
+      edit(() => data.parameters, savedValue(name), true);
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
+  }
+  function startNaming() {
+    setPresetName(isSavedValue(preset) ? savedName(preset) : "");
+    setNaming(true);
+  }
+  function saveAsPreset(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const list = savePreset(kind, presetName, latest.current);
+      const name = list[0].name;
+      setSaved(list);
+      setPreset(savedValue(name));
+      setNaming(false);
+      trackEvent({ name: "lab_settings", lab: kind, action: "preset" });
+      setStatus({
+        text: `saved as “${name}”. presets live in this browser; copy link or save settings takes a shape elsewhere.`,
+        error: false,
+      });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
+  }
+  function removePreset() {
+    if (!isSavedValue(preset)) return;
+    const name = savedName(preset);
+    setSaved(deletePreset(kind, name));
+    setPreset("custom");
+    setStatus({ text: `deleted the preset “${name}”.`, error: false });
+  }
   async function copyLink() {
     if (!design || !schema) return;
     replaceSearch(linkSearch(latest.current, schema.defaults, schema.presets));
@@ -319,15 +390,21 @@ export function HoldLab({ kind }: { kind: Kind }) {
           <select
             value={preset}
             disabled={!schema}
-            onChange={(event) => {
-              const name = event.target.value;
-              if (schema) edit(() => ({ ...schema.presets[name] }), name, true);
-            }}
+            onChange={(event) => applyPreset(event.target.value)}
           >
             {schema &&
               Object.keys(schema.presets).map((name) => (
                 <option key={name}>{name}</option>
               ))}
+            {saved.length > 0 && (
+              <optgroup label="my presets">
+                {saved.map((p) => (
+                  <option key={p.name} value={savedValue(p.name)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             <option value="custom" disabled>
               custom
             </option>
@@ -544,6 +621,24 @@ export function HoldLab({ kind }: { kind: Kind }) {
           >
             <Link2 size={15} aria-hidden="true" /> copy link
           </button>
+          <button
+            className="button button-outline"
+            type="button"
+            disabled={!design || naming}
+            onClick={startNaming}
+            title="Keep this shape in the starting-point menu, in this browser"
+          >
+            <Bookmark size={15} aria-hidden="true" /> save as preset
+          </button>
+          {isSavedValue(preset) && !naming && (
+            <button
+              className="button button-outline"
+              type="button"
+              onClick={removePreset}
+            >
+              delete preset
+            </button>
+          )}
           <input
             ref={fileInput}
             type="file"
@@ -556,6 +651,32 @@ export function HoldLab({ kind }: { kind: Kind }) {
             }}
           />
         </div>
+        {naming && (
+          <form className="lab-preset-form" onSubmit={saveAsPreset}>
+            <input
+              type="text"
+              value={presetName}
+              maxLength={40}
+              autoFocus
+              aria-label="Preset name"
+              placeholder="name this preset"
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setNaming(false);
+              }}
+            />
+            <button type="submit" className="button button-dark">
+              save
+            </button>
+            <button
+              className="button button-outline"
+              type="button"
+              onClick={() => setNaming(false)}
+            >
+              cancel
+            </button>
+          </form>
+        )}
         <p className="small-note">
           Geometry prototype. Mesh checks confirm a closed shape, not a printed
           hold’s strength.

@@ -2840,6 +2840,23 @@ svg {
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
+/* Naming a preset: one text field and two buttons under the settings row. */
+.lab-preset-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lab-preset-form input[type="text"] {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid var(--input-line);
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: var(--subtle-bg);
+  color: var(--ink);
+  font-size: 12px;
+}
 .lab-stage {
   display: flex;
   flex-direction: column;
