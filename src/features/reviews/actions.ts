@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  ACCOUNTS_NOT_CONFIGURED,
+  isSupabaseConfigured,
+} from "@/lib/supabase/config";
 import { getUserId } from "@/features/holds/repository";
 import { validateReview } from "@/features/holds/validation";
 import { optionalNumber } from "@/lib/form-data";
@@ -28,6 +32,8 @@ export async function submitReview(
   };
   const errors = validateReview(input);
   if (errors.length) return { errors, saved: false };
+  if (!isSupabaseConfigured())
+    return { errors: [ACCOUNTS_NOT_CONFIGURED], saved: false };
 
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);

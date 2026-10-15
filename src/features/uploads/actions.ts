@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -180,6 +181,8 @@ export async function finalizeDesign(
   designId: string,
   phonePhotoIds: string[] = [],
 ): Promise<FinalizeResult> {
+  if (!isR2Configured() || !isSupabaseAdminConfigured())
+    return { errors: ["Uploads aren't configured in this environment yet."] };
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return { errors: ["Sign in to publish a design."] };
@@ -300,6 +303,7 @@ async function warnWhenNearLimit(
 // a failed attempt leaves nothing behind. Only the owner's own draft can go;
 // published designs are never touched here.
 export async function abandonDraft(designId: string): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return;

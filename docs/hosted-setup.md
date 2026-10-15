@@ -128,6 +128,12 @@ Google Cloud console, in the project you intend to use.
    - Authorized redirect URIs: the Supabase callback URL from above
      (`https://<project-ref>.supabase.co/auth/v1/callback`). Not the app's own
      `/auth/callback`; Supabase talks to Google, then redirects to the app.
+   - The app's `/auth/callback` builds its final redirect from the request's
+     `Origin`, `x-forwarded-host` and `Host` headers (`src/lib/request-origin.ts`).
+     Vercel sets those from the real request, so they are safe here; on a host
+     that passes client headers through unchecked they would become a
+     header-controlled redirect target, and the origin should come from
+     `NEXT_PUBLIC_SITE_URL` instead.
    - Copy the Client ID and Client Secret into the Supabase Google provider.
 
 ## Migrations and the Supabase CLI

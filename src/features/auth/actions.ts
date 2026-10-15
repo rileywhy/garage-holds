@@ -3,6 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  ACCOUNTS_NOT_CONFIGURED,
+  isSupabaseConfigured,
+} from "@/lib/supabase/config";
 import { requestOrigin } from "@/lib/request-origin";
 import {
   normalizeBio,
@@ -29,6 +33,8 @@ export async function signInWithEmail(
 ): Promise<EmailSignInState> {
   const intent = String(formData.get("intent") ?? "");
   if (intent === "restart") return { step: "email", email: "", error: "" };
+  if (!isSupabaseConfigured())
+    return { step: "email", email: "", error: ACCOUNTS_NOT_CONFIGURED };
   const supabase = await createSupabaseServerClient();
 
   if (intent === "request") {
@@ -83,6 +89,7 @@ export async function signInWithEmail(
 
 export async function signInWithGoogle(formData: FormData) {
   const next = safeNextPath(String(formData.get("next") ?? ""));
+  if (!isSupabaseConfigured()) redirect(`${signInPath(next)}&error=google`);
   const supabase = await createSupabaseServerClient();
   const origin = await requestOrigin();
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -96,6 +103,7 @@ export async function signInWithGoogle(formData: FormData) {
 }
 
 export async function signOut() {
+  if (!isSupabaseConfigured()) redirect("/");
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
@@ -122,6 +130,13 @@ export async function saveProfile(
   const bio = normalizeBio(String(formData.get("bio") ?? ""));
   const errors = [...validateDisplayName(displayName), ...validateBio(bio)];
   if (errors.length) return { displayName, bio, errors, saved: false };
+  if (!isSupabaseConfigured())
+    return {
+      displayName,
+      bio,
+      errors: [ACCOUNTS_NOT_CONFIGURED],
+      saved: false,
+    };
 
   const supabase = await createSupabaseServerClient();
   const user = await loadCurrentUser(supabase);

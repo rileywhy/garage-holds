@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { HoldDetail } from "@/features/holds/hold-detail";
 import { designMetadata } from "@/features/holds/metadata";
 import {
@@ -12,9 +13,9 @@ import type { Hold } from "@/features/holds/types";
 
 type Props = { params: Promise<{ id: string }> };
 
-async function loadHold(id: string): Promise<Hold | null> {
-  return getHold(id);
-}
+// generateMetadata and the page both need the design; cache() makes that
+// one read per request instead of two.
+const loadHold = cache(async (id: string): Promise<Hold | null> => getHold(id));
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return designMetadata(await loadHold((await params).id));

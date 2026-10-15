@@ -92,27 +92,30 @@ export async function sweep(
   if (draftsError)
     throw new Error(`Could not list drafts: ${draftsError.message}`);
   const abandoned = drafts.filter((draft) => isAbandonedDraft(draft, now));
-  const draftKeys = abandoned.flatMap((draft) =>
+  const keysOf = (draft: (typeof drafts)[number]) =>
     draft.design_files.flatMap((file) =>
       file.kind === "photo"
         ? photoObjectKeys(file.object_key)
         : [file.object_key],
-    ),
-  );
-  if (!dryRun && abandoned.length) {
-    // Objects first: if a delete fails here, the rows survive and the next
-    // sweep tries again. Deleting the design cascades to its file rows.
-    for (const key of draftKeys) await store.deleteObject(key);
-    const { error } = await admin
-      .from("designs")
-      .delete()
-      .in(
-        "id",
-        abandoned.map((draft) => draft.id),
-      )
-      .eq("status", "draft");
-    if (error) throw new Error(`Could not delete drafts: ${error.message}`);
-  }
+    );
+  const draftKeys = abandoned.flatMap(keysOf);
+  if (!dryRun)
+    for (const draft of abandoned) {
+      // The row goes first, and only while it is still a draft: a draft
+      // published between the listing above and this delete keeps both
+      // its rows and its objects. Deleting the design cascades to its file
+      // rows; an object whose delete then fails has no row left and is
+      // removed as an orphan by a later sweep.
+      const { data: removed, error } = await admin
+        .from("designs")
+        .delete()
+        .eq("id", draft.id)
+        .eq("status", "draft")
+        .select("id");
+      if (error) throw new Error(`Could not delete drafts: ${error.message}`);
+      if (!removed?.length) continue;
+      for (const key of keysOf(draft)) await store.deleteObject(key);
+    }
 
   const { data: sessions, error: sessionsError } = await admin
     .from("phone_sessions")

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -20,7 +21,7 @@ import {
   inboxObjectKey,
   photoContentType,
 } from "@/features/holds/rows";
-import { MAX_PHOTO_BYTES } from "@/features/holds/validation";
+import { MAX_PHOTO_BYTES, MAX_PHOTOS } from "@/features/holds/validation";
 import {
   attachInboxPhotos,
   MAX_SESSION_PHOTOS,
@@ -75,6 +76,7 @@ export async function startPhoneSession(
 export async function listPhonePhotos(
   sessionId: string,
 ): Promise<PhonePhoto[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("phone_photos")
@@ -148,6 +150,10 @@ export async function confirmPhonePhoto(
   if (!isR2Configured() || !isSupabaseAdminConfigured())
     return { error: "Uploads aren't configured in this environment yet." };
   const admin = createSupabaseAdminClient();
+  // Every phone step checks the session, as the phone page promises: the
+  // PUT URL is the real window, but an expired code confirms nothing.
+  if (!(await openSession(admin, sessionId)))
+    return { error: "This code has expired. Scan a new one." };
   const { data: photo } = await admin
     .from("phone_photos")
     .select("id, object_key, bytes, name")
@@ -203,10 +209,10 @@ export async function attachPhonePhotos(
   const photos = await ownInboxPhotos(supabase, photoIds);
   if (!photos.length) return { errors: ["Choose at least one photo."] };
   const existing = design.design_files.filter((file) => file.kind === "photo");
-  if (existing.length + photos.length > 6)
+  if (existing.length + photos.length > MAX_PHOTOS)
     return {
       errors: [
-        `A design can have up to 6 photos; this one has ${existing.length}.`,
+        `A design can have up to ${MAX_PHOTOS} photos; this one has ${existing.length}.`,
       ],
     };
   const { usage, limits } = await loadAllowance(supabase, userId);

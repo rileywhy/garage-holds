@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  ACCOUNTS_NOT_CONFIGURED,
+  isSupabaseConfigured,
+} from "@/lib/supabase/config";
 import { getUserId } from "./repository";
 
 export type BookmarkResult = { saved: boolean } | { error: string };
@@ -9,6 +13,7 @@ export type BookmarkResult = { saved: boolean } | { error: string };
 export async function toggleBookmark(
   designId: string,
 ): Promise<BookmarkResult> {
+  if (!isSupabaseConfigured()) return { error: ACCOUNTS_NOT_CONFIGURED };
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return { error: "Sign in to save designs." };

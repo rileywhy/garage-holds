@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  ACCOUNTS_NOT_CONFIGURED,
+  isSupabaseConfigured,
+} from "@/lib/supabase/config";
+import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
@@ -27,6 +31,7 @@ export async function updateDesign(
   const input = readDesignInput(formData);
   const errors = validateDesign(input);
   if (errors.length) return { errors };
+  if (!isSupabaseConfigured()) return { errors: [ACCOUNTS_NOT_CONFIGURED] };
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return { errors: ["Sign in to edit your design."] };
