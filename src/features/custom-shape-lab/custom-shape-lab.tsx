@@ -276,7 +276,10 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
     const text = await linkText();
     if (sequence !== linkSequence.current) return;
     linkTooLong.current = text.length > LINK_LIMIT;
-    replaceSearch(linkTooLong.current || !text ? "" : `?${text}`);
+    replaceSearch(
+      linkTooLong.current || !text ? "" : `?${text}`,
+      "/make/custom-shape",
+    );
   }, [linkText]);
   // Presets load once; a failure there never blocks the lab.
   useEffect(() => {

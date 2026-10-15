@@ -64,14 +64,18 @@ export async function labRequest(
   try {
     response = await fetchImpl(url, { ...rest, signal: controller.signal });
   } catch (error) {
+    signal?.removeEventListener("abort", forward);
     if (timedOut) throw new LabError(LAB_MESSAGES.timeout, "timeout");
     // The lab itself cancelled a superseded request: hand that back as is.
     if ((error as Error).name === "AbortError") throw error;
     throw new LabError(LAB_MESSAGES.network, "network");
   } finally {
     clearTimeout(timer);
-    signal?.removeEventListener("abort", forward);
   }
+  // The headers are in, but the lab still has the body to read. Its signal
+  // keeps forwarding so a cancellation now stops that read too, instead of
+  // a late body landing on whatever page is showing by then. The listener
+  // lives as long as the lab's signal, which is one per request.
   if (response.ok) return response;
   if (response.status === 404)
     throw new LabError(LAB_MESSAGES.missing, "missing");

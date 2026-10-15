@@ -85,3 +85,28 @@ test("an unexplained failure names the status", async () => {
   assert.equal(error.reason, "server");
   assert.equal(error.message, LAB_MESSAGES.server(500));
 });
+
+test("cancelling after the headers arrive still stops the body read", async () => {
+  const controller = new AbortController();
+  const slowBody: typeof fetch = async (_url, init) =>
+    new Response(
+      new ReadableStream({
+        start(stream) {
+          init?.signal?.addEventListener("abort", () =>
+            stream.error(
+              Object.assign(new Error("aborted"), { name: "AbortError" }),
+            ),
+          );
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  const response = await labRequest(
+    "/api/x",
+    { signal: controller.signal },
+    slowBody,
+  );
+  const body = response.json();
+  controller.abort();
+  await assert.rejects(body, (error: Error) => error.name === "AbortError");
+});

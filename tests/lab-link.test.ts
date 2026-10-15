@@ -4,6 +4,7 @@ import {
   linkSearch,
   parseLinkValue,
   readLink,
+  replaceSearch,
 } from "../src/features/lab-link/lab-link";
 import {
   decodeMask,
@@ -128,4 +129,25 @@ test("mounting holes travel as canvas coordinates", () => {
       [171, 140.1],
     ],
   );
+});
+
+test("the address is only rewritten while the lab's own page is showing", () => {
+  const writes: string[] = [];
+  const fake = {
+    location: { pathname: "/make/jug", search: "", hash: "" },
+    history: {
+      state: null,
+      replaceState: (_state: unknown, _title: string, url: string) =>
+        writes.push(url),
+    },
+  };
+  (globalThis as { window?: unknown }).window = fake;
+  try {
+    replaceSearch("?edge_depth=30", "/make/crimp");
+    assert.deepEqual(writes, [], "a crimp preview must not touch the jug page");
+    replaceSearch("?grip_quality=40", "/make/jug");
+    assert.deepEqual(writes, ["/make/jug?grip_quality=40"]);
+  } finally {
+    delete (globalThis as { window?: unknown }).window;
+  }
 });

@@ -111,9 +111,13 @@ export function linkSearch(
 }
 
 // Update the address bar in place, without a navigation or a history entry.
-export function replaceSearch(search: string) {
+// Only while the lab's own page is showing: a preview that lands after the
+// person has moved to another lab must not write its settings into that
+// lab's address.
+export function replaceSearch(search: string, pathname: string) {
   if (typeof window === "undefined") return;
-  const { pathname, hash } = window.location;
+  const { hash } = window.location;
+  if (window.location.pathname !== pathname) return;
   const next = pathname + search + hash;
   if (next !== pathname + window.location.search + hash)
     window.history.replaceState(window.history.state, "", next);

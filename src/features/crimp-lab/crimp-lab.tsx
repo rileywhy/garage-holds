@@ -67,6 +67,7 @@ import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
+const LAB_PATH = "/make/crimp";
 type Group = (typeof GROUPS)[number];
 const CUSTOM = "Custom";
 
@@ -211,6 +212,7 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
   useEffect(() => {
     if (!schema) return;
     const request = ++sequence.current;
+    const retire = () => void ++sequence.current;
     const timer = setTimeout(async () => {
       controller.current?.abort();
       controller.current = new AbortController();
@@ -284,6 +286,7 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
         // The address bar always holds the shape on screen, ready to share.
         replaceSearch(
           linkSearch(latest.current, schema.defaults, schema.presets),
+          LAB_PATH,
         );
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
@@ -304,7 +307,13 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
         }
       }
     }, PREVIEW_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    // Leaving the page, or a newer edit: a request still in flight is
+    // cancelled and its number retired, so a late answer changes nothing.
+    return () => {
+      clearTimeout(timer);
+      controller.current?.abort();
+      retire();
+    };
   }, [schema, revision, retryPreview]);
 
   // Every edit goes through here so the stale design is cleared (export
@@ -503,7 +512,10 @@ export function CrimpLab({ account = false }: { account?: boolean }) {
 
   async function copyLink() {
     if (!design || !schema) return;
-    replaceSearch(linkSearch(latest.current, schema.defaults, schema.presets));
+    replaceSearch(
+      linkSearch(latest.current, schema.defaults, schema.presets),
+      LAB_PATH,
+    );
     const copied = await copyCurrentLink();
     if (copied)
       trackEvent({ name: "lab_settings", lab: "crimp", action: "link" });

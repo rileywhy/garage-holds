@@ -266,6 +266,7 @@ export function HoldLab({
         // The address bar always holds the shape on screen, ready to share.
         replaceSearch(
           linkSearch(latest.current, schema.defaults, schema.presets),
+          `/make/${kind}`,
         );
       } catch (error) {
         if (
@@ -451,7 +452,10 @@ export function HoldLab({
   }
   async function copyLink() {
     if (!design || !schema) return;
-    replaceSearch(linkSearch(latest.current, schema.defaults, schema.presets));
+    replaceSearch(
+      linkSearch(latest.current, schema.defaults, schema.presets),
+      `/make/${kind}`,
+    );
     const copied = await copyCurrentLink();
     if (copied) trackEvent({ name: "lab_settings", lab: kind, action: "link" });
     setStatus({
