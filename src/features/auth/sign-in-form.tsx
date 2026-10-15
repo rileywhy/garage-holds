@@ -86,7 +86,7 @@ export function SignInForm({
           <>
             <p className="success-box" role="status">
               We sent a code to <strong>{state.email}</strong>. It expires in
-              about an hour.
+              ten minutes.
             </p>
             <Field label="One-time code">
               <input

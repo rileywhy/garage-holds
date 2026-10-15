@@ -91,7 +91,7 @@ Dashboard → Authentication.
      and **Confirm sign up** so the body contains `{{ .Token }}`, for example:
 
      ```
-     Your Garage Holds sign-in code is {{ .Token }}. It expires in one hour.
+     Your Garage Holds sign-in code is {{ .Token }}. It expires in 10 minutes.
      If you didn't request this, you can ignore this email.
      ```
 
@@ -99,13 +99,14 @@ Dashboard → Authentication.
      6-digit length is fine.
    - Codes are sent through **Brevo** (custom SMTP under **Emails → SMTP
      Settings**: host `smtp-relay.brevo.com`, port 587, the Brevo login as
-     user and an SMTP key as password; sender name "Garage Holds"). The
-     sender is Brevo's shared `brevosend.com` address until
-     `garageholds.com` is authenticated in Brevo (Senders & Domains →
-     Domains; the DKIM and DMARC records go in Vercel DNS), after which it
-     can be `sign-in@garageholds.com`. Supabase's own limit on emails per
-     hour (**Rate Limits**) still applies with custom SMTP; raise it before
-     sharing the site widely. Brevo's free plan sends 300 a day.
+     user and an SMTP key as password; sender `sign-in@garageholds.com`,
+     name "Garage Holds"). `garageholds.com` is authenticated in Brevo
+     (Senders & Domains → Domains) through four records in Vercel DNS: a
+     `brevo-code:` TXT on the root, CNAMEs `brevo1._domainkey` and
+     `brevo2._domainkey` to Brevo's DKIM hosts, and a `_dmarc` TXT with
+     `p=none` reporting to Brevo. No mailbox exists at the sender address.
+     Supabase's own limit on emails per hour (**Rate Limits**) is set to
+     100; Brevo's free plan sends 300 a day.
 3. **Sign In / Providers → Google**
    - Enable, then paste the Client ID and Client Secret from the Google step
      below. Leave "Skip nonce check" off.
