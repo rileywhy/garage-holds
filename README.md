@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Browsing, local uploads, reviews, and saved holds need no credentials. To enable sign-in, copy `.env.example` to `.env.local` and fill in the two public Supabase values; [docs/hosted-setup.md](docs/hosted-setup.md) lists every dashboard setting involved.
+Open http://127.0.0.1:3000. Browsing, the guide and the lab pages need no credentials; the labs' generators run from their Python servers (`scripts/start-sandbox.ps1` starts the four of them with the app, see [docs/sandbox.md](docs/sandbox.md)). Accounts, uploads, reviews and saved holds need Supabase and R2: copy `.env.example` to `.env.local` and fill in the values it describes, or run the local stack in [docs/local-stack.md](docs/local-stack.md); [docs/hosted-setup.md](docs/hosted-setup.md) lists every dashboard setting involved.
 
 ```sh
 npm run format:check
