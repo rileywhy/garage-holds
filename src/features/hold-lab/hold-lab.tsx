@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
   Download,
@@ -48,14 +48,14 @@ import {
   replaceSearch,
 } from "@/features/lab-link/lab-link";
 import {
-  deletePreset,
+  defaultPresetName,
   isSavedValue,
-  loadSavedPresets,
-  savePreset,
-  savedName,
+  savedId,
   savedValue,
-  type SavedPreset,
+  uniqueName,
+  type LabPreset,
 } from "@/features/lab-presets/saved-presets";
+import { presetStore, savedWhere } from "@/features/lab-presets/preset-store";
 import {
   LAB_COPY,
   PREVIEW_DEBOUNCE_MS,
@@ -89,7 +89,15 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function HoldLab({ kind }: { kind: Kind }) {
+export function HoldLab({
+  kind,
+  account = false,
+}: {
+  kind: Kind;
+  account?: boolean;
+}) {
+  // Presets go to the account when signed in, to this browser otherwise.
+  const store = useMemo(() => presetStore(kind, account), [kind, account]);
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
   const latest = useRef<Parameters>({});
@@ -121,7 +129,8 @@ export function HoldLab({ kind }: { kind: Kind }) {
   // preset, a loaded file or a shared link. A slider's reset returns there.
   const origin = useRef<Parameters>({});
   // Presets saved in this browser, and the small form that names a new one.
-  const [saved, setSaved] = useState<SavedPreset[]>([]);
+  const [saved, setSaved] = useState<LabPreset[]>([]);
+  const [saving, setSaving] = useState(false);
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -155,7 +164,12 @@ export function HoldLab({ kind }: { kind: Kind }) {
         latest.current = start;
         origin.current = { ...start };
         setParameters(start);
-        setSaved(loadSavedPresets(kind));
+        void store
+          .list()
+          .then((list) => {
+            if (!cancelled) setSaved(list);
+          })
+          .catch(() => {});
         setNaming(false);
         setPreset(presetName);
         setSchema(loaded);
@@ -180,7 +194,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
     return () => {
       cancelled = true;
     };
-  }, [kind, attempt]);
+  }, [kind, attempt, store]);
 
   useEffect(() => {
     if (!box.current) return;
@@ -348,7 +362,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
   function applyPreset(name: string) {
     if (!schema) return;
     if (isSavedValue(name)) {
-      applySavedPreset(savedName(name));
+      applySavedPreset(savedId(name));
       return;
     }
     origin.current = { ...schema.presets[name] };
@@ -356,48 +370,84 @@ export function HoldLab({ kind }: { kind: Kind }) {
   }
   // A saved preset goes through the generator's validation first, so one
   // saved before a control changed still opens cleanly.
-  async function applySavedPreset(name: string) {
-    const found = saved.find((p) => p.name === name);
+  async function applySavedPreset(id: string) {
+    const found = saved.find((p) => p.id === id);
     if (!schema || !found) return;
     try {
+      const link = readLink(found.search, schema.defaults, schema.presets);
       const data = (await (
         await post(
           "validate",
-          { ...schema.defaults, ...found.parameters },
+          (link?.parameters as Parameters | undefined) ?? {
+            ...schema.defaults,
+          },
           undefined,
           kind,
         )
       ).json()) as { parameters: Parameters };
       origin.current = { ...data.parameters };
-      edit(() => data.parameters, savedValue(name), true);
+      edit(() => data.parameters, savedValue(id), true);
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
   }
-  function startNaming() {
-    setPresetName(isSavedValue(preset) ? savedName(preset) : "");
+  function startRenaming() {
+    const found = saved.find((p) => p.id === savedId(preset));
+    setPresetName(found?.name ?? "");
     setNaming(true);
   }
-  function saveAsPreset(event: React.FormEvent) {
-    event.preventDefault();
+  // One click: the shape on screen, named after its settings. Rename after.
+  async function saveAsPreset() {
+    if (!schema || !design) return;
+    setSaving(true);
     try {
-      const list = savePreset(kind, presetName, latest.current);
-      const name = list[0].name;
+      const name = uniqueName(
+        defaultPresetName(kind, latest.current),
+        saved.map((p) => p.name),
+      );
+      const list = await store.save(
+        name,
+        linkSearch(latest.current, schema.defaults, schema.presets),
+      );
+      const made = list.find((p) => p.name === name) ?? list[0];
       setSaved(list);
-      setPreset(savedValue(name));
-      setNaming(false);
+      if (made) setPreset(savedValue(made.id));
       trackEvent({ name: "lab_settings", lab: kind, action: "preset" });
-      setStatus({ text: LAB_COPY.presetSaved(name), error: false });
+      setStatus({ text: savedWhere(account, name), error: false });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function renameSavedPreset(event: React.FormEvent) {
+    event.preventDefault();
+    const wanted = presetName.trim().replace(/\s+/g, " ").toLowerCase();
+    try {
+      const list = await store.rename(savedId(preset), presetName);
+      const renamed = list.find((p) => p.name.toLowerCase() === wanted);
+      setSaved(list);
+      if (renamed) setPreset(savedValue(renamed.id));
+      setNaming(false);
+      setStatus({
+        text: `Renamed to “${renamed?.name ?? presetName}”.`,
+        error: false,
+      });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
   }
-  function removePreset() {
+  async function removePreset() {
     if (!isSavedValue(preset)) return;
-    const name = savedName(preset);
-    setSaved(deletePreset(kind, name));
-    setPreset(CUSTOM);
-    setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
+    const id = savedId(preset);
+    const name = saved.find((p) => p.id === id)?.name ?? "";
+    try {
+      setSaved(await store.remove(id));
+      setPreset(CUSTOM);
+      setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
   }
   async function copyLink() {
     if (!design || !schema) return;
@@ -470,7 +520,7 @@ export function HoldLab({ kind }: { kind: Kind }) {
             {saved.length > 0 && (
               <optgroup label="My presets">
                 {saved.map((p) => (
-                  <option key={p.name} value={savedValue(p.name)}>
+                  <option key={p.id} value={savedValue(p.id)}>
                     {p.name}
                   </option>
                 ))}
@@ -703,20 +753,33 @@ export function HoldLab({ kind }: { kind: Kind }) {
           <button
             className="button button-outline"
             type="button"
-            disabled={!design || naming}
-            onClick={startNaming}
-            title="Keep this shape in the starting-point menu, in this browser"
+            disabled={!design || saving}
+            onClick={saveAsPreset}
+            title={
+              account
+                ? "Keep this shape in your starting-point menu and under Saved"
+                : "Keep this shape in the starting-point menu, in this browser"
+            }
           >
             <Bookmark size={15} aria-hidden="true" /> Save as preset
           </button>
           {isSavedValue(preset) && !naming && (
-            <button
-              className="button button-outline"
-              type="button"
-              onClick={removePreset}
-            >
-              Delete preset
-            </button>
+            <>
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={startRenaming}
+              >
+                Rename
+              </button>
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={removePreset}
+              >
+                Delete preset
+              </button>
+            </>
           )}
           <input
             ref={fileInput}
@@ -731,21 +794,21 @@ export function HoldLab({ kind }: { kind: Kind }) {
           />
         </div>
         {naming && (
-          <form className="lab-preset-form" onSubmit={saveAsPreset}>
+          <form className="lab-preset-form" onSubmit={renameSavedPreset}>
             <input
               type="text"
               value={presetName}
               maxLength={40}
               autoFocus
               aria-label="Preset name"
-              placeholder="Name this preset"
+              placeholder="New name"
               onChange={(e) => setPresetName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNaming(false);
               }}
             />
             <button type="submit" className="button button-dark">
-              Save
+              Rename
             </button>
             <button
               className="button button-outline"

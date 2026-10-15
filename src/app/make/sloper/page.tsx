@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/features/auth/current-user";
 import { SloperLab } from "@/features/sloper-lab/sloper-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
@@ -9,7 +10,9 @@ export const metadata = pageMetadata({
   path: "/make/sloper",
 });
 
-export default function SloperLabPage() {
+export default async function SloperLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
       <LabNav current="sloper" />
@@ -18,7 +21,7 @@ export default function SloperLabPage() {
         <h1>Sloper Lab</h1>
         <p>Start rounded. Find your curve and slope, then export an STL.</p>
       </div>
-      <SloperLab />
+      <SloperLab account={Boolean(user)} />
     </main>
   );
 }

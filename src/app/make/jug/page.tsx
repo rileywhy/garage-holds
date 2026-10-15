@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/features/auth/current-user";
 import { HoldLab } from "@/features/hold-lab/hold-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
@@ -9,7 +10,9 @@ export const metadata = pageMetadata({
   path: "/make/jug",
 });
 
-export default function JugLabPage() {
+export default async function JugLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
       <LabNav current="jug" />
@@ -21,7 +24,7 @@ export default function JugLabPage() {
           then export an STL.
         </p>
       </div>
-      <HoldLab kind="jug" />
+      <HoldLab kind="jug" account={Boolean(user)} />
     </main>
   );
 }

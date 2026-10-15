@@ -10,14 +10,14 @@ import {
   replaceSearch,
 } from "@/features/lab-link/lab-link";
 import {
-  deletePreset,
+  defaultPresetName,
   isSavedValue,
-  loadSavedPresets,
-  savePreset,
-  savedName,
+  savedId,
   savedValue,
-  type SavedPreset,
+  uniqueName,
+  type LabPreset,
 } from "@/features/lab-presets/saved-presets";
+import { presetStore, savedWhere } from "@/features/lab-presets/preset-store";
 import {
   LAB_COPY,
   PREVIEW_DEBOUNCE_MS,
@@ -27,7 +27,7 @@ import {
 import { errorReason } from "@/features/labs/lab-request";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
   Download,
@@ -80,7 +80,9 @@ interface Status {
 // Crimp Lab: sliders on the left, the generated hold on the right; on a
 // phone the hold stays pinned above the sliders. Every change asks
 // /api/crimp for a fresh preview; export asks for a finer STL.
-export function CrimpLab() {
+export function CrimpLab({ account = false }: { account?: boolean }) {
+  // Presets go to the account when signed in, to this browser otherwise.
+  const store = useMemo(() => presetStore("crimp", account), [account]);
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
   // Each edit bumps the revision, which is what triggers a preview; the
@@ -114,7 +116,8 @@ export function CrimpLab() {
   // preset, a loaded file or a shared link. A slider's reset returns there.
   const origin = useRef<Parameters>({});
   // Presets saved in this browser, and the small form that names a new one.
-  const [saved, setSaved] = useState<SavedPreset[]>([]);
+  const [saved, setSaved] = useState<LabPreset[]>([]);
+  const [saving, setSaving] = useState(false);
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -147,7 +150,12 @@ export function CrimpLab() {
         latest.current = start;
         origin.current = { ...start };
         setParameters(start);
-        setSaved(loadSavedPresets("crimp"));
+        void store
+          .list()
+          .then((list) => {
+            if (!cancelled) setSaved(list);
+          })
+          .catch(() => {});
         setSchema(loaded);
         setPreset(presetName);
       } catch (error) {
@@ -171,7 +179,7 @@ export function CrimpLab() {
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, store]);
 
   useEffect(() => {
     const box = viewerBox.current;
@@ -326,7 +334,7 @@ export function CrimpLab() {
   function applyPreset(name: string) {
     if (!schema) return;
     if (isSavedValue(name)) {
-      applySavedPreset(savedName(name));
+      applySavedPreset(savedId(name));
       return;
     }
     fitNext.current = true;
@@ -336,49 +344,85 @@ export function CrimpLab() {
 
   // A saved preset goes through the generator's validation first, so one
   // saved before a control changed still opens cleanly.
-  async function applySavedPreset(name: string) {
-    const found = saved.find((p) => p.name === name);
+  async function applySavedPreset(id: string) {
+    const found = saved.find((p) => p.id === id);
     if (!schema || !found) return;
     try {
-      const checked = await post("validate", {
-        ...schema.defaults,
-        ...(found.parameters as Parameters),
-      });
-      const data = (await checked.json()) as { parameters: Parameters };
+      const link = readLink(found.search, schema.defaults, schema.presets);
+      const data = (await (
+        await post(
+          "validate",
+          (link?.parameters as Parameters | undefined) ?? {
+            ...schema.defaults,
+          },
+        )
+      ).json()) as { parameters: Parameters };
       fitNext.current = true;
       origin.current = { ...data.parameters };
-      edit(() => data.parameters, savedValue(name));
+      edit(() => data.parameters, savedValue(id));
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
   }
 
-  function startNaming() {
-    setPresetName(isSavedValue(preset) ? savedName(preset) : "");
+  function startRenaming() {
+    const found = saved.find((p) => p.id === savedId(preset));
+    setPresetName(found?.name ?? "");
     setNaming(true);
   }
-
-  function saveAsPreset(event: React.FormEvent) {
-    event.preventDefault();
+  // One click: the shape on screen, named after its settings. Rename after.
+  async function saveAsPreset() {
+    if (!schema || !design) return;
+    setSaving(true);
     try {
-      const list = savePreset("crimp", presetName, latest.current);
-      const name = list[0].name;
+      const name = uniqueName(
+        defaultPresetName("crimp", latest.current),
+        saved.map((p) => p.name),
+      );
+      const list = await store.save(
+        name,
+        linkSearch(latest.current, schema.defaults, schema.presets),
+      );
+      const made = list.find((p) => p.name === name) ?? list[0];
       setSaved(list);
-      setPreset(savedValue(name));
-      setNaming(false);
+      if (made) setPreset(savedValue(made.id));
       trackEvent({ name: "lab_settings", lab: "crimp", action: "preset" });
-      setStatus({ text: LAB_COPY.presetSaved(name), error: false });
+      setStatus({ text: savedWhere(account, name), error: false });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function renameSavedPreset(event: React.FormEvent) {
+    event.preventDefault();
+    const wanted = presetName.trim().replace(/\s+/g, " ").toLowerCase();
+    try {
+      const list = await store.rename(savedId(preset), presetName);
+      const renamed = list.find((p) => p.name.toLowerCase() === wanted);
+      setSaved(list);
+      if (renamed) setPreset(savedValue(renamed.id));
+      setNaming(false);
+      setStatus({
+        text: `Renamed to “${renamed?.name ?? presetName}”.`,
+        error: false,
+      });
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
   }
 
-  function removePreset() {
+  async function removePreset() {
     if (!isSavedValue(preset)) return;
-    const name = savedName(preset);
-    setSaved(deletePreset("crimp", name));
-    setPreset(CUSTOM);
-    setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
+    const id = savedId(preset);
+    const name = saved.find((p) => p.id === id)?.name ?? "";
+    try {
+      setSaved(await store.remove(id));
+      setPreset(CUSTOM);
+      setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
+    } catch (error) {
+      setStatus({ text: (error as Error).message, error: true });
+    }
   }
 
   function reset() {
@@ -518,7 +562,7 @@ export function CrimpLab() {
             {saved.length > 0 && (
               <optgroup label="My presets">
                 {saved.map((p) => (
-                  <option key={p.name} value={savedValue(p.name)}>
+                  <option key={p.id} value={savedValue(p.id)}>
                     {p.name}
                   </option>
                 ))}
@@ -711,24 +755,24 @@ export function CrimpLab() {
           ))}
         <div className="lab-settings-row">
           <button
-            type="button"
             className="button button-outline"
+            type="button"
             disabled={!design}
             onClick={saveSettings}
           >
             Save settings
           </button>
           <button
-            type="button"
             className="button button-outline"
+            type="button"
             disabled={!schema}
             onClick={() => fileInput.current?.click()}
           >
             Load settings
           </button>
           <button
-            type="button"
             className="button button-outline"
+            type="button"
             disabled={!design}
             onClick={copyLink}
             title="Copy a link that opens this exact shape"
@@ -736,22 +780,35 @@ export function CrimpLab() {
             <Link2 size={15} aria-hidden="true" /> Copy link
           </button>
           <button
-            type="button"
             className="button button-outline"
-            disabled={!design || naming}
-            onClick={startNaming}
-            title="Keep this shape in the starting-point menu, in this browser"
+            type="button"
+            disabled={!design || saving}
+            onClick={saveAsPreset}
+            title={
+              account
+                ? "Keep this shape in your starting-point menu and under Saved"
+                : "Keep this shape in the starting-point menu, in this browser"
+            }
           >
             <Bookmark size={15} aria-hidden="true" /> Save as preset
           </button>
           {isSavedValue(preset) && !naming && (
-            <button
-              type="button"
-              className="button button-outline"
-              onClick={removePreset}
-            >
-              Delete preset
-            </button>
+            <>
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={startRenaming}
+              >
+                Rename
+              </button>
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={removePreset}
+              >
+                Delete preset
+              </button>
+            </>
           )}
           <input
             ref={fileInput}
@@ -759,32 +816,32 @@ export function CrimpLab() {
             accept=".json,application/json"
             className="sr-only"
             aria-label="Load a settings file"
-            onChange={(event) => {
-              loadSettings(event.target.files?.[0]);
-              event.target.value = "";
+            onChange={(e) => {
+              loadSettings(e.target.files?.[0]);
+              e.target.value = "";
             }}
           />
         </div>
         {naming && (
-          <form className="lab-preset-form" onSubmit={saveAsPreset}>
+          <form className="lab-preset-form" onSubmit={renameSavedPreset}>
             <input
               type="text"
               value={presetName}
               maxLength={40}
               autoFocus
               aria-label="Preset name"
-              placeholder="Name this preset"
-              onChange={(event) => setPresetName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setNaming(false);
+              placeholder="New name"
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setNaming(false);
               }}
             />
             <button type="submit" className="button button-dark">
-              Save
+              Rename
             </button>
             <button
-              type="button"
               className="button button-outline"
+              type="button"
               onClick={() => setNaming(false)}
             >
               Cancel

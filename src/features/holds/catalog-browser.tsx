@@ -37,12 +37,15 @@ export function CatalogBrowser({
   savedIds,
   signedIn,
   savedOnly = false,
+  beforeLibrary,
 }: {
   holds: Hold[];
   reviews: Review[];
   savedIds: string[];
   signedIn: boolean;
   savedOnly?: boolean;
+  // The Saved page's lab presets, shown between the hero and the designs.
+  beforeLibrary?: React.ReactNode;
 }) {
   const [filters, setFilters] = useState<HoldFilters>({ ...DEFAULT_FILTERS });
   const [mobileFilters, setMobileFilters] = useState(false);
@@ -110,6 +113,7 @@ export function CatalogBrowser({
           </div>
         )}
       </section>
+      {beforeLibrary}
       <section
         id="library"
         className="library-section"

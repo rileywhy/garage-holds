@@ -236,6 +236,15 @@ submissions. To read everything ever sent:
 select created_at, contact, page, body from public.feedback order by created_at desc;
 ```
 
+## Lab presets
+
+"Save as preset" in any lab keeps the shape on screen. Signed in, it goes to
+the `lab_presets` table (`supabase/migrations/20261020000000_lab_presets.sql`)
+as the lab's shareable link query under a generated name, and shows in that
+lab's starting-point menu and under Saved; signed out, it stays in the
+browser's localStorage. Row-level security keeps every row to its owner, 30
+per lab per account.
+
 ## Error alerts
 
 Unhandled errors reach the same webhook, so you hear about a broken page

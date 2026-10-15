@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/features/auth/current-user";
 import { HoldLab } from "@/features/hold-lab/hold-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
@@ -9,7 +10,9 @@ export const metadata = pageMetadata({
   path: "/make/foot",
 });
 
-export default function FootLabPage() {
+export default async function FootLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
       <LabNav current="foot" />
@@ -30,7 +33,7 @@ export default function FootLabPage() {
           starting point, dial in the bite, then export an STL.
         </p>
       </div>
-      <HoldLab kind="foot" />
+      <HoldLab kind="foot" account={Boolean(user)} />
     </main>
   );
 }

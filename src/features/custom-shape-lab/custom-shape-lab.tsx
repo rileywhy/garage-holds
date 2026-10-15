@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   VIEW_LABELS,
   VIEW_ORDER,
@@ -23,7 +23,7 @@ import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
-import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Bookmark, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { trackEvent } from "@/features/analytics/events";
 import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
 import {
@@ -65,6 +65,15 @@ import {
 } from "./controls";
 import styles from "./custom-shape-lab.module.css";
 import { drawingContours } from "./drawing-preview";
+import {
+  defaultPresetName,
+  isSavedValue,
+  savedId,
+  savedValue,
+  uniqueName,
+  type LabPreset,
+} from "@/features/lab-presets/saved-presets";
+import { presetStore, savedWhere } from "@/features/lab-presets/preset-store";
 
 const defaults = DEFAULT_PARAMETERS;
 const initialDocument = exampleDocument();
@@ -80,7 +89,14 @@ const endpoint =
     ? "/api/custom-shape"
     : "/api/custom_shape";
 type Tool = "brush" | "eraser" | "hole";
-export function CustomShapeLab() {
+export function CustomShapeLab({ account = false }: { account?: boolean }) {
+  // Presets go to the account when signed in, to this browser otherwise.
+  const store = useMemo(() => presetStore("custom-shape", account), [account]);
+  const [saved, setSaved] = useState<LabPreset[]>([]);
+  const [presetValue, setPresetValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null),
     container = useRef<HTMLDivElement>(null),
     viewer = useRef<Viewer | null>(null);
@@ -233,11 +249,9 @@ export function CustomShapeLab() {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
   }, []);
-  // The address bar always holds the drawing and settings on screen. The
-  // example drawing with default settings is the clean address.
-  const writeLink = useCallback(async () => {
-    if (!linkCodecAvailable()) return;
-    const sequence = ++linkSequence.current;
+  // The query for the drawing and settings on screen; empty for the example
+  // drawing with default settings. Async because the mask is deflated.
+  const linkText = useCallback(async () => {
     const doc = drawing.current;
     const example = exampleDocument();
     const query = new URLSearchParams(
@@ -253,52 +267,87 @@ export function CustomShapeLab() {
       query.set(MASK_KEY, await encodeMask(doc.material));
       if (doc.holes.length) query.set(HOLES_KEY, holesToLink(doc.holes));
     }
+    return query.toString();
+  }, []);
+  // The address bar always holds the drawing and settings on screen.
+  const writeLink = useCallback(async () => {
+    if (!linkCodecAvailable()) return;
+    const sequence = ++linkSequence.current;
+    const text = await linkText();
     if (sequence !== linkSequence.current) return;
-    const text = query.toString();
     linkTooLong.current = text.length > LINK_LIMIT;
     replaceSearch(linkTooLong.current || !text ? "" : `?${text}`);
-  }, []);
-  // A shared link: the painted mask, the holes and the sliders. Applied once
-  // on arrival, then the lab behaves as if the person had drawn it.
+  }, [linkText]);
+  // Presets load once; a failure there never blocks the lab.
   useEffect(() => {
-    const search = currentSearch();
+    let cancelled = false;
+    store
+      .list()
+      .then((list) => {
+        if (!cancelled) setSaved(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+  // Apply a link query: the painted mask, the holes and the sliders. Once on
+  // arrival (keeping whatever is drawn when the link has no drawing), and
+  // for a saved preset (which starts from the example drawing).
+  async function applySearch(
+    search: string,
+    fresh: boolean,
+    stale: () => boolean,
+  ) {
     const query = new URLSearchParams(search);
     const link = readLink(search, defaults as unknown as LinkParameters);
     const mask = query.get(MASK_KEY);
     const holes = query.get(HOLES_KEY);
-    if (!link && mask === null && holes === null) return;
-    let cancelled = false;
-    (async () => {
-      const material =
-        mask !== null && linkCodecAvailable()
-          ? await decodeMask(mask, RESOLUTION ** 2)
-          : null;
-      if (cancelled) return;
-      if (material || holes !== null) {
-        const doc = cloneDocument(drawing.current);
-        if (material) {
-          doc.material = material;
-          doc.holes = [];
-        }
-        if (holes !== null) doc.holes = holesFromLink(holes, RESOLUTION);
-        drawing.current = doc;
-        undo.current = [];
-        redo.current = [];
+    if (!fresh && !link && mask === null && holes === null) return false;
+    const material =
+      mask !== null && linkCodecAvailable()
+        ? await decodeMask(mask, RESOLUTION ** 2)
+        : null;
+    if (stale()) return false;
+    if (fresh || material || holes !== null) {
+      const doc = fresh ? exampleDocument() : cloneDocument(drawing.current);
+      if (material) {
+        doc.material = material;
+        doc.holes = [];
       }
-      if (link)
-        setParameters(
-          normalizeParameters(
-            { ...defaults, ...(link.parameters as Partial<ShapeParameters>) },
-            materialHeight(drawing.current, Number(link.parameters.scale)),
-          ),
-        );
-      commit();
-      trackEvent({ name: "lab_settings", lab: "custom-shape", action: "open" });
-    })();
+      if (holes !== null) doc.holes = holesFromLink(holes, RESOLUTION);
+      drawing.current = doc;
+      undo.current = [];
+      redo.current = [];
+    }
+    if (fresh || link) {
+      const next = {
+        ...defaults,
+        ...((link?.parameters ?? {}) as Partial<ShapeParameters>),
+      };
+      setParameters(
+        normalizeParameters(next, materialHeight(drawing.current, next.scale)),
+      );
+    }
+    commit();
+    return true;
+  }
+  useEffect(() => {
+    let cancelled = false;
+    void applySearch(currentSearch(), false, () => cancelled).then(
+      (applied) => {
+        if (applied)
+          trackEvent({
+            name: "lab_settings",
+            lab: "custom-shape",
+            action: "open",
+          });
+      },
+    );
     return () => {
       cancelled = true;
     };
-    // Runs once, on arrival; commit() is stable in what it does.
+    // Runs once, on arrival; applySearch reads refs and stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -375,6 +424,7 @@ export function CustomShapeLab() {
   }
   function commit() {
     materialDirty.current = true;
+    setPresetValue("");
     setDrawingHeight(materialHeight(drawing.current, 1));
     setParameters((p) => {
       const next = normalizeParameters(
@@ -546,6 +596,7 @@ export function CustomShapeLab() {
   ) {
     if (!Number.isFinite(value)) return;
     setReady(false);
+    setPresetValue("");
     setParameters((p) => {
       const next = normalizeParameters(
         {
@@ -594,6 +645,74 @@ export function CustomShapeLab() {
       );
       return next;
     });
+  }
+  // One click: the drawing and settings on screen, named after the size.
+  async function saveAsPreset() {
+    setSaving(true);
+    try {
+      const text = await linkText();
+      if (text.length > LINK_LIMIT)
+        throw new Error(
+          "This drawing is too detailed to keep as a preset. Download the STL instead.",
+        );
+      const name = uniqueName(
+        defaultPresetName("custom-shape", parameters),
+        saved.map((p) => p.name),
+      );
+      const list = await store.save(name, text ? `?${text}` : "");
+      const made = list.find((p) => p.name === name) ?? list[0];
+      setSaved(list);
+      if (made) setPresetValue(savedValue(made.id));
+      trackEvent({
+        name: "lab_settings",
+        lab: "custom-shape",
+        action: "preset",
+      });
+      setNotice(savedWhere(account, name));
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function applyPreset(value: string) {
+    const found = saved.find((p) => p.id === savedId(value));
+    if (!found) return;
+    setNaming(false);
+    await applySearch(found.search, true, () => false);
+    setPresetValue(value);
+    setNotice(`Opened “${found.name}”.`);
+  }
+  function startRenaming() {
+    const found = saved.find((p) => p.id === savedId(presetValue));
+    setPresetName(found?.name ?? "");
+    setNaming(true);
+  }
+  async function renameSavedPreset(event: React.FormEvent) {
+    event.preventDefault();
+    const wanted = presetName.trim().replace(/\s+/g, " ").toLowerCase();
+    try {
+      const list = await store.rename(savedId(presetValue), presetName);
+      const renamed = list.find((p) => p.name.toLowerCase() === wanted);
+      setSaved(list);
+      if (renamed) setPresetValue(savedValue(renamed.id));
+      setNaming(false);
+      setNotice(`Renamed to “${renamed?.name ?? presetName}”.`);
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+  async function removePreset() {
+    if (!isSavedValue(presetValue)) return;
+    const id = savedId(presetValue);
+    const name = saved.find((p) => p.id === id)?.name ?? "";
+    try {
+      setSaved(await store.remove(id));
+      setPresetValue("");
+      setNotice(`Deleted the preset “${name}”.`);
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
   }
   function changeBoardAngle(value: number) {
     if (!Number.isFinite(value)) return;
@@ -1019,7 +1138,79 @@ export function CustomShapeLab() {
             >
               Copy link
             </button>
+            <button
+              className="button button-outline"
+              type="button"
+              disabled={!ready || exporting || saving}
+              onClick={saveAsPreset}
+              title={
+                account
+                  ? "Keep this drawing and these settings under Saved and in My presets"
+                  : "Keep this drawing and these settings in this browser"
+              }
+            >
+              <Bookmark size={15} aria-hidden="true" /> Save as preset
+            </button>
+            {saved.length > 0 && (
+              <select
+                className="lab-preset-select"
+                aria-label="My presets"
+                value={presetValue}
+                onChange={(e) => void applyPreset(e.target.value)}
+              >
+                <option value="">My presets…</option>
+                {saved.map((p) => (
+                  <option key={p.id} value={savedValue(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {isSavedValue(presetValue) && !naming && (
+              <>
+                <button
+                  className="button button-outline"
+                  type="button"
+                  onClick={startRenaming}
+                >
+                  Rename
+                </button>
+                <button
+                  className="button button-outline"
+                  type="button"
+                  onClick={removePreset}
+                >
+                  Delete preset
+                </button>
+              </>
+            )}
           </div>
+          {naming && (
+            <form className="lab-preset-form" onSubmit={renameSavedPreset}>
+              <input
+                type="text"
+                value={presetName}
+                maxLength={40}
+                autoFocus
+                aria-label="Preset name"
+                placeholder="New name"
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setNaming(false);
+                }}
+              />
+              <button type="submit" className="button button-dark">
+                Rename
+              </button>
+              <button
+                className="button button-outline"
+                type="button"
+                onClick={() => setNaming(false)}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
         </div>
       </section>
     </div>

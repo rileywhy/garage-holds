@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/features/auth/current-user";
 import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
 import { pageMetadata } from "@/lib/page-metadata";
 import { LabNav } from "@/features/labs/lab-nav";
@@ -9,7 +10,9 @@ export const metadata = pageMetadata({
   path: "/make/custom-shape",
 });
 
-export default function Page() {
+export default async function Page() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
       <LabNav current="custom-shape" />
@@ -21,7 +24,7 @@ export default function Page() {
           becomes a rounded hold with a flat mounting surface.
         </p>
       </div>
-      <CustomShapeLab />
+      <CustomShapeLab account={Boolean(user)} />
     </main>
   );
 }

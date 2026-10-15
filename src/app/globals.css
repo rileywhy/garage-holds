@@ -874,6 +874,51 @@ svg {
   color: var(--accent);
   margin-right: 90px;
 }
+/* Lab presets on the Saved page, kept apart from the bookmarked designs. */
+.preset-section {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.preset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.preset-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+.preset-item .tag {
+  align-self: flex-start;
+}
+.preset-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+.preset-item-date {
+  font-size: 11px;
+  color: var(--muted);
+}
+.preset-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+.preset-section .error-text {
+  color: var(--error-ink);
+}
 .site-footer {
   max-width: 1288px;
   margin: 62px auto 0;
@@ -2839,6 +2884,17 @@ svg {
   flex-wrap: wrap;
   padding-top: 6px;
   border-top: 1px solid var(--line);
+}
+/* The Custom Shape Lab's preset menu, in its actions row. */
+.lab-preset-select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  max-width: 220px;
 }
 /* Naming a preset: one text field and two buttons under the settings row. */
 .lab-preset-form {

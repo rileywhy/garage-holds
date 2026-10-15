@@ -208,6 +208,45 @@ export type Database = {
           },
         ];
       };
+      lab_presets: {
+        Row: {
+          created_at: string;
+          id: string;
+          lab: string;
+          name: string;
+          owner_id: string;
+          search: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          lab: string;
+          name: string;
+          owner_id: string;
+          search?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          lab?: string;
+          name?: string;
+          owner_id?: string;
+          search?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lab_presets_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       phone_photos: {
         Row: {
           bytes: number;

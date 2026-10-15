@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/features/auth/current-user";
 import { CrimpLab } from "@/features/crimp-lab/crimp-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
@@ -9,7 +10,9 @@ export const metadata = pageMetadata({
   path: "/make/crimp",
 });
 
-export default function CrimpLabPage() {
+export default async function CrimpLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
       <LabNav current="crimp" />
@@ -21,7 +24,7 @@ export default function CrimpLabPage() {
           STL. Nothing is added to the library unless you upload it.
         </p>
       </div>
-      <CrimpLab />
+      <CrimpLab account={Boolean(user)} />
     </main>
   );
 }
