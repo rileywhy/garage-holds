@@ -651,6 +651,27 @@ export function HoldLab({
                     value={Number(parameters[control.key])}
                     disabled={name === "Mounting" && !screws}
                     onChange={change}
+                    // Dragging the span or seat slider turns its automatic
+                    // fit off; the toggle is the way back without resetting
+                    // the rest of the shape.
+                    auto={
+                      control.key === "screw_spacing" &&
+                      "auto_spacing" in parameters &&
+                      !parameters.bolt_mount
+                        ? {
+                            checked: Boolean(parameters.auto_spacing),
+                            onChange: (checked) =>
+                              edit((p) => ({ ...p, auto_spacing: checked })),
+                          }
+                        : control.key === "seat_depth" &&
+                            "auto_seat" in parameters
+                          ? {
+                              checked: Boolean(parameters.auto_seat),
+                              onChange: (checked) =>
+                                edit((p) => ({ ...p, auto_seat: checked })),
+                            }
+                          : undefined
+                    }
                     onReset={() => {
                       // Back to the starting point the person chose (preset,
                       // saved preset, loaded file or link), not the
@@ -1034,12 +1055,15 @@ function ControlRow({
   disabled,
   onChange,
   onReset,
+  auto,
 }: {
   control: Control;
   onReset: () => void;
   value: number;
   disabled: boolean;
   onChange: (key: string, value: number) => void;
+  // An "auto" toggle beside the slider, for settings the generator can fit.
+  auto?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
   const id = `lab-${control.key}`;
   function handle(value: number) {
@@ -1078,18 +1102,31 @@ function ControlRow({
           </button>
         </span>
       </div>
-      <input
-        type="range"
-        min={control.min}
-        max={control.max}
-        step={control.step}
-        value={Number.isFinite(value) ? value : control.min}
-        disabled={disabled}
-        aria-label={`${control.label} slider`}
-        aria-describedby={`${id}-hint`}
-        onChange={(e) => handle(e.target.valueAsNumber)}
-        onDoubleClick={onReset}
-      />
+      <div className="lab-slider-with-auto">
+        <input
+          type="range"
+          min={control.min}
+          max={control.max}
+          step={control.step}
+          value={Number.isFinite(value) ? value : control.min}
+          disabled={disabled}
+          aria-label={`${control.label} slider`}
+          aria-describedby={`${id}-hint`}
+          onChange={(e) => handle(e.target.valueAsNumber)}
+          onDoubleClick={onReset}
+        />
+        {auto && (
+          <label className="lab-toggle">
+            <input
+              type="checkbox"
+              checked={auto.checked}
+              disabled={disabled}
+              onChange={(e) => auto.onChange(e.target.checked)}
+            />
+            auto
+          </label>
+        )}
+      </div>
       <p className="lab-hint" id={`${id}-hint`}>
         {control.help}
       </p>

@@ -78,7 +78,9 @@ class Model:
             dimensions=np.round(self.mesh.extents, 2).tolist(),
             volume_cm3=round(self.mesh.volume / 1000, 2),
             triangles=len(self.mesh.faces),
-            screw_spacing=round(self.screws[1][0] - self.screws[0][0], 2)
+            # The outer span, first screw to last: the same quantity as the
+            # screw_spacing setting, so the lab can show it on the slider.
+            screw_spacing=round(self.screws[-1][0] - self.screws[0][0], 2)
             if len(self.screws) > 1
             else None,
             watertight=bool(self.mesh.is_watertight),
@@ -415,6 +417,11 @@ def build(
     # the recesses inside the body) is reported like any other change.
     if not p.auto_seat and model.seat_depth < p.seat_depth - 1e-9:
         model.adjusted["seat_depth"] = model.seat_depth
+    # So is a manual span the fit had to change.
+    if not p.auto_spacing and not math.isclose(
+        model.parameters.screw_spacing, p.screw_spacing
+    ):
+        model.adjusted["screw_spacing"] = model.parameters.screw_spacing
     return model
 
 
@@ -470,6 +477,9 @@ def _build(
         if not holes:
             raise _NoRoomForScrews()
         seat = holes[0].seat
+        # The design carries the seat actually drilled, as the screw branch
+        # does, so the slider and a reopened file show the real recess.
+        p = replace(p, seat_depth=seat)
         bolts = [(h.x, h.y) for h in holes if h.bolt]
         screws = [(h.x, h.y) for h in holes if not h.bolt]
         solid = drill(solid, holes, float(mesh.bounds[1, 2]))
@@ -504,20 +514,31 @@ def _build(
         )
         candidates = _screw_candidates(p, jug=jug or end_wrap > 0, mounting_width=mounting_width)
         # An automatic seat is as high as the recesses allow: start at the
-        # share of the depth and come down until the row fits.
+        # share of the depth and come down until the row fits. A manual
+        # seat below the automatic target is searched the same way, down
+        # to the request, so a low seat is drilled where it was asked for
+        # instead of the body growing or the shape being refused.
         seats = (
             np.arange(seat, seat_floor - 1e-9, -0.5)
             if p.auto_seat or jug
-            else np.array([seat])
+            else np.arange(seat, min(seat, requested_seat) - 1e-9, -0.5)
         )
         arc_passes = (True, False) if jug else (False,)
         selected_room = None
-        for require_arc in arc_passes:
-            for seat in seats:
-                room_polygons = _screw_room(
+        rooms: dict[float, list] = {}
+
+        def room_at(seat: float) -> list:
+            key = round(float(seat), 6)
+            if key not in rooms:
+                rooms[key] = _screw_room(
                     p, mounting_solid, float(seat),
                     edge_clearance=5.0 if jug else None,
                 )
+            return rooms[key]
+
+        for require_arc in arc_passes:
+            for seat in seats:
+                room_polygons = room_at(seat)
                 widest = _screw_positions(
                     p, mounting_solid, float(seat), limit_candidates,
                     edge_clearance=5.0 if jug else None,
@@ -556,18 +577,29 @@ def _build(
                         spacing_limit or 0.0,
                         round(screws[-1][0] - screws[0][0], 6),
                     )
-                elif (
-                    not screws
-                    and not p.auto_spacing
-                    and spacing_limit is not None
-                    and p.screw_spacing > spacing_limit
-                    and math.isclose(float(seat), float(seats[-1]))
-                ):
-                    fitted_candidates = _screw_candidates(
-                        replace(p, screw_spacing=spacing_limit),
-                        jug=jug or end_wrap > 0,
-                        mounting_width=mounting_width,
-                    )
+                if screws:
+                    selected_room = room_polygons
+                    break
+            if screws:
+                break
+        if (
+            not screws
+            and not p.auto_spacing
+            and spacing_limit is not None
+            and p.screw_spacing > spacing_limit
+        ):
+            # The manual span is wider than the body allows at any seat.
+            # The widest span that does fit is searched from the top seat
+            # down, like a request for that span, so the design that comes
+            # back builds the same hold when it is reopened.
+            fitted_candidates = _screw_candidates(
+                replace(p, screw_spacing=spacing_limit),
+                jug=jug or end_wrap > 0,
+                mounting_width=mounting_width,
+            )
+            for require_arc in arc_passes:
+                for seat in seats:
+                    room_polygons = room_at(seat)
                     screws = _screw_positions(
                         p, mounting_solid, float(seat), fitted_candidates,
                         edge_clearance=5.0 if jug else None,
@@ -577,12 +609,11 @@ def _build(
                     )
                     if screws:
                         candidates = fitted_candidates
+                        selected_room = room_polygons
+                        break
                 if screws:
-                    selected_room = room_polygons
                     break
-            if screws:
-                break
-        else:
+        if not screws:
             raise _NoRoomForScrews()
         seat = float(seat)
         if jug:
@@ -645,7 +676,10 @@ def _build(
         mesh = closed_mesh(solid, message)
     else:
         assert_closed(mesh, message)
-    if screws and not p.auto_spacing:
+    # A manual span is replaced by the span actually drilled. A bolt mount
+    # has one anti-rotation screw, so its "span" is 0 and the setting is
+    # left alone; otherwise the exported design could not be reopened.
+    if len(screws) > 1 and not p.auto_spacing and not p.bolt_mount:
         actual_span = round(screws[-1][0] - screws[0][0], 6)
         if not math.isclose(p.screw_spacing, actual_span):
             p = replace(p, screw_spacing=actual_span)

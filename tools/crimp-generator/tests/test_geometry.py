@@ -311,6 +311,76 @@ class GeometryTests(unittest.TestCase):
                 exported += 1
         self.assertGreater(exported, 10)
 
+    def test_designs_reopen_and_rebuild_the_same_hold(self):
+        # The exported design carries the settings actually built. Parsing
+        # it back and building again must give the same mesh, screws and
+        # seat: links, presets and settings files depend on it. A bolt
+        # mount with a manual span used to write span 0, a manual span the
+        # fit narrowed used to reopen at a different seat, and a manual
+        # seat below the automatic one used to be refused (RIL-70).
+        cases = [
+            {"bolt_mount": True, "auto_spacing": False},
+            {"bolt_mount": True, "auto_seat": False, "seat_depth": 30},
+            {"width": 100, "screw_spacing": 85, "end_rounding": 20, "screw_count": 2, "auto_spacing": False},
+            {"edge_depth": 7.5, "lip_radius": 14.75, "width": 78, "taper": -46, "auto_seat": False, "seat_depth": 2},
+        ]
+        rng = random.Random(70)
+        while len(cases) < 40:
+            cases.append(random_settings(rng, CONTROLS))
+        rebuilt = 0
+        for values in cases:
+            try:
+                p = parse_parameters(values)
+                model = build(p)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                design = design_document(model.parameters)["parameters"]
+                again = build(parse_parameters(design))
+                self.assertEqual(again.screws, model.screws)
+                self.assertEqual(again.bolts, model.bolts)
+                self.assertAlmostEqual(again.seat_depth, model.seat_depth)
+                self.assertEqual(again.parameters, model.parameters)
+                self.assertEqual(again.mesh.vertices.shape, model.mesh.vertices.shape)
+                self.assertTrue(np.allclose(again.mesh.vertices, model.mesh.vertices))
+                rebuilt += 1
+        self.assertGreater(rebuilt, 20)
+
+    def test_bolt_mount_keeps_a_manual_span_and_reports_its_seat(self):
+        model = build(Parameters(bolt_mount=True, auto_spacing=False, screw_spacing=60))
+        self.assertEqual(model.parameters.screw_spacing, 60)
+        self.assertIsNone(model.preview()["screw_spacing"])
+        high = build(Parameters(bolt_mount=True, auto_seat=False, seat_depth=30))
+        self.assertAlmostEqual(high.parameters.seat_depth, high.seat_depth)
+        self.assertLess(high.seat_depth, 30)
+        self.assertIn("seat_depth", high.adjusted)
+
+    def test_a_narrowed_manual_span_is_reported_as_adjusted(self):
+        model = build(
+            Parameters(width=100, screw_spacing=85, end_rounding=20, screw_count=2, auto_spacing=False)
+        )
+        self.assertLess(model.parameters.screw_spacing, 85)
+        self.assertEqual(model.adjusted, {"screw_spacing": model.parameters.screw_spacing})
+        self.assertAlmostEqual(
+            model.screws[-1][0] - model.screws[0][0], model.parameters.screw_spacing
+        )
+
+    def test_a_manual_seat_below_the_automatic_one_is_drilled_where_asked(self):
+        shape = dict(edge_depth=7.5, lip_radius=14.75, width=78, taper=-46)
+        automatic = build(Parameters(**shape))
+        low = build(Parameters(**shape, auto_seat=False, seat_depth=2))
+        self.assertEqual(low.seat_depth, 2)
+        self.assertEqual(low.parameters.body_height, automatic.parameters.body_height)
+        self.assertEqual(low.adjusted, {})
+
+    def test_preview_reports_the_outer_span(self):
+        model = build(Parameters())
+        self.assertEqual(len(model.screws), 3)
+        self.assertEqual(
+            model.preview()["screw_spacing"], round(model.screws[-1][0] - model.screws[0][0], 2)
+        )
+        self.assertEqual(model.preview()["screw_spacing"], model.parameters.screw_spacing)
+
     def test_manual_seat_recess_stays_inside_the_body(self):
         # The row is fitted at the automatic seat, then drilled at the seat
         # the person asked for. On a steep rail a high manual seat used to put
