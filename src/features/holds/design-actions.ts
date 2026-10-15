@@ -13,6 +13,7 @@ import {
 import { deleteObject, isR2Configured } from "@/lib/r2";
 import { deletePhotoObjects } from "@/features/uploads/photo-sizes";
 import { readDesignInput } from "./design-form";
+import { modelObjectKeys } from "./rows";
 import { getUserId } from "./repository";
 import { validateDesign } from "./validation";
 import { isOrientation } from "./orientation";
@@ -106,7 +107,9 @@ export async function deleteDesign(
   }
   for (const file of design.design_files)
     if (file.kind === "photo") await deletePhotoObjects(file.object_key);
-    else await deleteObject(file.object_key);
+    else
+      for (const key of modelObjectKeys(file.object_key))
+        await deleteObject(key);
   revalidatePath("/");
   revalidatePath("/designs");
   revalidatePath("/saved");

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Hold } from "@/features/holds/types";
+import { previewSource, type Hold } from "@/features/holds/types";
 import { FileBox } from "lucide-react";
 import { StlPreview } from "@/features/holds/stl-preview";
 import { StlViewer } from "@/features/holds/stl-viewer";
@@ -37,9 +37,17 @@ export function HoldVisual({
     />
   ) : stl ? (
     large ? (
-      <StlViewer file={stl} title={hold.title} color={hold.color} />
+      <StlViewer
+        file={{ ...stl, url: previewSource(stl) }}
+        title={hold.title}
+        color={hold.color}
+      />
     ) : (
-      <StlPreview file={stl} title={hold.title} color={hold.color} />
+      <StlPreview
+        file={{ ...stl, url: previewSource(stl) }}
+        title={hold.title}
+        color={hold.color}
+      />
     )
   ) : (
     <div className="image-placeholder no-photo-visual">

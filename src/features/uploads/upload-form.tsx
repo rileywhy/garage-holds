@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { PhonePhotoPicker } from "./phone-photo-picker";
 import { abandonDraft, createDraft, finalizeDesign } from "./actions";
 import type { PhonePhoto } from "./phone-actions";
 import { uploadAll } from "./put-files";
+import { STL_HEADER_BYTES, stlNeedsPreview } from "./model-preview";
 
 export function UploadForm({ creator }: { creator: string }) {
   const [formVersion, setFormVersion] = useState(0);
@@ -53,6 +54,7 @@ function UploadDesignForm({
   const [photos, setPhotos] = useState<File[]>([]);
   const [phonePhotos, setPhonePhotos] = useState<PhonePhoto[]>([]);
   const [models, setModels] = useState<File[]>([]);
+  const oversized = useOversizedStls(models);
   // How each STL should face, by file key; set in the orientation dialog.
   const [orientations, setOrientations] = useState<Record<string, Orientation>>(
     {},
@@ -267,6 +269,15 @@ function UploadDesignForm({
                       )
                     }
                   />
+                  {oversized.length > 0 && (
+                    <p className="small-note" role="status">
+                      {oversized.join(", ")}{" "}
+                      {oversized.length === 1 ? "is" : "are"} over the preview
+                      limit (25 MB or 500,000 triangles). A simplified copy is
+                      made for the 3D preview after you publish; the download
+                      stays exactly as uploaded.
+                    </p>
+                  )}
                 </>
               }
             />
@@ -422,6 +433,30 @@ function UploadDesignForm({
 
 function isStl(file: File) {
   return file.name.toLowerCase().endsWith(".stl");
+}
+
+// The names of chosen STLs the browser preview would refuse as uploaded.
+// Reads each file's 84-byte header, so a 20 MB binary STL with too many
+// triangles is caught as well as a 30 MB one.
+function useOversizedStls(models: File[]) {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const found: string[] = [];
+      for (const file of models.filter(isStl)) {
+        const head = new Uint8Array(
+          await file.slice(0, STL_HEADER_BYTES).arrayBuffer(),
+        );
+        if (stlNeedsPreview(file.size, head)) found.push(file.name);
+      }
+      if (!cancelled) setNames(found);
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [models]);
+  return names;
 }
 
 function PlusIcon() {

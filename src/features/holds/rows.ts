@@ -68,6 +68,7 @@ export function designRowToHold(
       bytes: file.bytes,
       extension: file.extension,
       url: urls.get(file.id) ?? "",
+      previewUrl: urls.get(`${file.id}:preview`) ?? "",
       orientation: isOrientation(file.orientation)
         ? file.orientation
         : DEFAULT_ORIENTATION,
@@ -173,4 +174,26 @@ export function photoObjectKeys(objectKey: string) {
       photoSizeKey(objectKey, size),
     ),
   ];
+}
+
+// designs/<design>/<file>.stl -> designs/<design>/<file>-preview.stl: the
+// simplified copy a model over the browser's preview limits gets (RIL-87).
+export function modelPreviewKey(objectKey: string) {
+  const dot = objectKey.lastIndexOf(".");
+  const base =
+    dot > objectKey.lastIndexOf("/") ? objectKey.slice(0, dot) : objectKey;
+  return `${base}-preview.stl`;
+}
+
+// The original and the preview copy it may have. Deleting a key that does
+// not exist is fine, so this is safe for models that never needed one.
+export function modelObjectKeys(objectKey: string) {
+  return [objectKey, modelPreviewKey(objectKey)];
+}
+
+// Every object a file row may own in the bucket.
+export function fileObjectKeys(file: { kind: string; object_key: string }) {
+  return file.kind === "photo"
+    ? photoObjectKeys(file.object_key)
+    : modelObjectKeys(file.object_key);
 }

@@ -114,6 +114,11 @@ async function toHolds(rows: DesignRow[]): Promise<Hold[]> {
             const imageType = photoContentType(file.extension);
             if (file.kind !== "photo" || !imageType) {
               urls.set(file.id, await signDownload(file.object_key, file.name));
+              if (file.preview_object_key)
+                urls.set(
+                  `${file.id}:preview`,
+                  await signDownload(file.preview_object_key, file.name),
+                );
               return;
             }
             urls.set(file.id, await signImage(file.object_key, imageType));

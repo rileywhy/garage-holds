@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import {
+  fileObjectKeys,
   INBOX_KEY_PREFIX,
   OBJECT_KEY_PREFIX,
   photoObjectKeys,
 } from "@/features/holds/rows";
+import { MAX_STL_PREVIEW_BYTES } from "@/features/holds/stl-limits";
 
 // The storage sweep: reconciles the database with the bucket. Three things
 // can be left behind by an upload that never finished: a draft whose files
@@ -31,6 +33,13 @@ export interface ObjectStore {
   listObjects(prefix: string): Promise<StoredObject[]>;
   deleteObject(key: string): Promise<void>;
   createPhotoSizes(objectKey: string, extension: string): Promise<void>;
+  // The preview copy's key, or null when the model needs none (RIL-87).
+  createModelPreview(file: {
+    object_key: string;
+    name: string;
+    bytes: number;
+    extension: string;
+  }): Promise<string | null>;
 }
 
 export interface SweepReport {
@@ -46,6 +55,10 @@ export interface SweepReport {
   // readable image, or a transient failure. Logged, and tried again next
   // night; a sweep never fails because of one photo.
   photoSizeFailures: number;
+  // Models over the preview size limit with no simplified copy yet, and
+  // how many of those could not be made this time.
+  modelPreviews: number;
+  modelPreviewFailures: number;
 }
 
 export function isAbandonedDraft(
@@ -93,11 +106,7 @@ export async function sweep(
     throw new Error(`Could not list drafts: ${draftsError.message}`);
   const abandoned = drafts.filter((draft) => isAbandonedDraft(draft, now));
   const keysOf = (draft: (typeof drafts)[number]) =>
-    draft.design_files.flatMap((file) =>
-      file.kind === "photo"
-        ? photoObjectKeys(file.object_key)
-        : [file.object_key],
-    );
+    draft.design_files.flatMap((file) => fileObjectKeys(file));
   const draftKeys = abandoned.flatMap(keysOf);
   if (!dryRun)
     for (const draft of abandoned) {
@@ -143,7 +152,11 @@ export async function sweep(
     { data: files, error: filesError },
     { data: photos, error: photosError },
   ] = await Promise.all([
-    admin.from("design_files").select("object_key, kind, extension, status"),
+    admin
+      .from("design_files")
+      .select(
+        "id, object_key, kind, extension, status, name, bytes, preview_object_key",
+      ),
     admin.from("phone_photos").select("object_key"),
   ]);
   if (filesError)
@@ -154,11 +167,7 @@ export async function sweep(
   // run both remain, so their keys stay "known" and are not counted a second
   // time as orphans.
   const known = new Set([
-    ...files.flatMap((file) =>
-      file.kind === "photo"
-        ? photoObjectKeys(file.object_key)
-        : [file.object_key],
-    ),
+    ...files.flatMap((file) => fileObjectKeys(file)),
     ...photos.map((row) => row.object_key),
   ]);
   const stored = await store.listObjects(OBJECT_KEY_PREFIX);
@@ -190,6 +199,35 @@ export async function sweep(
         console.error("sweep: photo sizes failed", { file, error });
       }
 
+  // Simplified copies for big STLs that have none: a publish whose copy
+  // failed or timed out, or a model from before copies existed. The size
+  // check is the cheap one; createModelPreview reads the header too.
+  const unpreviewed = files.filter(
+    (file) =>
+      file.kind === "model" &&
+      file.status === "ready" &&
+      file.extension === "stl" &&
+      !file.preview_object_key &&
+      file.bytes > MAX_STL_PREVIEW_BYTES &&
+      storedKeys.has(file.object_key),
+  );
+  let modelPreviewFailures = 0;
+  if (!dryRun)
+    for (const file of unpreviewed)
+      try {
+        const previewKey = await store.createModelPreview(file);
+        if (previewKey) {
+          const { error } = await admin
+            .from("design_files")
+            .update({ preview_object_key: previewKey })
+            .eq("id", file.id);
+          if (error) throw new Error(error.message);
+        }
+      } catch (error) {
+        modelPreviewFailures += 1;
+        console.error("sweep: model preview failed", { file, error });
+      }
+
   return {
     dryRun,
     abandonedDrafts: abandoned.length,
@@ -199,5 +237,7 @@ export async function sweep(
     orphanedObjects: orphans.length,
     photoSizes: unsized.length,
     photoSizeFailures,
+    modelPreviews: unpreviewed.length,
+    modelPreviewFailures,
   };
 }

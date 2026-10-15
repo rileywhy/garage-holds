@@ -39,6 +39,8 @@ import {
 import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 import { notifyOwner } from "@/lib/alerts";
+import { after } from "next/server";
+import { makeModelPreview } from "./model-previews";
 
 export interface UploadFileDescriptor {
   kind: "model" | "photo";
@@ -275,6 +277,26 @@ export async function finalizeDesign(
     return { errors: ["Your phone photos could not be attached. Try again."] };
   }
 
+  // Big STLs get a simplified copy for the 3D preview, after the response:
+  // the function downloads and decimates the model, which must not hold up
+  // or fail the publish. A copy that fails here is tried again by the sweep.
+  after(async () => {
+    for (const file of files)
+      if (file.kind === "model")
+        try {
+          const previewKey = await makeModelPreview({
+            ...file,
+            extension: fileExtension(file.name),
+          });
+          if (previewKey)
+            await admin
+              .from("design_files")
+              .update({ preview_object_key: previewKey })
+              .eq("id", file.id);
+        } catch (error) {
+          console.error("model preview failed", { designId, file, error });
+        }
+  });
   const { error } = await supabase
     .from("designs")
     .update({ status: "published" })

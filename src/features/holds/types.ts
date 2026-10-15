@@ -32,8 +32,17 @@ export interface ModelFile {
   extension: string;
   // Short-lived signed download URL; empty when storage is unavailable.
   url: string;
+  // A simplified copy for the 3D preview, when the original is over the
+  // browser's limits; empty when the original is small enough or no copy
+  // has been made yet. Downloads always use `url`.
+  previewUrl: string;
   // How previews turn the model (see orientation.ts).
   orientation: Orientation;
+}
+
+// What the 3D preview and the card thumbnail should load.
+export function previewSource(file: ModelFile) {
+  return file.previewUrl || file.url;
 }
 
 export interface Photo {

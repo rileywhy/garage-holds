@@ -38,6 +38,7 @@ function fakeStore(initial: StoredObject[]) {
           lastModified: now,
         });
     },
+    createModelPreview: async () => null,
     keys: () => [...objects.keys()].sort(),
   };
   return store;
@@ -156,12 +157,16 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
   assert.deepEqual(rehearsal, {
     dryRun: true,
     abandonedDrafts: 1,
-    draftObjects: 1,
+    // The model's original plus the preview-copy key it may have, like a
+    // photo counts its sizes.
+    draftObjects: 2,
     stalePhoneSessions: 1,
     phoneObjects: 1,
     orphanedObjects: 2,
     photoSizes: 1,
     photoSizeFailures: 0,
+    modelPreviews: 0,
+    modelPreviewFailures: 0,
   });
   assert.deepEqual(store.keys(), initial);
 
@@ -209,5 +214,7 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     orphanedObjects: 0,
     photoSizes: 0,
     photoSizeFailures: 0,
+    modelPreviews: 0,
+    modelPreviewFailures: 0,
   });
 });

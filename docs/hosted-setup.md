@@ -17,6 +17,7 @@ each value goes. Nothing here is secret except where marked.
 | `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                                |
 | `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                                 |
 | `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                     |
+| `PREVIEW_SECRET`                       | Server only      | No      | Shared with the preview_mesh function; without it big models get no simplified preview copy (see below)                                       |
 | `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | The public origin for the sitemap and link previews: `https://garageholds.com` in Production. Vercel's own URL is used where it is unset      |
 | `NEXT_PUBLIC_AMAZON_TAG`               | Browser + server | No      | The Amazon Associates tracking id (`garageholds-20`). Shopping links in the guide and the labs carry it; unset, they point at Amazon untagged |
 | `NEXT_PUBLIC_TIP_URL`                  | Browser + server | No      | The tip jar page, a Ko-fi URL. The footer links to it when set                                                                                |
@@ -314,6 +315,38 @@ root `requirements.txt`. It needs no settings. A preview build takes well
 under a second; `vercel.json` allows it 30 seconds and 1 GB. If the function
 ever exceeds Vercel's bundle size limit, add an `excludeFiles` entry for it
 in `vercel.json` rather than trimming the Python.
+
+## Preview copies of big models
+
+The browser's 3D preview refuses an STL over 25 MB or 500,000 triangles
+(`src/features/holds/stl-limits.ts`): every visitor scrolling past a card
+would otherwise download and parse it. A model over either limit gets a
+simplified copy, made once and stored beside the original as
+`<key>-preview.stl`; `design_files.preview_object_key` names it. The viewer
+and the card thumbnail load the copy, the download always serves the
+original bytes, and a delete removes both.
+
+The copy is made by `api/preview_mesh.py`, a Vercel Python function using
+`fast-simplification` (quadric edge collapse; the triangle target is
+150,000). `finalizeDesign` calls it after the publish response has gone
+out (`after()` from `next/server`), so it never slows or fails a publish;
+the nightly sweep makes any copy that is still missing. Vercel caps
+function bodies at 4.5 MB, so the bytes never pass through the call: the
+app sends a signed GET URL for the original and a signed PUT URL for the
+copy, and the function downloads, simplifies and uploads.
+
+`PREVIEW_SECRET` is a long random string the app sends as a bearer token
+and the function checks, so nobody else can point it at a URL. Set it in
+the Vercel project's environment variables (Production and Preview); both
+sides read the same variable. Without it the step is skipped with a log
+line and big models show the placeholder as before. `vercel.json` gives
+the function 60 seconds and 1 GB. Locally, `python
+tools/mesh-preview/serve_api.py` serves it on port 8790 with
+`PREVIEW_API_URL=http://127.0.0.1:8790` in `.env.local`.
+
+After a deploy, a design that was published before copies existed gets
+one from the next sweep (04:00 UTC), or at once from
+`curl -H "Authorization: Bearer $CRON_SECRET" https://garageholds.com/api/sweep`.
 
 ## Response headers
 

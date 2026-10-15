@@ -36,7 +36,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 - A feedback dialog in the footer and a "Report this design" link on every design page, both stored and forwarded to the site owner.
 - Edit or delete your own designs. Each account has an upload allowance (20 designs, 2 GB by default) that the site owner can raise; "My designs" shows your usage.
 - Responsive layouts and keyboard-accessible forms. A generated sitemap and robots file, and Open Graph link previews with the design's first photo.
-- Uploaded STL files get a live 3D preview on the design page, with a mounted-on-a-board view, and a side thumbnail on cards. A creator can set which way a model faces at upload or later from the edit page; the file itself is never changed.
+- Uploaded STL files get a live 3D preview on the design page, with a mounted-on-a-board view, and a side thumbnail on cards. A model over the preview limits (25 MB or 500,000 triangles) gets a simplified copy for the preview, made server-side after publishing; the download is always the original file. A creator can set which way a model faces at upload or later from the edit page; the file itself is never changed.
 - Light and dark themes follow your system initially; the header toggle remembers your choice in this browser.
 - Uploads finish with an in-place confirmation and explicit actions to view the design or add another. Saving never silently redirects or clears the form on failure, and a failed upload leaves no half-finished draft behind.
 - Upload validation explains missing fields beside the submit button, including the 20-character description minimum. It preserves the form and avoids the browser's automatic jump to an invalid field.

@@ -55,6 +55,7 @@ export type Database = {
           object_key: string;
           orientation: string;
           position: number;
+          preview_object_key: string | null;
           status: string;
         };
         ComputedFields: never;
@@ -69,6 +70,7 @@ export type Database = {
           object_key: string;
           orientation?: string;
           position?: number;
+          preview_object_key?: string | null;
           status?: string;
         };
         Update: {
@@ -82,6 +84,7 @@ export type Database = {
           object_key?: string;
           orientation?: string;
           position?: number;
+          preview_object_key?: string | null;
           status?: string;
         };
         Relationships: [
