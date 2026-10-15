@@ -32,12 +32,15 @@ export function pageMetadata({
   path,
   type = "website",
   image,
+  article,
 }: {
   title: string;
   description: string;
   path: string;
   type?: "website" | "article";
   image?: PageImage;
+  // For an article: who wrote it and when, as ISO dates.
+  article?: { authors: string[]; publishedTime: string; modifiedTime: string };
 }): Metadata {
   return {
     title,
@@ -50,6 +53,7 @@ export function pageMetadata({
       description,
       url: path,
       ...(image ? { images: [image] } : {}),
+      ...(article ?? {}),
     },
   };
 }

@@ -25,6 +25,25 @@ test("a page carries its own canonical and link-preview fields", () => {
   });
 });
 
+test("an article carries its authors and dates in the Open Graph block", () => {
+  const metadata = pageMetadata({
+    title: "Guide",
+    description: "A guide.",
+    path: "/guide",
+    type: "article",
+    article: {
+      authors: ["Riley Young"],
+      publishedTime: "2026-10-13",
+      modifiedTime: "2026-10-15",
+    },
+  });
+  const openGraph = metadata.openGraph as Record<string, unknown>;
+  assert.equal(openGraph.type, "article");
+  assert.deepEqual(openGraph.authors, ["Riley Young"]);
+  assert.equal(openGraph.publishedTime, "2026-10-13");
+  assert.equal(openGraph.modifiedTime, "2026-10-15");
+});
+
 test("every lab page has its own card image file beside it", () => {
   const make = join("src", "app", "make");
   const pages = [
