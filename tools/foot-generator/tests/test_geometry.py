@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import build
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
-SHAPES = ("edge", "ball", "rock", "dish")
+SHAPES = ("edge", "ball", "rock", "dish", "rectangle")
 
 
 def random_settings(rng):
@@ -172,6 +172,29 @@ class FootTests(unittest.TestCase):
                 self.assertEqual(again.adjusted, {})
                 rebuilt += 1
         self.assertGreater(rebuilt, 15)
+
+    def test_rectangle_is_a_rounded_block_with_a_flat_back(self):
+        # The block keeps the asked-for footprint and depth, sits flat on
+        # the wall, and takes the mounting like every other shape (RIL-85).
+        rail = PRESETS["Flat rail"]
+        for quality in ("preview", "export"):
+            model = build(rail, quality)
+            self.assertTrue(model.mesh.is_watertight)
+            low, high = model.mesh.bounds
+            self.assertAlmostEqual(low[2], 0, places=5)
+            self.assertAlmostEqual(high[0] - low[0], rail.width, delta=0.2)
+            self.assertAlmostEqual(high[1] - low[1], rail.body_height, delta=0.2)
+            self.assertAlmostEqual(high[2], rail.edge_depth, delta=0.2)
+            self.assertEqual(len(model.holes), 2)
+        # The lip radius rounds the standing edges: no vertex sits in the
+        # sharp corner of the footprint.
+        vertices = np.asarray(build(rail).mesh.vertices)
+        in_corner = (abs(vertices[:, 0]) > rail.width / 2 - 0.3) & (
+            abs(vertices[:, 1]) > rail.body_height / 2 - 0.3
+        )
+        self.assertFalse(in_corner.any())
+        big = build(replace(rail, size=200, lip_radius=14))
+        self.assertAlmostEqual(big.mesh.bounds[1][0] - big.mesh.bounds[0][0], 140, delta=0.4)
 
     def test_manual_seat_survives_turning_screws_off(self):
         # Dragging the seat slider sets auto_seat off; turning the mounting

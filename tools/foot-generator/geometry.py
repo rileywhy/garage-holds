@@ -53,6 +53,30 @@ def shaped_body(p, quality):
             .trim_by_plane((0, 0, 1), 0)
         )
         used_radius = radius
+    elif p.shape == "rectangle":
+        # A plain block: flat back, vertical sides, and every standing edge
+        # and top edge rounded by the lip radius, so there is no sharp arris
+        # to grab or snap. The hull of eight spheres: four at the top corners
+        # and four centred on the back plane, so the trim at z=0 leaves a
+        # crisp back face of the full footprint.
+        used_radius = max(
+            0.5,
+            min(p.lip_radius * scale, width / 2 - 0.5, height / 2 - 0.5, depth - 0.5),
+        )
+        sphere = (
+            manifold.Manifold.sphere(used_radius, 16 if quality == "preview" else 24)
+            .to_mesh()
+            .vert_properties[:, :3]
+        )
+        corners = [
+            (sx * (width / 2 - used_radius), sy * (height / 2 - used_radius), z)
+            for sx in (-1, 1)
+            for sy in (-1, 1)
+            for z in (0.0, depth - used_radius)
+        ]
+        solid = manifold.Manifold.hull_points(
+            np.vstack([sphere + corner for corner in corners])
+        ).trim_by_plane((0, 0, 1), 0)
     else:
         # Uneven rock footprint with an off-centre tooth and a second ledge.
         # Hulls of small spheres bevel the ridge without losing broad facets.

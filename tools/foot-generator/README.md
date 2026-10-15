@@ -1,7 +1,7 @@
 # Foot Lab
 
 Footholds: board edges, toe-in edges, neutral chips, slopey wedges, balls,
-rounded dishes and rock teeth. On the site it runs as a Vercel Python function
+rounded dishes, rock teeth and plain rectangular rails. On the site it runs as a Vercel Python function
 (`api/foot.py`) behind `/make/foot`, on the same React shell as the Sloper and
 Jug Labs (`src/features/hold-lab`). It is labelled experimental on the site:
 it generates, exports a closed solid and mounts, and the controls may still

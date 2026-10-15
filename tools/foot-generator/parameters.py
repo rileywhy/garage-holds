@@ -236,6 +236,16 @@ PRESETS = {
         screw_count=1,
         auto_screw_count=True,
     ),
+    "Flat rail": replace(
+        BASE,
+        shape="rectangle",
+        width=70,
+        body_height=20,
+        edge_depth=10,
+        incut=0,
+        lip_radius=3,
+        screw_count=2,
+    ),
     "Rock tooth": replace(
         BASE,
         shape="rock",
@@ -268,7 +278,7 @@ def parse_parameters(values):
     if unknown:
         raise ValueError("Unknown settings: " + ", ".join(sorted(unknown)))
     data = asdict(BASE) | values
-    if data["shape"] not in ("edge", "ball", "rock", "dish"):
+    if data["shape"] not in ("edge", "ball", "rock", "dish", "rectangle"):
         raise ValueError("Unknown foothold shape.")
     for key in ("screws", "bolt_mount", "auto_seat", "auto_screw_count"):
         if not isinstance(data[key], bool):
@@ -295,7 +305,13 @@ def schema():
         label="Foot Lab",
         defaults=asdict(BASE),
         presets={key: asdict(value) for key, value in PRESETS.items()},
-        shapes={"edge": "Edge", "ball": "Ball", "rock": "Rock tooth", "dish": "Dish"},
+        shapes={
+            "edge": "Edge",
+            "ball": "Ball",
+            "rock": "Rock tooth",
+            "dish": "Dish",
+            "rectangle": "Rectangle",
+        },
         autoScrewCount=True,
         controls=[
             dict(
@@ -304,8 +320,10 @@ def schema():
                     ["edge"]
                     if c["key"] in ("end_rounding", "taper", "crown")
                     else ["edge", "rock"]
-                    if c["key"] in ("incut", "lip_radius", "character", "body_height")
-                    else ["edge", "ball", "rock", "dish"]
+                    if c["key"] in ("incut", "character")
+                    else ["edge", "rock", "rectangle"]
+                    if c["key"] in ("lip_radius", "body_height")
+                    else ["edge", "ball", "rock", "dish", "rectangle"]
                 ),
             )
             for c in CONTROLS
