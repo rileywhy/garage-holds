@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GearLink } from "@/features/gear/gear-link";
 import { AMAZON_DISCLOSURE, GEAR, amazonTag } from "@/features/gear/gear";
-import { pageMetadata } from "@/lib/page-metadata";
+import { SITE_IMAGE, pageMetadata } from "@/lib/page-metadata";
 
 // The guide shows the site image on link cards until it has a photo of
 // its own (RIL-18).
@@ -11,6 +11,7 @@ export const metadata = pageMetadata({
     "A practical guide to printing climbing holds for a home wall: which printer and filament, the slicer settings that keep a hold from breaking, and whether printed holds hold up.",
   path: "/how-to-3d-print-climbing-holds",
   type: "article",
+  image: SITE_IMAGE,
 });
 
 // The guide behind every "can I print this" question. One page, in the

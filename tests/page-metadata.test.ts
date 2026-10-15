@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { SITE_IMAGE, pageMetadata } from "../src/lib/page-metadata";
 import { designMetadata } from "../src/features/holds/metadata";
@@ -12,14 +14,29 @@ test("a page carries its own canonical and link-preview fields", () => {
   });
   assert.equal(metadata.title, "Crimp Lab");
   assert.deepEqual(metadata.alternates, { canonical: "/make/crimp" });
+  // No image here: the lab's own opengraph-image.png file supplies it, and
+  // an image set in metadata would replace the file's.
   assert.deepEqual(metadata.openGraph, {
     type: "website",
     siteName: "Garage Holds",
     title: "Crimp Lab",
     description: "Shape a crimp.",
     url: "/make/crimp",
-    images: [SITE_IMAGE],
   });
+});
+
+test("every lab page has its own card image file beside it", () => {
+  const make = join("src", "app", "make");
+  const pages = [
+    make,
+    ...readdirSync(make).map((name) => join(make, name)),
+  ].filter((dir) => existsSync(join(dir, "page.tsx")));
+  assert.ok(pages.length >= 6);
+  for (const dir of pages)
+    assert.ok(
+      existsSync(join(dir, "opengraph-image.png")),
+      `${dir} has no image`,
+    );
 });
 
 // A page's openGraph replaces the layout's whole block, so the site name
@@ -31,6 +48,7 @@ test("every page and design card has a site name and an image", () => {
     description: "A guide.",
     path: "/how-to-3d-print-climbing-holds",
     type: "article",
+    image: SITE_IMAGE,
   });
   const hold = {
     id: "abc",
