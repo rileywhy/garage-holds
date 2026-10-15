@@ -43,10 +43,19 @@
   padding: 30px;
 }
 .card h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
   font-family: Georgia, serif;
   font-size: 27px;
   font-weight: 400;
   letter-spacing: -0.7px;
+}
+.card h2 .tag {
+  color: var(--accent);
+  font-family: var(--font);
+  letter-spacing: 0;
 }
 .card p {
   color: var(--muted);

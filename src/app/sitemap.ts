@@ -6,7 +6,13 @@ import { siteUrl } from "@/lib/site-url";
 // a signed-out visitor, so drafts never appear. Refreshed at most hourly.
 export const revalidate = 3600;
 
-const LABS = ["/make/crimp", "/make/sloper", "/make/jug", "/make/custom-shape"];
+const LABS = [
+  "/make/crimp",
+  "/make/sloper",
+  "/make/jug",
+  "/make/foot",
+  "/make/custom-shape",
+];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();

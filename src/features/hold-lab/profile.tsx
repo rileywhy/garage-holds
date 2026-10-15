@@ -1,12 +1,12 @@
-import type { Preview } from "./api";
+import type { Kind, Preview } from "./api";
 
-export function Profile({
-  data,
-  kind,
-}: {
-  data: Preview;
-  kind: "sloper" | "jug";
-}) {
+function caption(kind: Kind, p: Preview["parameters"]) {
+  if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
+  if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
+  return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
+}
+
+export function Profile({ data, kind }: { data: Preview; kind: Kind }) {
   const ys = data.profile.map(([y]) => y);
   const zs = data.profile.map(([, z]) => z);
   const low = Math.min(...ys),
@@ -24,7 +24,7 @@ export function Profile({
       className="lab-profile"
       viewBox="0 0 480 230"
       role="img"
-      aria-label={`Centre cross-section of the ${kind}, with the wall on the left`}
+      aria-label={`Centre cross-section of the ${kind === "foot" ? "foothold" : kind}, with the wall on the left`}
     >
       <path d={path} className="lab-profile-body" />
       <line
@@ -38,9 +38,7 @@ export function Profile({
         wall
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {kind === "jug"
-          ? `${data.parameters.edge_depth} mm reach · ${data.parameters.incut}° incut`
-          : `${data.parameters.incut}° lift · ${data.parameters.arc_wrap}° wrap · ${data.parameters.projection} mm depth`}
+        {caption(kind, data.parameters)}
       </text>
     </svg>
   );

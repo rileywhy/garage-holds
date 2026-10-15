@@ -7,11 +7,17 @@ import styles from "./page.module.css";
 export const metadata = pageMetadata({
   title: "Hold Labs",
   description:
-    "Choose a climbing hold lab to design crimps, slopers, jugs, or your own custom shape and export an STL.",
+    "Choose a climbing hold lab to design crimps, slopers, jugs, footholds, or your own custom shape and export an STL.",
   path: "/make",
 });
 
-const labs = [
+const labs: {
+  name: string;
+  href: string;
+  image: string;
+  description: string;
+  experimental?: boolean;
+}[] = [
   {
     name: "Crimp Lab",
     href: "/make/crimp",
@@ -34,6 +40,14 @@ const labs = [
       "Make a board jug, a deep jug, or a two-handed jug with a comfortable grabbing edge.",
   },
   {
+    name: "Foot Lab",
+    href: "/make/foot",
+    image: "/images/hold-labs/foot.webp",
+    description:
+      "Board edges, toe-in edges, chips, smears, balls and dishes, sized for one, two or three screws.",
+    experimental: true,
+  },
+  {
     name: "Custom Shape Lab",
     href: "/make/custom-shape",
     image: "/images/hold-labs/custom-shape.webp",
@@ -53,7 +67,7 @@ export default function HoldLabsPage() {
         </p>
       </div>
       <div className={styles.grid}>
-        {labs.map(({ name, href, image, description }) => (
+        {labs.map(({ name, href, image, description, experimental }) => (
           <Link
             key={href}
             href={href}
@@ -69,7 +83,10 @@ export default function HoldLabsPage() {
               className={styles.image}
             />
             <div className={styles.content}>
-              <h2>{name}</h2>
+              <h2>
+                {name}
+                {experimental && <span className="tag">experimental</span>}
+              </h2>
               <p>{description}</p>
               <span className={styles.action}>
                 Open lab <ArrowUpRight size={16} aria-hidden="true" />

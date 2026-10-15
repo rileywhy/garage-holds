@@ -31,6 +31,7 @@ jobs:
       - run: python -m unittest discover -s tools/crimp-generator/tests -v
       - run: python -m unittest discover -s tools/sloper-generator/tests -v
       - run: python -m unittest discover -s tools/jug-generator/tests -v
+      - run: python -m unittest discover -s tools/foot-generator/tests -v
 
   checks:
     name: Format, lint, typecheck, test, build

@@ -24,6 +24,7 @@ const config: NextConfig = {
       ["crimp", process.env.CRIMP_API_URL],
       ["sloper", process.env.SLOPER_API_URL],
       ["jug", process.env.JUG_API_URL],
+      ["foot", process.env.FOOT_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

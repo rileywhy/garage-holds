@@ -25,7 +25,10 @@ const ACCENT = "#b5a3df";
 const W = 1200;
 const H = 630;
 
-await sharp(icon).resize(180, 180).png().toFile(path.join(app, "apple-icon.png"));
+await sharp(icon)
+  .resize(180, 180)
+  .png()
+  .toFile(path.join(app, "apple-icon.png"));
 await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48]));
 
 await card({
@@ -39,14 +42,30 @@ await card({
   file: path.join(app, "make", "opengraph-image.png"),
   eyebrow: "Hold Labs · garageholds.com",
   title: "Shape your own\nclimbing hold",
-  text: "Crimp, sloper, jug, or a shape you paint.\nLive preview, filament estimate, STL export.",
+  text: "Crimp, sloper, jug, foot, or a shape you paint.\nLive preview, filament estimate, STL export.",
   render: "jug",
 });
 const labs = {
-  crimp: ["Crimp Lab", "Edge depth, incut, lip rounding, and\nscrew holes. Export a printable STL."],
-  sloper: ["Sloper Lab", "Curve, incut lift, and slope. Preview it\non a 40° board and export an STL."],
-  jug: ["Jug Lab", "Board jug, deep jug, or two-handed.\nFind the bite and export an STL."],
-  "custom-shape": ["Custom Shape Lab", "Paint a silhouette, shape the grip, place\nthe screws. Export a printable STL."],
+  crimp: [
+    "Crimp Lab",
+    "Edge depth, incut, lip rounding, and\nscrew holes. Export a printable STL.",
+  ],
+  sloper: [
+    "Sloper Lab",
+    "Curve, incut lift, and slope. Preview it\non a 40° board and export an STL.",
+  ],
+  jug: [
+    "Jug Lab",
+    "Board jug, deep jug, or two-handed.\nFind the bite and export an STL.",
+  ],
+  foot: [
+    "Foot Lab",
+    "Edges, chips, smears, balls and dishes\nwith screw holes. Export a printable STL.",
+  ],
+  "custom-shape": [
+    "Custom Shape Lab",
+    "Paint a silhouette, shape the grip, place\nthe screws. Export a printable STL.",
+  ],
 };
 for (const [slug, [title, text]] of Object.entries(labs))
   await card({
@@ -64,9 +83,8 @@ async function card({ file, eyebrow, title, text, render }) {
     .resize({ width: 560, withoutEnlargement: true })
     .png()
     .toBuffer();
-  const { width: imageWidth = 0, height: imageHeight = 0 } = await sharp(
-    image,
-  ).metadata();
+  const { width: imageWidth = 0, height: imageHeight = 0 } =
+    await sharp(image).metadata();
   const mark = await sharp(icon).resize(72, 72).png().toBuffer();
   const lines = (value, x, y, size, fill, family, weight = "normal") =>
     value

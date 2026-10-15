@@ -2,10 +2,23 @@
 
 import { mountingControlVisible } from "@/features/hold-lab/mounting";
 import { trackEvent } from "@/features/analytics/events";
+import {
+  copyCurrentLink,
+  currentSearch,
+  linkSearch,
+  readLink,
+  replaceSearch,
+} from "@/features/lab-link/lab-link";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, LoaderCircle, RotateCcw, Shuffle } from "lucide-react";
+import {
+  Download,
+  Link2,
+  LoaderCircle,
+  RotateCcw,
+  Shuffle,
+} from "lucide-react";
 import {
   DESIGN_FILE_LIMIT,
   loadSchema,
@@ -72,22 +85,51 @@ export function CrimpLab() {
   const sequence = useRef(0);
   const fitNext = useRef(true);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Shown with the first preview when a shared link's settings were refused.
+  const linkNote = useRef("");
 
+  // Load the schema, then the settings a shared link asks for, so the first
+  // preview is already the shared shape rather than the default.
   useEffect(() => {
-    loadSchema()
-      .then((loaded) => {
-        latest.current = { ...loaded.defaults };
-        setParameters(latest.current);
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await loadSchema();
+        let start: Parameters = { ...loaded.defaults };
+        let presetName = Object.keys(loaded.presets)[0] ?? CUSTOM;
+        const link = readLink(currentSearch(), loaded.defaults, loaded.presets);
+        if (link) {
+          try {
+            // The crimp has no text settings, so a typed link is a Parameters.
+            const checked = await post(
+              "validate",
+              link.parameters as Parameters,
+            );
+            start = ((await checked.json()) as { parameters: Parameters })
+              .parameters;
+            presetName = link.preset ?? CUSTOM;
+            trackEvent({ name: "lab_settings", lab: "crimp", action: "open" });
+          } catch (error) {
+            linkNote.current = ` The link's settings could not be applied (${(error as Error).message}), so this is the default crimp.`;
+          }
+        }
+        if (cancelled) return;
+        latest.current = start;
+        setParameters(start);
         setSchema(loaded);
-        setPreset(Object.keys(loaded.presets)[0] ?? CUSTOM);
-      })
-      .catch((error: Error) => {
+        setPreset(presetName);
+      } catch (error) {
+        if (cancelled) return;
         trackEvent({ name: "lab_error", lab: "crimp", stage: "start" });
         setStatus({
-          text: `Could not start the generator: ${error.message}`,
+          text: `Could not start the generator: ${(error as Error).message}`,
           error: true,
         });
-      });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -158,11 +200,18 @@ export function CrimpLab() {
             : "",
         ].filter(Boolean);
         setStatus({
-          text: notes.length
-            ? `Preview is current. ${notes.join(" ")}`
-            : "Preview is current. Export builds a finer version of this shape.",
+          text:
+            (notes.length
+              ? `Preview is current. ${notes.join(" ")}`
+              : "Preview is current. Export builds a finer version of this shape.") +
+            linkNote.current,
           error: false,
         });
+        linkNote.current = "";
+        // The address bar always holds the shape on screen, ready to share.
+        replaceSearch(
+          linkSearch(latest.current, schema.defaults, schema.presets),
+        );
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         if (request === sequence.current) {
@@ -274,6 +323,20 @@ export function CrimpLab() {
     } finally {
       setExporting(false);
     }
+  }
+
+  async function copyLink() {
+    if (!design || !schema) return;
+    replaceSearch(linkSearch(latest.current, schema.defaults, schema.presets));
+    const copied = await copyCurrentLink();
+    if (copied)
+      trackEvent({ name: "lab_settings", lab: "crimp", action: "link" });
+    setStatus({
+      text: copied
+        ? "Link copied. Anyone who opens it gets this exact shape."
+        : "Could not reach the clipboard. Copy the address from the address bar instead.",
+      error: !copied,
+    });
   }
 
   function saveSettings() {
@@ -504,6 +567,15 @@ export function CrimpLab() {
             onClick={() => fileInput.current?.click()}
           >
             Load settings
+          </button>
+          <button
+            type="button"
+            className="button button-outline"
+            disabled={!design}
+            onClick={copyLink}
+            title="Copy a link that opens this exact shape"
+          >
+            <Link2 size={15} aria-hidden="true" /> Copy link
           </button>
           <input
             ref={fileInput}

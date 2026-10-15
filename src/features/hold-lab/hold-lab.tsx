@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, LoaderCircle, RotateCcw, Shuffle } from "lucide-react";
+import {
+  Download,
+  Link2,
+  LoaderCircle,
+  RotateCcw,
+  Shuffle,
+} from "lucide-react";
 import {
   Viewer,
   isDarkTheme,
@@ -21,6 +27,7 @@ import {
   post,
   type Control,
   type Design,
+  type Kind,
   type Parameters,
   type Preview,
   type Schema,
@@ -28,6 +35,13 @@ import {
 import { Profile } from "./profile";
 import { mountingControlVisible } from "./mounting";
 import { trackEvent } from "@/features/analytics/events";
+import {
+  copyCurrentLink,
+  currentSearch,
+  linkSearch,
+  readLink,
+  replaceSearch,
+} from "@/features/lab-link/lab-link";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
 
@@ -42,6 +56,9 @@ const VIEWS: [ViewName, string][] = [
   ["front", "front"],
 ];
 
+// Each lab gets its own hold colour so the three read as different tools.
+const COLORS: Partial<Record<Kind, number>> = { jug: 0xc2aadf, foot: 0xa9c4ae };
+
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -51,7 +68,7 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
+export function HoldLab({ kind }: { kind: Kind }) {
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
   const latest = useRef<Parameters>({});
@@ -73,22 +90,46 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
   const sequence = useRef(0);
   const fitNext = useRef(true);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Shown with the first preview when a shared link's settings were refused.
+  const linkNote = useRef("");
 
+  // Load the schema, then the settings a shared link asks for, so the first
+  // preview is already the shared shape rather than the default.
   useEffect(() => {
     let cancelled = false;
-    loadSchema(kind)
-      .then((loaded) => {
+    (async () => {
+      try {
+        const loaded = await loadSchema(kind);
+        let start: Parameters = { ...loaded.defaults };
+        let presetName = Object.keys(loaded.presets)[0] ?? "custom";
+        const link = readLink(currentSearch(), loaded.defaults, loaded.presets);
+        if (link) {
+          try {
+            const checked = await post(
+              "validate",
+              link.parameters,
+              undefined,
+              kind,
+            );
+            start = ((await checked.json()) as { parameters: Parameters })
+              .parameters;
+            presetName = link.preset ?? "custom";
+            trackEvent({ name: "lab_settings", lab: kind, action: "open" });
+          } catch (error) {
+            linkNote.current = ` the link's settings could not be applied (${(error as Error).message}), so this is the default.`;
+          }
+        }
         if (cancelled) return;
-        latest.current = { ...loaded.defaults };
-        setParameters(latest.current);
-        setPreset(Object.keys(loaded.presets)[0] ?? "custom");
+        latest.current = start;
+        setParameters(start);
+        setPreset(presetName);
         setSchema(loaded);
-      })
-      .catch((error: Error) => {
+      } catch (error) {
         if (cancelled) return;
         trackEvent({ name: "lab_error", lab: kind, stage: "start" });
-        setStatus({ text: error.message, error: true });
-      });
+        setStatus({ text: (error as Error).message, error: true });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -98,7 +139,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
     if (!box.current) return;
     viewer.current = new Viewer(box.current, {
       dark: isDarkTheme(),
-      color: kind === "jug" ? 0xc2aadf : undefined,
+      color: COLORS[kind],
     });
     return () => {
       viewer.current?.dispose();
@@ -136,11 +177,18 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
             `${schema.controls.find((c) => c.key === key)?.label ?? key}: ${Number(value.toFixed(2))}`,
         );
         setStatus({
-          text: notes.length
-            ? `preview is current. adjusted to fit — ${notes.join("; ")}.`
-            : "preview is current. export builds a finer mesh.",
+          text:
+            (notes.length
+              ? `preview is current. adjusted to fit — ${notes.join("; ")}.`
+              : "preview is current. export builds a finer mesh.") +
+            linkNote.current,
           error: false,
         });
+        linkNote.current = "";
+        // The address bar always holds the shape on screen, ready to share.
+        replaceSearch(
+          linkSearch(latest.current, schema.defaults, schema.presets),
+        );
       } catch (error) {
         if (
           (error as Error).name !== "AbortError" &&
@@ -181,6 +229,9 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
         [key]: value,
         ...(key === "screw_spacing" ? { auto_spacing: false } : {}),
         ...(key === "seat_depth" ? { auto_seat: false } : {}),
+        ...(key === "screw_count" && "auto_screw_count" in p
+          ? { auto_screw_count: false }
+          : {}),
       })),
     [edit],
   );
@@ -219,6 +270,18 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
     } catch (error) {
       setStatus({ text: (error as Error).message, error: true });
     }
+  }
+  async function copyLink() {
+    if (!design || !schema) return;
+    replaceSearch(linkSearch(latest.current, schema.defaults, schema.presets));
+    const copied = await copyCurrentLink();
+    if (copied) trackEvent({ name: "lab_settings", lab: kind, action: "link" });
+    setStatus({
+      text: copied
+        ? "link copied. anyone who opens it gets this exact shape."
+        : "could not reach the clipboard. copy the address from the address bar instead.",
+      error: !copied,
+    });
   }
   async function exportStl() {
     if (!design) return;
@@ -339,13 +402,48 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
                       hardware.
                     </p>
                   )}
+                  {schema.autoScrewCount && !parameters.bolt_mount && (
+                    <label className="lab-toggle">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(parameters.auto_screw_count)}
+                        disabled={!screws}
+                        onChange={(e) =>
+                          change("auto_screw_count", e.target.checked)
+                        }
+                      />
+                      choose the screw count from the size
+                    </label>
+                  )}
                 </>
+              )}
+              {name === "Shape" && schema.shapes && (
+                <label className="lab-field">
+                  <span>body shape</span>
+                  <select
+                    value={String(parameters.shape)}
+                    onChange={(e) =>
+                      edit(
+                        (p) => ({ ...p, shape: e.target.value }),
+                        "custom",
+                        true,
+                      )
+                    }
+                  >
+                    {Object.entries(schema.shapes).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
               {schema.controls
                 .filter(
                   (c) =>
                     c.group === name &&
-                    mountingControlVisible(c.key, parameters),
+                    mountingControlVisible(c.key, parameters) &&
+                    (!c.shapes || c.shapes.includes(String(parameters.shape))),
                 )
                 .map((control) => (
                   <ControlRow
@@ -437,6 +535,15 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
           >
             load settings
           </button>
+          <button
+            className="button button-outline"
+            type="button"
+            disabled={!design}
+            onClick={copyLink}
+            title="Copy a link that opens this exact shape"
+          >
+            <Link2 size={15} aria-hidden="true" /> copy link
+          </button>
           <input
             ref={fileInput}
             type="file"
@@ -457,7 +564,7 @@ export function HoldLab({ kind }: { kind: "sloper" | "jug" }) {
       <section className="lab-stage" aria-label="Model preview">
         <div className="lab-toolbar" role="group" aria-label="Preview angle">
           {VIEWS.filter(
-            ([name]) => kind === "jug" || name !== "angled-side",
+            ([name]) => kind !== "sloper" || name !== "angled-side",
           ).map(([name, label]) => (
             <button
               type="button"

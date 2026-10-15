@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
 import {
@@ -9,6 +9,24 @@ import {
 import { RotateCcw } from "lucide-react";
 import { trackEvent } from "@/features/analytics/events";
 import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
+import {
+  copyCurrentLink,
+  currentSearch,
+  linkSearch,
+  readLink,
+  replaceSearch,
+  type LinkParameters,
+} from "@/features/lab-link/lab-link";
+import {
+  HOLES_KEY,
+  LINK_LIMIT,
+  MASK_KEY,
+  decodeMask,
+  encodeMask,
+  holesFromLink,
+  holesToLink,
+  linkCodecAvailable,
+} from "./link";
 import {
   ARTWORK_COLORS,
   RESOLUTION,
@@ -88,6 +106,12 @@ export function CustomShapeLab() {
     redo: 0,
   });
   const [edgeDepthMax, setEdgeDepthMax] = useState(initialEdgeDepthMax);
+  // Link writing is async (the mask is deflated); only the newest wins, and
+  // it reads the sliders through a ref so the callback itself never changes.
+  const linkSequence = useRef(0);
+  const linkTooLong = useRef(false);
+  const latestParameters = useRef(parameters);
+  latestParameters.current = parameters;
   const [drawingHeight, setDrawingHeight] = useState(() =>
     materialHeight(initialDocument, 1),
   );
@@ -189,6 +213,74 @@ export function CustomShapeLab() {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
   }, []);
+  // The address bar always holds the drawing and settings on screen. The
+  // example drawing with default settings is the clean address.
+  const writeLink = useCallback(async () => {
+    if (!linkCodecAvailable()) return;
+    const sequence = ++linkSequence.current;
+    const doc = drawing.current;
+    const example = exampleDocument();
+    const query = new URLSearchParams(
+      linkSearch(
+        latestParameters.current as unknown as LinkParameters,
+        defaults as unknown as LinkParameters,
+      ),
+    );
+    const sameDrawing =
+      holesToLink(doc.holes) === holesToLink(example.holes) &&
+      doc.material.every((cell, i) => cell === example.material[i]);
+    if (!sameDrawing) {
+      query.set(MASK_KEY, await encodeMask(doc.material));
+      if (doc.holes.length) query.set(HOLES_KEY, holesToLink(doc.holes));
+    }
+    if (sequence !== linkSequence.current) return;
+    const text = query.toString();
+    linkTooLong.current = text.length > LINK_LIMIT;
+    replaceSearch(linkTooLong.current || !text ? "" : `?${text}`);
+  }, []);
+  // A shared link: the painted mask, the holes and the sliders. Applied once
+  // on arrival, then the lab behaves as if the person had drawn it.
+  useEffect(() => {
+    const search = currentSearch();
+    const query = new URLSearchParams(search);
+    const link = readLink(search, defaults as unknown as LinkParameters);
+    const mask = query.get(MASK_KEY);
+    const holes = query.get(HOLES_KEY);
+    if (!link && mask === null && holes === null) return;
+    let cancelled = false;
+    (async () => {
+      const material =
+        mask !== null && linkCodecAvailable()
+          ? await decodeMask(mask, RESOLUTION ** 2)
+          : null;
+      if (cancelled) return;
+      if (material || holes !== null) {
+        const doc = cloneDocument(drawing.current);
+        if (material) {
+          doc.material = material;
+          doc.holes = [];
+        }
+        if (holes !== null) doc.holes = holesFromLink(holes, RESOLUTION);
+        drawing.current = doc;
+        undo.current = [];
+        redo.current = [];
+      }
+      if (link)
+        setParameters(
+          normalizeParameters(
+            { ...defaults, ...(link.parameters as Partial<ShapeParameters>) },
+            materialHeight(drawing.current, Number(link.parameters.scale)),
+          ),
+        );
+      commit();
+      trackEvent({ name: "lab_settings", lab: "custom-shape", action: "open" });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once, on arrival; commit() is stable in what it does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -212,6 +304,7 @@ export function CustomShapeLab() {
         setReady(true);
         setFittedSeat(data.seatDepth);
         setMessage(`Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`);
+        void writeLink();
       } catch (error) {
         if (!controller.signal.aborted) {
           setReady(false);
@@ -227,7 +320,24 @@ export function CustomShapeLab() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [revision, parameters]);
+  }, [revision, parameters, writeLink]);
+  async function copyLink() {
+    await writeLink();
+    if (linkTooLong.current) {
+      setNotice(
+        "This drawing is too detailed to fit in a link. Download the STL instead.",
+      );
+      return;
+    }
+    const copied = await copyCurrentLink();
+    if (copied)
+      trackEvent({ name: "lab_settings", lab: "custom-shape", action: "link" });
+    setNotice(
+      copied
+        ? "Link copied. Anyone who opens it gets this drawing and these settings."
+        : "Could not reach the clipboard. Copy the address from the address bar instead.",
+    );
+  }
   function checkpoint() {
     undo.current.push(cloneDocument(drawing.current));
     if (undo.current.length > 30) undo.current.shift();
@@ -822,13 +932,25 @@ export function CustomShapeLab() {
               ? "Updating preview…"
               : message}
           </p>
-          <button
-            className="button button-dark"
-            disabled={!ready || exporting}
-            onClick={download}
-          >
-            {exporting ? "Exporting…" : "Download STL"}
-          </button>
+          <div className={styles.actions}>
+            <button
+              className="button button-dark"
+              type="button"
+              disabled={!ready || exporting}
+              onClick={download}
+            >
+              {exporting ? "Exporting…" : "Download STL"}
+            </button>
+            <button
+              className="button button-outline"
+              type="button"
+              disabled={!ready || exporting}
+              onClick={copyLink}
+              title="Copy a link that opens this drawing and these settings"
+            >
+              Copy link
+            </button>
+          </div>
         </div>
       </section>
     </div>
