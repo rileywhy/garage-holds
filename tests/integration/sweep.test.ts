@@ -161,6 +161,7 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     phoneObjects: 1,
     orphanedObjects: 2,
     photoSizes: 1,
+    photoSizeFailures: 0,
   });
   assert.deepEqual(store.keys(), initial);
 
@@ -207,5 +208,6 @@ test("the sweep removes stale drafts and orphaned objects, nothing else", async 
     phoneObjects: 0,
     orphanedObjects: 0,
     photoSizes: 0,
+    photoSizeFailures: 0,
   });
 });

@@ -26,6 +26,7 @@ import {
   MAX_SESSION_PHOTOS,
   ownInboxPhotos,
 } from "./phone-photos";
+import { UnreadablePhotoError, verifyPhoto } from "./photo-sizes";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -162,6 +163,17 @@ export async function confirmPhonePhoto(
     await admin.from("phone_photos").delete().eq("id", photo.id);
     return { error: `${photo.name} arrived with an unexpected size.` };
   }
+  try {
+    await verifyPhoto(photo.object_key);
+  } catch (error) {
+    await deleteObject(photo.object_key);
+    await admin.from("phone_photos").delete().eq("id", photo.id);
+    if (!(error instanceof UnreadablePhotoError)) {
+      console.error("phone photo check failed", { photoId, error });
+      return { error: `${photo.name} could not be checked. Try again.` };
+    }
+    return { error: `${photo.name} is not a readable image.` };
+  }
   await admin
     .from("phone_photos")
     .update({ status: "ready" })
@@ -209,8 +221,9 @@ export async function attachPhonePhotos(
       (max, file) => Math.max(max, file.position),
       -1,
     ) + 1;
+  let added = 0;
   try {
-    await attachInboxPhotos(
+    added = await attachInboxPhotos(
       createSupabaseAdminClient(),
       designId,
       photos,
@@ -220,10 +233,18 @@ export async function attachPhonePhotos(
     console.error("attach phone photos failed", { designId, error });
     return { errors: ["Your photos could not be added. Try again."] };
   }
+  if (added < photos.length)
+    return {
+      errors: [
+        added
+          ? `${photos.length - added} of your photos could not be read and were skipped.`
+          : "Your photos could not be read. Take them again.",
+      ],
+    };
   revalidatePath("/");
   revalidatePath(`/holds/${designId}`);
   revalidatePath(`/holds/${designId}/edit`);
-  return { added: photos.length };
+  return { added };
 }
 
 async function openSession(

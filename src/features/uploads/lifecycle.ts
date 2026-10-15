@@ -42,6 +42,10 @@ export interface SweepReport {
   orphanedObjects: number;
   // Photos whose display sizes were missing and have been (or would be) made.
   photoSizes: number;
+  // Of those, the ones that could not be made: an object that is not a
+  // readable image, or a transient failure. Logged, and tried again next
+  // night; a sweep never fails because of one photo.
+  photoSizeFailures: number;
 }
 
 export function isAbandonedDraft(
@@ -173,9 +177,15 @@ export async function sweep(
       storedKeys.has(file.object_key) &&
       photoObjectKeys(file.object_key).some((key) => !storedKeys.has(key)),
   );
+  let photoSizeFailures = 0;
   if (!dryRun)
     for (const file of unsized)
-      await store.createPhotoSizes(file.object_key, file.extension);
+      try {
+        await store.createPhotoSizes(file.object_key, file.extension);
+      } catch (error) {
+        photoSizeFailures += 1;
+        console.error("sweep: photo sizes failed", { file, error });
+      }
 
   return {
     dryRun,
@@ -185,5 +195,6 @@ export async function sweep(
     phoneObjects: phoneKeys.length,
     orphanedObjects: orphans.length,
     photoSizes: unsized.length,
+    photoSizeFailures,
   };
 }

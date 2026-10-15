@@ -24,7 +24,11 @@ import {
   attachInboxPhotos,
   ownInboxPhotos,
 } from "./phone-photos";
-import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
+import {
+  createPhotoSizes,
+  deletePhotoObjects,
+  UnreadablePhotoError,
+} from "./photo-sizes";
 import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 import { notifyOwner } from "@/lib/alerts";
@@ -214,12 +218,27 @@ export async function finalizeDesign(
       await admin.from("design_files").delete().eq("id", file.id);
       continue;
     }
+    // A photo's sizes come first: making them reads the bytes, so a file
+    // that is not an image is refused here instead of becoming a ready row.
+    if (file.kind === "photo")
+      try {
+        await createPhotoSizes(file.object_key, fileExtension(file.name));
+      } catch (error) {
+        errors.push(
+          error instanceof UnreadablePhotoError
+            ? `${file.name} is not a readable image.`
+            : `${file.name} could not be prepared. Try again.`,
+        );
+        if (!(error instanceof UnreadablePhotoError))
+          console.error("photo sizes failed", { designId, file, error });
+        await deletePhotoObjects(file.object_key);
+        await admin.from("design_files").delete().eq("id", file.id);
+        continue;
+      }
     await admin
       .from("design_files")
       .update({ status: "ready" })
       .eq("id", file.id);
-    if (file.kind === "photo")
-      await createPhotoSizes(file.object_key, fileExtension(file.name));
   }
   if (errors.length) return { errors };
 
