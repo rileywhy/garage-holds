@@ -51,10 +51,10 @@
   align-items: center;
   gap: 10px;
   font-family: var(--display);
-  font-size: 36px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .card h2 .tag {
   color: var(--accent);

@@ -52,80 +52,93 @@ export function LabCarousel() {
       onMouseLeave={() => setHovered(false)}
       onFocusCapture={() => setPlaying(false)}
     >
-      <div className="lab-carousel-track" ref={track}>
-        {LABS.map((lab, index) => (
-          <figure
-            className="equipment-product lab-slide"
-            key={lab.slug}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${index + 1} of ${LABS.length}: ${lab.name}`}
-            inert={index !== active}
-          >
-            <div className="lab-artwork-frame">
-              <img
-                style={{
-                  width: `${ARTWORK_FRAMING[lab.slug].width}%`,
-                  left: `${ARTWORK_FRAMING[lab.slug].left}%`,
-                  top: `${ARTWORK_FRAMING[lab.slug].top}%`,
-                }}
-                src={lab.image}
-                alt={`Climbing hold made in ${lab.name}`}
-                width={1000}
-                height={625}
-                fetchPriority={index === 0 ? "high" : "auto"}
-              />
-            </div>
-            <figcaption>
-              <Link href={lab.href}>
-                {lab.name} <ArrowUpRight size={16} />
-              </Link>
-              <span>{lab.description}</span>
-            </figcaption>
-          </figure>
-        ))}
+      <div className="lab-carousel-heading">
+        <h2>Hold Labs</h2>
+        <p>Shape your own hold. Export an STL.</p>
+        <Link href="/make" className="lab-carousel-all">
+          Open Hold Labs <ArrowUpRight size={14} />
+        </Link>
       </div>
-      <button
-        className="lab-carousel-arrow lab-carousel-prev"
-        type="button"
-        aria-label="Previous lab"
-        onClick={() => step(-1)}
-      >
-        <ChevronLeft size={24} />
-      </button>
-      <button
-        className="lab-carousel-arrow lab-carousel-next"
-        type="button"
-        aria-label="Next lab"
-        onClick={() => step(1)}
-      >
-        <ChevronRight size={24} />
-      </button>
-      <div className="lab-carousel-menu">
-        <div className="lab-carousel-dots" aria-label="Choose a lab">
+      <div className="lab-carousel-window">
+        <div className="lab-carousel-track" ref={track}>
           {LABS.map((lab, index) => (
-            <button
-              type="button"
+            <figure
+              className="equipment-product lab-slide"
               key={lab.slug}
-              aria-label={`Show ${lab.name}`}
-              aria-pressed={active === index}
-              onClick={() => {
-                setPlaying(false);
-                setActive(index);
-              }}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${index + 1} of ${LABS.length}: ${lab.name}`}
+              inert={index !== active}
             >
-              <span aria-hidden="true" />
-            </button>
+              <Link
+                href={lab.href}
+                className="lab-artwork-frame"
+                aria-label={`Open ${lab.name}`}
+              >
+                <img
+                  style={{
+                    width: `${ARTWORK_FRAMING[lab.slug].width}%`,
+                    left: `${ARTWORK_FRAMING[lab.slug].left}%`,
+                    top: `${ARTWORK_FRAMING[lab.slug].top}%`,
+                  }}
+                  src={lab.image}
+                  alt={`Climbing hold made in ${lab.name}`}
+                  width={1000}
+                  height={625}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                />
+              </Link>
+              <figcaption>
+                <Link href={lab.href}>
+                  {lab.name} <ArrowUpRight size={16} />
+                </Link>
+                <span>{lab.description}</span>
+              </figcaption>
+            </figure>
           ))}
         </div>
         <button
-          className="lab-carousel-play"
+          className="lab-carousel-arrow lab-carousel-prev"
           type="button"
-          aria-label={playing ? "Pause lab slideshow" : "Play lab slideshow"}
-          onClick={() => setPlaying(!playing)}
+          aria-label="Previous lab"
+          onClick={() => step(-1)}
         >
-          {playing ? <Pause size={16} /> : <Play size={16} />}
+          <ChevronLeft size={24} />
         </button>
+        <button
+          className="lab-carousel-arrow lab-carousel-next"
+          type="button"
+          aria-label="Next lab"
+          onClick={() => step(1)}
+        >
+          <ChevronRight size={24} />
+        </button>
+        <div className="lab-carousel-menu">
+          <div className="lab-carousel-dots" aria-label="Choose a lab">
+            {LABS.map((lab, index) => (
+              <button
+                type="button"
+                key={lab.slug}
+                aria-label={`Show ${lab.name}`}
+                aria-pressed={active === index}
+                onClick={() => {
+                  setPlaying(false);
+                  setActive(index);
+                }}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          <button
+            className="lab-carousel-play"
+            type="button"
+            aria-label={playing ? "Pause lab slideshow" : "Play lab slideshow"}
+            onClick={() => setPlaying(!playing)}
+          >
+            {playing ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+        </div>
       </div>
     </section>
   );
