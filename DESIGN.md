@@ -12,8 +12,8 @@ brief and applies across the catalog, guides, accounts and labs.
 - Type: Arial/Helvetica for page titles, section headings, product titles and
   controls. Sentence case, measured weights (500?600), and clear size steps:
   home title 40px desktop / 30px mobile; page titles 32px / 30px; section
-  headings 20?32px; product names 18?20px. Retain self-hosted Barlow Condensed
-  Bold only for the Garage Holds header and footer wordmarks. Consolas/system
+  headings 20?32px; product names 18?20px. Use IBM Plex Mono at medium weight (500) for the Garage Holds header and footer
+  wordmarks (owner-selected), preserving title case. Consolas/system
   monospace remains for measurements, counts and technical values.
 - Spacing: 4px scale; 8px control gaps, 16–20px panel padding, 24–32px section
   gaps, 40–56px outer desktop gutters. Mobile 16px gutters. Compact labs.
@@ -36,8 +36,8 @@ brief and applies across the catalog, guides, accounts and labs.
 
 Modes: catalog/hub introduce and help choose; labs operate; guide/help read.
 Avoid technical decoration that competes with real geometry or parameter data.
-Font source/license: Google Fonts' Barlow Condensed directory and accompanying
-SIL Open Font License in `public/fonts/BarlowCondensed-OFL.txt`.
+Wordmark font: self-hosted IBM Plex Mono, licensed under the SIL OFL in
+`public/fonts/IBMPlexMono-OFL.txt`.
 
 Homepage refinement: the independent equipment-catalog composition is scoped to
 the public homepage. Its full-width condensed heading, crimp product plate,

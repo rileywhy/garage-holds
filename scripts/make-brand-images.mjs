@@ -14,8 +14,8 @@ import sharp from "sharp";
 const root = path.resolve(import.meta.dirname, "..");
 const app = path.join(root, "src", "app");
 const icon = await readFile(path.join(app, "icon.svg"));
-// The supplied black artwork stays unchanged; a light backing makes raster
-// icons and the mark on dark social cards readable on every surface.
+// The supplied black artwork stays unchanged. Social cards use a light
+// backing; browser and bookmark icons use the masthead's light-on-dark mark.
 const MARK_BG = "#f4f3f8";
 
 // Dark theme tokens from globals.css; the dark card reads well on every
@@ -64,12 +64,16 @@ for (const size of [16, 32])
 const W = 1200;
 const H = 630;
 
-await sharp(icon)
-  .resize(180, 180)
-  .flatten({ background: MARK_BG })
-  .png()
-  .toFile(path.join(app, "apple-icon.png"));
-await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48]));
+const touchIcon = await browserRaster(180);
+await writeFile(path.join(app, "apple-icon.png"), touchIcon);
+// The conventional root path also covers browsers that look up touch icons
+// themselves instead of using the page's metadata.
+await writeFile(path.join(root, "public", "apple-touch-icon.png"), touchIcon);
+await writeFile(
+  path.join(root, "public", "bookmark-icon.png"),
+  await browserRaster(192),
+);
+await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48, 256]));
 
 await card({
   file: path.join(app, "opengraph-image.png"),

@@ -1,7 +1,7 @@
 @font-face {
-  font-family: "Barlow Condensed";
-  src: url("/fonts/BarlowCondensed-Bold.ttf") format("truetype");
-  font-weight: 700;
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.ttf") format("truetype");
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
@@ -126,10 +126,10 @@ h3 {
   border-bottom: 1px solid #4a4359;
 }
 .brand {
-  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   text-transform: none;
   gap: 8px;
 }
@@ -632,10 +632,11 @@ input[type="radio"] {
   font-size: 11px;
 }
 .footer-wordmark {
-  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-family: "IBM Plex Mono", monospace;
   text-transform: none;
-  font-size: 26px;
-  letter-spacing: 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  font-weight: 500;
 }
 .site-footer .footer-links {
   flex-wrap: wrap;
@@ -676,7 +677,7 @@ input[type="radio"] {
     gap: 8px;
   }
   .brand {
-    font-size: 30px;
+    font-size: 24px;
   }
   .header-actions {
     gap: 8px;
@@ -1391,5 +1392,11 @@ input[type="radio"] {
   .site-footer .footer-links .contact-address {
     grid-column: 1/-1;
     justify-self: end;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand {
+    font-size: 20px;
   }
 }
