@@ -1091,6 +1091,9 @@ function ControlRow({
   auto?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
   const id = `lab-${control.key}`;
+  // Keep incomplete and out-of-range typing local. In particular, typing
+  // "120" must be allowed to pass through "1" and "12" without snapping.
+  const [draft, setDraft] = useState<string | null>(null);
   function handle(typed: number) {
     if (!Number.isFinite(typed)) return;
     const next = clamp
@@ -1110,10 +1113,26 @@ function ControlRow({
             min={control.min}
             max={control.max}
             step={control.step}
-            value={Number.isFinite(value) ? value : ""}
+            value={draft ?? (Number.isFinite(value) ? value : "")}
             disabled={disabled}
             aria-describedby={`${id}-hint`}
-            onChange={(e) => handle(e.target.valueAsNumber)}
+            onFocus={(e) => setDraft(e.currentTarget.value)}
+            onChange={(e) => {
+              setDraft(e.currentTarget.value);
+              const typed = e.currentTarget.valueAsNumber;
+              if (!clamp || (typed >= control.min && typed <= control.max))
+                handle(typed);
+            }}
+            onBlur={(e) => {
+              handle(e.currentTarget.valueAsNumber);
+              setDraft(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
           />
           <span>{control.unit}</span>
           <button
