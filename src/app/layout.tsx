@@ -9,6 +9,7 @@ import { listSavedIds } from "@/features/holds/repository";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
+import "./workshop.css";
 
 const DESCRIPTION =
   "Discover and share 3D printable climbing holds for home walls and training boards. Browse STL files by hold type, size, mounting, material, and suggested grade at 40°.";
@@ -20,6 +21,30 @@ export const metadata: Metadata = {
     template: "%s | Garage Holds",
   },
   description: DESCRIPTION,
+  icons: {
+    icon: [
+      { url: "/favicon-16.png?v=gh-logo-3", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32.png?v=gh-logo-3", sizes: "32x32", type: "image/png" },
+      {
+        url: "/bookmark-icon.png?v=gh-logo-3",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/brand-icon.svg?v=gh-logo-3",
+        sizes: "any",
+        type: "image/svg+xml",
+      },
+    ],
+    shortcut: "/favicon.ico?v=gh-logo-3",
+    apple: [
+      {
+        url: "/apple-touch-icon.png?v=gh-logo-3",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
   // Link previews in chats and on social sites. Design pages add their own
   // title, description, and photo.
   openGraph: {

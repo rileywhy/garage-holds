@@ -18,7 +18,6 @@ export default async function FootLabPage() {
       <LabNav current="foot" />
       <div className="page-intro">
         <p className="eyebrow eyebrow-tags">
-          <span>FEET FIRST</span>
           <span
             className="tag tag-tip"
             tabIndex={0}
@@ -30,7 +29,7 @@ export default async function FootLabPage() {
         <h1>Foot Lab</h1>
         <p>
           Positive edges, neutral chips, slopey wedges, balls and dishes. Pick a
-          starting point, dial in the bite, then export an STL.
+          starting point, adjust the grip, then export an STL.
         </p>
       </div>
       <HoldLab kind="foot" account={Boolean(user)} />

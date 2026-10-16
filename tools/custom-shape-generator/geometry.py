@@ -1,9 +1,12 @@
 """Isolated material-mask pipeline shared by manual painting and future importers."""
 import math
+import json
+from functools import lru_cache
 import numpy as np
 import manifold3d as m
 import trimesh
-from tools.hold_mounting import Hole, closed_mesh, drill, _inside, _room
+from tools.hold_mounting import Hole, drill, _inside, _room
+from .profiles import apply_cuts, reference
 
 
 def contours(mask):
@@ -41,15 +44,11 @@ def contours(mask):
     return result
 
 
-def build(request):
-    doc = request.get('document', {})
-    size = doc.get('size')
-    if doc.get('version') != 1 or size != 256:
-        raise ValueError('Expected a version 1, 256 pixel material mask.')
-    pixels = doc.get('material')
-    if not isinstance(pixels,list) or len(pixels) != size*size or any(type(v) is not int or v not in (0,1) for v in pixels):
-        raise ValueError('Material mask must contain only binary pixels.')
-    mask = np.asarray(pixels, dtype=bool).reshape((size,size))
+@lru_cache(maxsize=8)
+def prepare_mask(pixels):
+    """Reuse drawing-only work while parameters and semantic holes change."""
+    size=256
+    mask=np.frombuffer(pixels,dtype=np.uint8).reshape((size,size)).astype(bool)
     if mask.sum() < 64:
         raise ValueError('Paint a larger connected hold to generate a preview.')
     # Four-neighbour connectivity: separate islands are not separate printable holds.
@@ -65,6 +64,48 @@ def build(request):
                 stack.append((yy,xx))
     if len(seen) != mask.sum():
         raise ValueError('Painted regions must connect. Join the islands or erase them.')
+    rows=np.flatnonzero(mask.any(axis=1))
+    rings=tuple(contours(mask))
+    for ring in rings:
+        ring.setflags(write=False)
+    return rings, int(rows[-1]-rows[0]+1)
+
+
+@lru_cache(maxsize=16)
+def side_faces(lengths, rings):
+    count=sum(lengths)
+    result=[]
+    start=0
+    for length in lengths:
+        j=np.arange(length)
+        offsets=np.arange(rings)[:,None]*count+start
+        a=(offsets+j).ravel()
+        b=(offsets+(j+1)%length).ravel()
+        first=np.column_stack((a,b,b+count))
+        second=np.column_stack((a,b+count,a+count))
+        result.append(np.stack((first,second),axis=1).reshape((-1,3)))
+        start+=length
+    return np.concatenate(result).astype(np.uint32)
+
+
+@lru_cache(maxsize=8)
+def prepared_body(pixels,settings,preview,has_cuts):
+    """Cut edits reuse the immutable, undrilled body and mounting checks."""
+    settings=json.loads(settings)
+    return _build_body(dict(action='preview' if preview else 'stl',
+                            document=dict(version=1,size=256,material=list(pixels),holes=settings['holes']),
+                            parameters=settings['parameters']),has_cuts)
+
+
+def _build_body(request,has_cuts):
+    doc = request.get('document', {})
+    size = doc.get('size')
+    if doc.get('version') != 1 or size != 256:
+        raise ValueError('Expected a version 1, 256 pixel material mask.')
+    pixels = doc.get('material')
+    if not isinstance(pixels,list) or len(pixels) != size*size or any(type(v) is not int or v not in (0,1) for v in pixels):
+        raise ValueError('Material mask must contain only binary pixels.')
+    outlines_pixels,occupied_height=prepare_mask(bytes(pixels))
     p = request.get('parameters', {})
     values = []
     for key, default, low, high in [('scale',200,80,300),('depth',30,16,70),('incut',0,-60,60),('gripDepth',0,0,300),('lipRadius',10,1,20),('bodyRounding',4,0,30),('shankDiameter',5.5,3,8),('headDiameter',11,5,20),('seatDepth',12,2,68)]:
@@ -87,23 +128,26 @@ def build(request):
     seat=min(12 if auto_seat else seat,depth-head)
     if seat < 2:
         raise ValueError("Increase depth or reduce the head recess diameter.")
-    occupied_rows=np.flatnonzero(mask.any(axis=1))
-    profile_height=((occupied_rows[-1]-occupied_rows[0]+1)*scale/mask.shape[0]) if len(occupied_rows) else 0
+    profile_height=occupied_height*scale/size
     grip_depth=min(grip_depth,profile_height)
     lip_radius=min(lip_radius,20,depth-2)
     body_rounding=min(body_rounding,30,depth-2)
-    polygons = [(ring-size/2)*scale/size * [1,-1] for ring in contours(mask)]
+    polygons = [(ring-size/2)*scale/size * [1,-1] for ring in outlines_pixels]
     # Canvas Y points down; reversing restores contour winding including erased voids.
     polygons = [ring[::-1].copy() for ring in polygons]
     points = np.concatenate(polygons)
     center = (points.min(axis=0)+points.max(axis=0))/2
     polygons = [ring-center for ring in polygons]
     count = len(points)
-    vertices, faces = [], []
+    vertices=[]
     # The first 6 mm of the mounting perimeter is invariant under every grip
     # control. Only the upper grabbing edge is incut; lower/support edges do
     # not translate. A rounded pocket can then form a jug-like return lip.
-    rings = 48
+    preview=request.get('action')=='preview'
+    straight_segments=3 if preview else 13
+    arc_segments=33 if not preview or has_cuts else 20
+    side_end=2+straight_segments
+    rings=side_end+arc_segments
     upper = max(np.max(np.concatenate(polygons)[:,1]),1.)
     base = 6.
     radius = min(max(lip_radius,body_rounding,2.), depth-base-.5)
@@ -130,19 +174,19 @@ def build(request):
         if k < 3:
             z = k*base/2
             angle = 0.
-        elif k < 16:
-            z = base+(depth-radius-base)*(k-2)/13
+        elif k <= side_end:
+            z = base+(depth-radius-base)*(k-2)/straight_segments
             angle = 0.
         else:
-            angle = (k-15)/(rings-15)*math.pi/2
+            angle = (k-side_end)/arc_segments*math.pi/2
             z = depth-radius+radius*math.sin(angle)
         for ring,normal,rounding,grip_weight in outlines:
             # Use the local radius in both dimensions, so the 2 mm safety
             # fillet remains circular even beside a much larger outer lip.
             if k < 3:
                 local_z=z
-            elif k < 16:
-                local_z=base+(depth-rounding-base)*(k-2)/13
+            elif k <= side_end:
+                local_z=base+(depth-rounding-base)*(k-2)/straight_segments
             else:
                 local_z=depth-rounding+rounding*math.sin(angle)
             t=np.maximum(0,(local_z-base)/(depth-base))
@@ -156,18 +200,10 @@ def build(request):
                 rounded[:,1]-=shift*grip_weight
             projection=depth-taper_slope*np.maximum(0,taper_start-ring[:,1])
             tapered_z=np.broadcast_to(local_z,len(ring))*projection/depth
-            vertices.extend(np.column_stack((rounded[:,0],rounded[:,1],tapered_z)))
-    start = 0
-    for ring in polygons:
-        for k in range(rings):
-            for j in range(len(ring)):
-                a=k*count+start+j; b=k*count+start+(j+1)%len(ring)
-                faces.extend([(a,b,b+count),(a,b+count,a+count)])
-        start += len(ring)
-    caps = m.triangulate(polygons)
-    faces.extend(tuple(reversed(f)) for f in caps)
-    faces.extend(tuple(i+rings*count for i in f) for f in caps)
-    solid = m.Manifold(m.Mesh(np.asarray(vertices,dtype=np.float32),np.asarray(faces,dtype=np.uint32)))
+            vertices.append(np.column_stack((rounded[:,0],rounded[:,1],tapered_z)))
+    caps=np.asarray(m.triangulate(polygons),dtype=np.uint32)
+    faces=np.concatenate((side_faces(tuple(map(len,polygons)),rings),caps[:,::-1],caps+rings*count))
+    solid = m.Manifold(m.Mesh(np.concatenate(vertices).astype(np.float32),faces))
     if solid.status() != m.Error.NoError:
         raise ValueError('This shape cannot be meshed. Widen narrow joins and try again.')
     holes = doc.get('holes',[])
@@ -242,8 +278,33 @@ def build(request):
                 break
         else:
             raise ValueError('Move mounting holes farther from the edge or pocket, or reduce the recess diameter.')
+    return solid,polygons,center,scale,depth,positions,shank,head,seat
+
+
+def build(request):
+    doc=request.get('document',{})
+    if doc.get('version')!=1 or doc.get('size')!=256:
+        raise ValueError('Expected a version 1, 256 pixel material mask.')
+    pixels=doc.get('material')
+    if not isinstance(pixels,list) or len(pixels)!=256**2 or any(type(v) is not int or v not in (0,1) for v in pixels):
+        raise ValueError('Material mask must contain only binary pixels.')
+    has_cuts=isinstance(doc.get('cuts'),list) and any(isinstance(cut,dict) and cut.get('enabled') for cut in doc['cuts'])
+    settings=json.dumps(dict(parameters=request.get('parameters',{}),holes=doc.get('holes',[])),sort_keys=True)
+    solid,polygons,center,scale,depth,positions,shank,head,seat=prepared_body(bytes(pixels),settings,request.get('action')=='preview',has_cuts)
+    solid=apply_cuts(solid,doc.get('cuts',[]),polygons,center,scale,depth,positions,shank,head,seat)
     mounted=[Hole(x,y,shank,head,seat,False) for x,y in positions]
     solid = drill(solid,mounted,depth)
-    mesh=closed_mesh(solid,'Unable to create a watertight hold from this drawing.')
+    # Preserve Manifold's topology and precision. Proximity-based cleanup can
+    # collapse the thin triangles created where a rounded cut meets the lip.
+    mesh_data=solid.to_mesh64()
+    merged=np.arange(len(mesh_data.vert_properties),dtype=np.uint64)
+    merged[np.asarray(mesh_data.merge_from_vert,dtype=int)]=np.asarray(mesh_data.merge_to_vert,dtype=np.uint64)
+    while not np.array_equal(merged,merged[merged]):merged=merged[merged]
+    used,inverse=np.unique(merged[mesh_data.tri_verts],return_inverse=True)
+    mesh=trimesh.Trimesh(vertices=mesh_data.vert_properties[used,:3],faces=inverse.reshape((-1,3)),process=False)
+    if not mesh.is_watertight or mesh.volume <= 0:
+        raise ValueError('Unable to create a watertight hold from this drawing.')
     mesh.metadata["seatDepth"]=float(seat)
+    if request.get('sectionCut') is not None:
+        mesh.metadata['section']=reference(mesh,request['sectionCut'],polygons,center,scale,positions,shank,head,seat)
     return mesh

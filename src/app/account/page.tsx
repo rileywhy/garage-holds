@@ -22,7 +22,6 @@ export default async function AccountPage() {
         <ArrowLeft size={15} /> Back to the library
       </Link>
       <div className="page-intro">
-        <p className="eyebrow">YOUR ACCOUNT</p>
         <h1>{user.displayName}</h1>
         <p>Signed in as {user.email}.</p>
       </div>

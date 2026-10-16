@@ -14,22 +14,66 @@ import sharp from "sharp";
 const root = path.resolve(import.meta.dirname, "..");
 const app = path.join(root, "src", "app");
 const icon = await readFile(path.join(app, "icon.svg"));
+// The supplied black artwork stays unchanged. Social cards use a light
+// backing; browser and bookmark icons use the masthead's light-on-dark mark.
+const MARK_BG = "#f4f3f8";
 
 // Dark theme tokens from globals.css; the dark card reads well on every
 // chat and social background.
 const BG = "#202027";
 const INK = "#efedf5";
 const MUTED = "#aaa6b8";
-const ACCENT = "#b5a3df";
+const ACCENT = "#a18bc9";
+
+// Keep the supplied SVG unchanged. Browser artwork uses the same paths,
+// with a theme-aware fill so it remains visible on light and dark tabs.
+const browserIcon = icon
+  .toString()
+  .replace(
+    /(<svg\b[^>]*>)/,
+    "$1<style>path{fill:#282633}@media(prefers-color-scheme:dark){path{fill:#efedf5}}</style>",
+  );
+await writeFile(path.join(root, "public", "brand-icon.svg"), browserIcon);
+const lightMark = await sharp(
+  Buffer.from(icon.toString().replaceAll('fill="#111111"', `fill="${INK}"`)),
+)
+  .trim()
+  .png()
+  .toBuffer();
+
+async function browserRaster(size) {
+  const padding = Math.max(1, Math.round(size / 16));
+  const mark = await sharp(lightMark)
+    .resize(size - padding * 2, size - padding * 2, { fit: "inside" })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: "#282633" },
+  })
+    .composite([{ input: mark, gravity: "centre" }])
+    .png()
+    .toBuffer();
+}
+
+for (const size of [16, 32])
+  await writeFile(
+    path.join(root, "public", `favicon-${size}.png`),
+    await browserRaster(size),
+  );
 
 const W = 1200;
 const H = 630;
 
-await sharp(icon)
-  .resize(180, 180)
-  .png()
-  .toFile(path.join(app, "apple-icon.png"));
-await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48]));
+const touchIcon = await browserRaster(180);
+await writeFile(path.join(app, "apple-icon.png"), touchIcon);
+// The conventional root path also covers browsers that look up touch icons
+// themselves instead of using the page's metadata.
+await writeFile(path.join(root, "public", "apple-touch-icon.png"), touchIcon);
+await writeFile(
+  path.join(root, "public", "bookmark-icon.png"),
+  await browserRaster(192),
+);
+await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48, 256]));
 
 await card({
   file: path.join(app, "opengraph-image.png"),
@@ -89,7 +133,11 @@ async function card({ file, eyebrow, title, text, render }) {
     .toBuffer();
   const { width: imageWidth = 0, height: imageHeight = 0 } =
     await sharp(image).metadata();
-  const mark = await sharp(icon).resize(72, 72).png().toBuffer();
+  const mark = await sharp(icon)
+    .resize(72, 72)
+    .flatten({ background: MARK_BG })
+    .png()
+    .toBuffer();
   const lines = (value, x, y, size, fill, family, weight = "normal") =>
     value
       .split("\n")
@@ -103,7 +151,7 @@ async function card({ file, eyebrow, title, text, render }) {
       <rect width="${W}" height="${H}" fill="${BG}"/>
       <rect x="0" y="${H - 10}" width="${W}" height="10" fill="${ACCENT}"/>
       ${lines(eyebrow, 72, 118, 26, ACCENT, "Arial, sans-serif", "bold")}
-      ${lines(title, 72, 232, 64, INK, "Georgia, serif")}
+      ${lines(title, 72, 232, 64, INK, "Arial, sans-serif", "bold")}
       ${lines(text, 72, 440, 30, MUTED, "Arial, sans-serif")}
       <text x="160" y="562" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="${INK}">garage holds</text>
     </svg>`,
@@ -123,9 +171,7 @@ async function card({ file, eyebrow, title, text, render }) {
 
 // An .ico is a small directory of images; browsers accept PNG entries.
 async function ico(sizes) {
-  const images = await Promise.all(
-    sizes.map((size) => sharp(icon).resize(size, size).png().toBuffer()),
-  );
+  const images = await Promise.all(sizes.map(browserRaster));
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);

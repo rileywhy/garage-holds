@@ -12,7 +12,6 @@ import {
   SlidersHorizontal,
   X,
   Bookmark,
-  MoveUpRight,
   Plus,
 } from "lucide-react";
 import { activeFilterCount } from "./catalog";
@@ -37,6 +36,7 @@ import {
   formatProblemGrade,
 } from "./grades";
 import { HoldCard } from "./hold-card";
+import { LabCarousel } from "../labs/lab-carousel";
 
 // Typing pauses this long before the address changes and the server is
 // asked for the matching page.
@@ -68,7 +68,8 @@ export function CatalogBrowser({
   const router = useRouter();
   const pathname = savedOnly ? "/saved" : "/";
   const [pending, startTransition] = useTransition();
-  const [mobileFilters, setMobileFilters] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const filtersId = savedOnly ? "saved-catalog-filters" : "catalog-filters";
   const navigate = (next: Partial<CatalogQuery>) =>
     startTransition(() => {
       router.replace(catalogHref({ ...query, page: 1, ...next }, pathname), {
@@ -102,41 +103,40 @@ export function CatalogBrowser({
   const pageHref = (number: number) =>
     catalogHref({ ...query, page: number }, pathname);
   return (
-    <main className="main-container">
-      <section className={`catalog-hero ${savedOnly ? "saved-hero" : ""}`}>
-        <div>
-          <p className="eyebrow">
-            <span className="status-dot" />
-            {savedOnly ? "YOUR NEXT PROJECTS" : "MADE FOR YOUR BOARD"}
-          </p>
-          <h1>
-            {savedOnly ? (
-              <>
-                A collection
-                <br />
-                with potential.
-              </>
-            ) : (
-              <>3d grips for your home wall</>
-            )}
-          </h1>
-          {savedOnly && (
+    <main className={`main-container ${savedOnly ? "" : "equipment-home"}`}>
+      {savedOnly ? (
+        <section className="catalog-hero saved-hero">
+          <div className="hero-copy">
+            <h1>Saved holds for your next print.</h1>
             <p className="hero-description">
               Keep the designs you want to come back to. Saved designs follow
               your account to any device.
             </p>
-          )}
-          <a href="#library" className="hero-text-link">
-            {savedOnly ? "Browse your saved designs" : "explore the pile"}
-            <ArrowDown size={15} />
-          </a>
-        </div>
-        {savedOnly && (
+            <a href="#library" className="hero-text-link">
+              Browse your saved designs <ArrowDown size={15} />
+            </a>
+          </div>
           <div className="saved-hero-icon">
             <Bookmark size={66} strokeWidth={1} />
           </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="equipment-hero" aria-labelledby="home-title">
+          <div className="equipment-copy">
+            <h1 id="home-title">
+              Climbing holds. <span>Made to print.</span>
+            </h1>
+            <p className="equipment-description">
+              Model files and print recipes for your home wall. Find your next
+              hold in the pile, or shape it yourself in Hold Labs.
+            </p>
+            <a href="#library" className="equipment-browse button button-dark">
+              Browse the pile <ArrowDown size={16} />
+            </a>
+          </div>
+          <LabCarousel />
+        </section>
+      )}
       {beforeLibrary}
       <section
         id="library"
@@ -146,28 +146,36 @@ export function CatalogBrowser({
         <div className="library-title-row">
           <div>
             <h2>
-              {savedOnly ? "Saved designs" : "the pile"}
+              {savedOnly ? "Saved designs" : "The Pile"}
               <span className="result-count">{page.total}</span>
             </h2>
-            {savedOnly && <p>A good idea deserves a second look.</p>}
+            {savedOnly && <p>Designs you have bookmarked.</p>}
           </div>
           <span className="sample-note">
             {savedOnly
               ? "Saved to your account"
-              : `${page.total} ${page.total === 1 ? "design" : "designs"} · add yours to get started`}
+              : "Community designs / Model files + print recipes"}
           </span>
         </div>
-        <div className="catalog-layout">
-          <aside
-            className={`filters ${mobileFilters ? "filters-open" : ""}`}
-            aria-label="Filter holds"
-          >
+        <div
+          className={`catalog-layout ${filtersOpen ? "" : "catalog-filters-collapsed"}`}
+        >
+          <aside className="filters" aria-label="Filter holds">
             <div className="filter-heading">
               <h3>
-                <SlidersHorizontal size={15} /> Filters{" "}
-                {count > 0 && <span className="filter-count">{count}</span>}
+                <button
+                  type="button"
+                  className="filter-sidebar-toggle"
+                  aria-expanded={filtersOpen}
+                  aria-controls={filtersId}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                >
+                  <SlidersHorizontal size={15} aria-hidden="true" /> Filters
+                  {count > 0 && <span className="filter-count">{count}</span>}
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </h3>
-              {count > 0 && (
+              {filtersOpen && count > 0 && (
                 <button
                   type="button"
                   onClick={() =>
@@ -182,75 +190,104 @@ export function CatalogBrowser({
                 </button>
               )}
             </div>
-            <fieldset className="filter-group">
-              <legend>Design method</legend>
-              <select
-                aria-label="Design method"
-                value={query.designMethod}
-                onChange={(event) =>
-                  navigate({
-                    designMethod: event.target
-                      .value as HoldFilters["designMethod"],
-                  })
-                }
-              >
-                <option value="">All designs</option>
-                <option value="human-shaped">Human-shaped (HS)</option>
-                <option value="generated">Generated</option>
-              </select>
-            </fieldset>
-            {groups.map((group) => (
-              <fieldset className="filter-group" key={group.key}>
-                <legend>{group.label}</legend>
-                {group.values.map((value) => (
-                  <label className="checkbox-row" key={value}>
-                    <input
-                      type="checkbox"
-                      checked={query[group.key].includes(value as never)}
-                      onChange={() => toggle(group.key, value)}
-                    />
-                    <span>{value}</span>
-                    {group.key === "types" && typeCounts && (
-                      <span className="facet-count">
-                        {typeCounts[value as HoldType] ?? 0}
+            <div
+              id={filtersId}
+              className="filter-sidebar-content"
+              hidden={!filtersOpen}
+            >
+              <fieldset className="filter-group design-method-filter">
+                <legend>Design method</legend>
+                <select
+                  aria-label="Design method"
+                  value={query.designMethod}
+                  onChange={(event) =>
+                    navigate({
+                      designMethod: event.target
+                        .value as HoldFilters["designMethod"],
+                    })
+                  }
+                >
+                  <option value="">All designs</option>
+                  <option value="human-shaped">Human-shaped (HS)</option>
+                  <option value="generated">Generated</option>
+                </select>
+              </fieldset>
+              {groups.map((group) => (
+                <details
+                  className="filter-section"
+                  key={group.key}
+                  open={group.key === "types" || query[group.key].length > 0}
+                >
+                  <summary>
+                    <ChevronRight size={14} aria-hidden="true" /> {group.label}
+                    {query[group.key].length > 0 && (
+                      <span className="filter-count">
+                        {query[group.key].length}
                       </span>
                     )}
-                  </label>
-                ))}
-              </fieldset>
-            ))}
-            <div className="filter-group angle-filter">
-              <label htmlFor="target-grade">
-                Suggested grade at {GRADE_BOARD_ANGLE}°
-              </label>
-              <select
-                id="target-grade"
-                value={query.targetGrade ?? ""}
-                onChange={(event) =>
-                  navigate({
-                    targetGrade:
-                      event.target.value === ""
-                        ? null
-                        : Number(event.target.value),
-                  })
-                }
+                  </summary>
+                  <fieldset className="filter-group">
+                    <legend className="sr-only">{group.label}</legend>
+                    {group.values.map((value) => (
+                      <label className="checkbox-row" key={value}>
+                        <input
+                          type="checkbox"
+                          checked={query[group.key].includes(value as never)}
+                          onChange={() => toggle(group.key, value)}
+                        />
+                        <span>{value}</span>
+                        {group.key === "types" && typeCounts && (
+                          <span className="facet-count">
+                            {typeCounts[value as HoldType] ?? 0}
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </fieldset>
+                </details>
+              ))}
+              <details
+                className="filter-section"
+                open={query.targetGrade !== null}
               >
-                <option value="">Any grade</option>
-                {PROBLEM_GRADES.map((grade) => (
-                  <option value={grade} key={grade}>
-                    {formatProblemGrade(grade)}
-                  </option>
-                ))}
-              </select>
-              <p>Creator suggestions for problems on a 40° board.</p>
-            </div>
-            <div className="sidebar-note">
-              <MoveUpRight size={19} />
-              <strong>Made a hold you love?</strong>
-              <p>Your next design could be someone’s next project.</p>
-              <Link href="/upload">
-                Share your design <ArrowUpRight size={13} />
-              </Link>
+                <summary>
+                  <ChevronRight size={14} aria-hidden="true" /> Suggested grade
+                  {query.targetGrade !== null && (
+                    <span className="filter-count">1</span>
+                  )}
+                </summary>
+                <div className="filter-group angle-filter">
+                  <label htmlFor="target-grade">
+                    Suggested grade at {GRADE_BOARD_ANGLE}°
+                  </label>
+                  <select
+                    id="target-grade"
+                    value={query.targetGrade ?? ""}
+                    onChange={(event) =>
+                      navigate({
+                        targetGrade:
+                          event.target.value === ""
+                            ? null
+                            : Number(event.target.value),
+                      })
+                    }
+                  >
+                    <option value="">Any grade</option>
+                    {PROBLEM_GRADES.map((grade) => (
+                      <option value={grade} key={grade}>
+                        {formatProblemGrade(grade)}
+                      </option>
+                    ))}
+                  </select>
+                  <p>Creator suggestions for problems on a 40° board.</p>
+                </div>
+              </details>
+              <div className="sidebar-note">
+                <Link href="/upload">
+                  Share your design <ArrowUpRight size={13} />
+                </Link>
+                <p>Add your model files and print settings.</p>
+              </div>
             </div>
           </aside>
           <div className="catalog-results" aria-busy={pending}>
@@ -273,14 +310,6 @@ export function CatalogBrowser({
                   </button>
                 )}
               </div>
-              <button
-                className="mobile-filter-button button button-outline"
-                aria-expanded={mobileFilters}
-                onClick={() => setMobileFilters((current) => !current)}
-              >
-                <SlidersHorizontal size={15} /> Filters
-                {count > 0 && ` (${count})`}
-              </button>
               <label className="sort-control">
                 <span>Sort:</span>
                 <select
@@ -359,7 +388,7 @@ export function CatalogBrowser({
                 <p>
                   {savedOnly && !count && !query.query
                     ? "Save a design with the bookmark button and it will appear here."
-                    : "Try a different search or give your filters a little more room."}
+                    : "Try another search or remove a filter."}
                 </p>
                 {savedOnly && !count && !query.query ? (
                   <Link href="/" className="button button-dark">

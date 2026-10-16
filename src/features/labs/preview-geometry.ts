@@ -1,11 +1,9 @@
 import { BufferGeometry, Float32BufferAttribute } from "three";
-import {
-  mergeGeometries,
-  toCreasedNormals,
-} from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { smoothPreviewGeometry } from "../model-viewer/smooth-preview-geometry";
 
 // The generator's mesh as viewer geometry. Boolean cuts leave uneven
-// triangles: equal face weighting prevents shading ridges along small
+// triangles: corner-angle weighting prevents shading ridges along small
 // fillets, while sharp back/hole edges stay crisp.
 export function previewGeometry(
   data: { vertices: number[][]; faces: number[][] },
@@ -23,14 +21,13 @@ export function previewGeometry(
         return true;
       })
     : data.faces;
-  const indexed = new BufferGeometry();
-  indexed.setAttribute(
-    "position",
-    new Float32BufferAttribute(data.vertices.flat(), 3),
+  const geometry = smoothPreviewGeometry(
+    {
+      positions: new Float32Array(data.vertices.flat()),
+      indices: new Uint32Array(surface.flat()),
+    },
+    Math.PI / 6,
   );
-  indexed.setIndex(surface.flat());
-  const geometry = toCreasedNormals(indexed, Math.PI / 3);
-  indexed.dispose();
   if (!back.length) return geometry;
   const flat = new BufferGeometry();
   flat.setAttribute(

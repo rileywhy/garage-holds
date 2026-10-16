@@ -40,7 +40,7 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>The essentials</h2>
-            <p>Tell us what makes this hold yours.</p>
+            <p>Name the hold and describe its grip and intended use.</p>
           </div>
         </div>
         <Field label="Design name *">
@@ -92,7 +92,7 @@ export function DesignFields({
         <div className="section-heading">
           <span>{number()}</span>
           <div>
-            <h2>Find the right fit</h2>
+            <h2>Hold details</h2>
             <p>Climbing details make your design easier to discover.</p>
           </div>
         </div>

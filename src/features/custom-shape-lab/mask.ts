@@ -1,8 +1,9 @@
 // Both painting and a future importer produce this same semantic document.
+import { cloneCut, type CutProfile } from "./cut-profiles";
 export const ARTWORK_COLORS = {
-  material: "#007BFF",
-  hole: "#FF0000",
-  background: "#FFFFFF",
+  material: "#A18BC9",
+  hole: "#E4C78F",
+  background: "#303039",
 } as const;
 export const RESOLUTION = 256;
 export interface MountingHole {
@@ -15,6 +16,7 @@ export interface MaskDocument {
   size: number;
   material: Uint8Array;
   holes: MountingHole[];
+  cuts: CutProfile[];
 }
 export interface ShapeParameters {
   scale: number;
@@ -36,6 +38,7 @@ export function emptyDocument(): MaskDocument {
     size: RESOLUTION,
     material: new Uint8Array(RESOLUTION ** 2),
     holes: [],
+    cuts: [],
   };
 }
 export function cloneDocument(doc: MaskDocument): MaskDocument {
@@ -43,6 +46,7 @@ export function cloneDocument(doc: MaskDocument): MaskDocument {
     ...doc,
     material: doc.material.slice(),
     holes: doc.holes.map((h) => ({ ...h })),
+    cuts: doc.cuts.map(cloneCut),
   };
 }
 
@@ -158,5 +162,6 @@ export function serializeDocument(doc: MaskDocument) {
     size: doc.size,
     material: Array.from(doc.material),
     holes: doc.holes,
+    cuts: doc.cuts.map(cloneCut),
   };
 }
