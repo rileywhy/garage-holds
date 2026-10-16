@@ -1,14 +1,14 @@
 ﻿.layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 20px;
+  gap: 16px;
   align-items: start;
 }
 .panel {
   min-width: 0;
-  padding: 24px;
+  padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 3px;
   background: var(--paper);
 }
 .modes {
@@ -18,7 +18,7 @@
   padding: 6px;
   border: 1px solid var(--line);
   background: var(--pale);
-  border-radius: 14px;
+  border-radius: 3px;
 }
 .modes button {
   flex: 1;
@@ -27,8 +27,8 @@
   justify-content: center;
   gap: 10px;
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 3px;
+  padding: 10px 12px;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
@@ -36,7 +36,6 @@
 .modes button[aria-pressed="true"] {
   background: var(--paper);
   border-color: var(--line);
-  box-shadow: 0 2px 5px #00000008;
   font-weight: 650;
 }
 .previewOnly {
@@ -46,7 +45,7 @@
   display: block;
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
   touch-action: none;
   cursor: crosshair;
 }
@@ -82,7 +81,7 @@
   background: var(--error-bg);
   border: 1px solid var(--error-line);
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   margin: 12px 0;
 }
 .field input,
@@ -103,7 +102,7 @@
   padding: 16px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
 }
 .controls summary {
   cursor: pointer;
@@ -135,15 +134,15 @@
 .historyBar button,
 .cutActions button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 8px 12px;
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 .toolbar button[aria-pressed="true"] {
-  background: #1765c1;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 .toolbar button:disabled,
 .historyBar button:disabled,
@@ -158,14 +157,14 @@
   touch-action: none;
   cursor: none;
   border: 1px solid #8886;
-  border-radius: 10px;
+  border-radius: 3px;
   display: block;
 }
 .viewer {
   height: 380px;
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 3px;
 }
 .slider {
   display: grid;
@@ -177,7 +176,7 @@
 .slider input {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: #007bff;
+  accent-color: var(--accent);
 }
 .slider button {
   background: transparent;
@@ -210,8 +209,11 @@
 }
 .panelHeading h2 {
   margin: 0;
-  font-size: 20px;
-  letter-spacing: -0.4px;
+  font-family: var(--display);
+  font-size: 28px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .panelHeading p {
   color: var(--muted);
@@ -223,7 +225,7 @@
   flex-shrink: 0;
   background: var(--pale);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 2px;
   padding: 5px 9px;
   font-size: 11px;
 }
@@ -232,7 +234,7 @@
   place-items: center;
   width: 23px;
   height: 23px;
-  border-radius: 50%;
+  border-radius: 2px;
   border: 1px solid var(--line);
   font-size: 12px;
 }
@@ -262,10 +264,9 @@
   margin: 6px 8px 6px 0;
 }
 .brushSize {
-  padding: 14px 16px;
-  background: var(--pale);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   margin: 16px 0;
 }
 .controlHeader {
@@ -296,7 +297,7 @@
 }
 .brushSize > input {
   width: 100%;
-  accent-color: #1765c1;
+  accent-color: var(--accent);
   cursor: pointer;
 }
 .rangeLabels {
@@ -326,7 +327,7 @@
 .viewSelect select {
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
   background: var(--paper);
   color: var(--ink);
   max-width: 160px;
@@ -363,7 +364,7 @@
 .cutOptions {
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
   margin: 14px 0;
   font-size: 13px;
 }
@@ -385,7 +386,7 @@
   margin: 16px 0;
   background: var(--pale);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 3px;
 }
 .blendOptions h3 {
   font-size: 13px;
@@ -400,14 +401,14 @@
 }
 .historyBar .primaryAction,
 .cutActions .primaryAction {
-  background: #1765c1;
-  color: white;
-  border-color: #1765c1;
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
 }
 .cutList li {
   padding: 10px;
   background: var(--pale);
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 12px;
 }
 .cutList label {
@@ -419,7 +420,7 @@
   text-align: center;
   background: var(--pale);
   border: 1px dashed var(--line);
-  border-radius: 12px;
+  border-radius: 3px;
 }
 .emptyState h3 {
   margin: 0 0 10px;
@@ -432,10 +433,10 @@
   margin: 0;
 }
 .blueKey {
-  color: #1765c1;
+  color: light-dark(#756395, #a18bc9);
 }
 .redKey {
-  color: #ba4b36;
+  color: light-dark(#84581f, #e4c78f);
 }
 .previewOnly .viewer {
   height: 520px;
@@ -489,4 +490,47 @@
       background 120ms,
       border-color 120ms;
   }
+}
+
+.panel {
+  border-top: 3px solid var(--accent);
+  border-radius: 0;
+}
+.valueInput input,
+.slider > span {
+  font-family: var(--measure);
+  font-variant-numeric: tabular-nums;
+}
+.badge {
+  font-family: var(--measure);
+}
+.modes button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.toolbar button,
+.historyBar button,
+.cutActions button,
+.cutList button {
+  min-height: 34px;
+}
+.canvas {
+  border-color: var(--line);
+}
+@media (max-width: 760px) {
+  .panel {
+    padding: 14px;
+  }
+  .panelHeading h2 {
+    font-size: 25px;
+  }
+  .toolbar button,
+  .cutActions button {
+    min-height: 40px;
+  }
+}
+
+.cutKey {
+  color: light-dark(#93425d, #e79cb6);
 }

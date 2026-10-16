@@ -9,7 +9,6 @@ export default function Page() {
   return (
     <main className="main-container lab-page">
       <div className="page-intro">
-        <p className="eyebrow">PAINT YOUR NEXT HOLD</p>
         <h1>Custom Shape Lab</h1>
         <p>
           Paint solid material, carve it back, and place screws. Your silhouette

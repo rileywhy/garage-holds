@@ -140,7 +140,6 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
         <ArrowLeft size={15} /> Back to {hold.title}
       </Link>
       <div className="page-intro">
-        <p className="eyebrow">EDIT DESIGN</p>
         <h1>{hold.title}</h1>
         <p>
           Update the details other makers see, add or remove photos, replace a

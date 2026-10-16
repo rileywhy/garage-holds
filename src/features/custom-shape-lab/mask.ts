@@ -1,9 +1,9 @@
 // Both painting and a future importer produce this same semantic document.
 import { cloneCut, type CutProfile } from "./cut-profiles";
 export const ARTWORK_COLORS = {
-  material: "#007BFF",
-  hole: "#FF0000",
-  background: "#FFFFFF",
+  material: "#A18BC9",
+  hole: "#E4C78F",
+  background: "#303039",
 } as const;
 export const RESOLUTION = 256;
 export interface MountingHole {

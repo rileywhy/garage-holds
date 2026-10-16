@@ -16,6 +16,7 @@ import { drawingContours } from "./drawing-preview";
 import { profileViewport } from "./profile-viewport";
 import styles from "./custom-shape-lab.module.css";
 import { BrushSizeControl } from "./brush-size-control";
+import { useCanvasPalette } from "./canvas-palette";
 
 type Reference = {
   segments: [number, number][][];
@@ -61,6 +62,7 @@ export function CutProfileEditor(props: Props) {
     undoCount,
     redoCount,
   } = props;
+  const colors = useCanvasPalette();
   const [draft, setDraft] = useState<CutProfile | null>(null);
   const [loadedReference, setLoadedReference] = useState<{
     source: CutProfile;
@@ -213,7 +215,7 @@ export function CutProfileEditor(props: Props) {
     ctx.canvas.height = height * ratio;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#faf9f6";
+    ctx.fillStyle = colors.background;
     ctx.fillRect(0, 0, width, height);
     const { x, y, left, right, top, bottom, scale } = profileViewport(
       xMin,
@@ -222,9 +224,9 @@ export function CutProfileEditor(props: Props) {
       zMin,
       zMax,
     );
-    ctx.strokeStyle = "#d8d3c7";
+    ctx.strokeStyle = colors.grid;
     ctx.lineWidth = 1;
-    ctx.fillStyle = "#5a6054";
+    ctx.fillStyle = colors.ink;
     ctx.font = "12px Arial";
     const gridStep = Math.max(5, Math.ceil((xMax - xMin) / 8 / 5) * 5);
     for (
@@ -250,7 +252,7 @@ export function CutProfileEditor(props: Props) {
     ctx.rect(left, top, right - left, bottom - top);
     ctx.clip();
     if (reference) {
-      ctx.fillStyle = "#007bff22";
+      ctx.fillStyle = colors.materialFill;
       ctx.beginPath();
       for (const ring of reference.outlines) {
         ring.forEach(([px, z], i) => {
@@ -260,11 +262,11 @@ export function CutProfileEditor(props: Props) {
         ctx.closePath();
       }
       ctx.fill("evenodd");
-      ctx.strokeStyle = "#007bff";
+      ctx.strokeStyle = colors.material;
       ctx.lineWidth = 3;
       ctx.stroke();
     }
-    ctx.fillStyle = "#ed6a4a77";
+    ctx.fillStyle = colors.cutFill;
     ctx.save();
     if (draft.paint) {
       const paint = draft.paint,
@@ -283,7 +285,7 @@ export function CutProfileEditor(props: Props) {
       }
       ctx.fill("evenodd");
     } else if (draft.profile.some((v) => v > 0)) {
-      ctx.strokeStyle = "#b54930";
+      ctx.strokeStyle = colors.cut;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x(0), y(4));
@@ -300,8 +302,8 @@ export function CutProfileEditor(props: Props) {
     ctx.restore();
     if (reference) {
       ctx.save();
-      ctx.strokeStyle = "#b63232";
-      ctx.fillStyle = "#b632321a";
+      ctx.strokeStyle = colors.hole;
+      ctx.fillStyle = colors.holeFill;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 4]);
       const labels: { center: number; indices: number[] }[] = [];
@@ -320,13 +322,13 @@ export function CutProfileEditor(props: Props) {
         if (label) label.indices.push(hole.index);
         else labels.push({ center: hole.center, indices: [hole.index] });
       }
-      ctx.fillStyle = "#b63232";
+      ctx.fillStyle = colors.hole;
       for (const label of labels)
         ctx.fillText(label.indices.join(","), x(label.center) + 3, y(2));
       ctx.restore();
     }
     if (cursor) {
-      ctx.strokeStyle = "#252b25";
+      ctx.strokeStyle = colors.ink;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(
@@ -340,6 +342,7 @@ export function CutProfileEditor(props: Props) {
     }
     ctx.restore();
   }, [
+    colors,
     draft,
     reference,
     parameters.depth,
@@ -744,7 +747,7 @@ export function CutProfileEditor(props: Props) {
               ? "Brush along the red edge to soften bumps and fill small notches."
               : tool === "erase"
                 ? "Brush over red areas to bring that material back."
-                : "Paint red over the blue shape to carve material away."}
+                : "Paint rose over the lavender shape to carve material away."}
           </p>
           <canvas
             ref={canvas}
@@ -783,9 +786,9 @@ export function CutProfileEditor(props: Props) {
             }}
           />
           <p className={styles.hint}>
-            <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
-            <span className={styles.redKey}>Red: cut away</span> · Dashed: screw
-            holes
+            <span className={styles.blueKey}>Lavender: your hold</span> ·{" "}
+            <span className={styles.cutKey}>Rose: cut away</span> · Dashed:
+            screw holes
           </p>
           <p className={styles.hint}>
             Paint past the edges for a clean cut. The preview updates

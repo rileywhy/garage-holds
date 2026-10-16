@@ -3,7 +3,7 @@
   --bg: light-dark(#faf9f6, #202027);
   --paper: light-dark(#ffffff, #282830);
   --ink: light-dark(#252b25, #efedf5);
-  --muted: light-dark(#74796f, #aaa6b8);
+  --muted: light-dark(#61685d, #aaa6b8);
   --line: light-dark(#e4e5dc, #3b3947);
   --accent: light-dark(#536344, #b5a3df);
   --pale: light-dark(#edf0e6, #302c3e);
@@ -11,7 +11,7 @@
   --overlay: light-dark(#faf9f3ee, #282830ee);
   --subtle-bg: light-dark(#f8f9f5, #24232c);
   --input-line: light-dark(#dce0d3, #4b455d);
-  --placeholder: light-dark(#959c8d, #918a9f);
+  --placeholder: light-dark(#697260, #aaa6b8);
   --action-hover: light-dark(#46533b, #d0c4ee);
   --selection: light-dark(#dce4cf, #51436b);
   --error-bg: light-dark(#fcf0eb, #3a2924);
@@ -84,7 +84,7 @@
   color: var(--accent);
 }
 .upload-complete h2 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 32px;
   font-weight: 400;
   margin: 9px 0 12px;
@@ -362,12 +362,12 @@ svg {
   border-radius: 50%;
 }
 .catalog-hero h1 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--display);
   font-size: 64px;
-  letter-spacing: -2.5px;
+  letter-spacing: -0.035em;
   font-weight: 400;
   line-height: 1.06;
-  margin: 18px 0 21px;
+  margin: 0 0 21px;
 }
 .catalog-hero h1 > span {
   color: var(--accent);
@@ -482,7 +482,7 @@ svg {
   gap: 9px;
   align-items: center;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   padding: 4px 0;
 }
@@ -523,9 +523,8 @@ svg {
   line-height: 1.5;
 }
 .sidebar-note {
-  background: var(--pale);
-  padding: 18px 14px;
-  border-radius: 5px;
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
   margin-top: 28px;
 }
 .sidebar-note svg {
@@ -569,6 +568,10 @@ svg {
 }
 .search-field svg {
   color: var(--muted);
+}
+.search-field:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .search-field input {
   border: 0;
@@ -866,12 +869,12 @@ svg {
   min-height: 300px;
 }
 .empty-state h3 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 26px;
   font-weight: 400;
 }
 .empty-state h1 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 36px;
   font-weight: 400;
 }
@@ -988,15 +991,25 @@ svg {
   margin-bottom: 35px;
 }
 .page-intro h1 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 43px;
-  letter-spacing: -1.6px;
+  letter-spacing: -0.035em;
   font-weight: 400;
-  margin: 13px 0 14px;
+  line-height: 1.12;
+  text-wrap: balance;
+  margin: 0 0 14px;
 }
 .page-intro > p:last-child {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 70ch;
+}
+.lab-page > .page-intro {
+  padding-top: 32px;
+}
+.lab-nav + .page-intro {
+  padding-top: 8px;
 }
 .upload-layout {
   display: grid;
@@ -1224,7 +1237,7 @@ svg {
   margin-bottom: 24px;
 }
 .upload-aside h3 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 28px;
   line-height: 1.25;
   font-weight: 400;
@@ -1403,7 +1416,7 @@ svg {
   padding-top: 5px;
 }
 .detail-summary h1 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 47px;
   letter-spacing: -1.4px;
   font-weight: 400;
@@ -1461,7 +1474,7 @@ svg {
   margin-bottom: 12px;
 }
 .grade-value {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 26px;
   white-space: nowrap;
   color: var(--accent);
@@ -1655,7 +1668,7 @@ svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 15px;
 }
 .review-card-heading > div:nth-child(2) {
@@ -3435,9 +3448,8 @@ svg {
   margin-bottom: 8px;
 }
 .gear-short h2 {
-  font-size: 13px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-size: 16px;
+  letter-spacing: 0;
   color: var(--accent);
   margin: 0 0 10px;
 }
@@ -3463,7 +3475,7 @@ svg {
   border-top: 1px solid var(--line);
 }
 .gear-item h2 {
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.8px;
@@ -3479,7 +3491,7 @@ svg {
   margin: 0;
 }
 .gear-item li {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.75;
   margin-bottom: 6px;
 }
@@ -3507,7 +3519,7 @@ svg {
   margin: 4px 0 0;
 }
 .gear-item p {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.75;
   margin: 0 0 10px;
 }
@@ -3536,4 +3548,42 @@ svg {
 }
 .site-footer {
   flex-wrap: wrap;
+}
+
+/* Readable helper copy and focus without changing control behavior. */
+.lab-hint,
+.lab-caption,
+.sidebar-note p,
+.sidebar-note a,
+.sample-note,
+.library-title-row p,
+.site-footer {
+  font-size: 12px;
+  line-height: 1.6;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+@media (max-width: 760px) {
+  .lab-page > .page-intro {
+    padding-top: 24px;
+  }
+  .lab-nav + .page-intro {
+    padding-top: 8px;
+  }
+  .checkbox-row {
+    min-height: 44px;
+  }
+  .theme-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .form-field > label {
+    font-size: 13px;
+  }
+  .form-submit-row p {
+    font-size: 12px;
+  }
 }
