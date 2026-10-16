@@ -14,6 +14,9 @@ import sharp from "sharp";
 const root = path.resolve(import.meta.dirname, "..");
 const app = path.join(root, "src", "app");
 const icon = await readFile(path.join(app, "icon.svg"));
+// The supplied black artwork stays unchanged; a light backing makes raster
+// icons and the mark on dark social cards readable on every surface.
+const MARK_BG = "#faf9f6";
 
 // Dark theme tokens from globals.css; the dark card reads well on every
 // chat and social background.
@@ -27,6 +30,7 @@ const H = 630;
 
 await sharp(icon)
   .resize(180, 180)
+  .flatten({ background: MARK_BG })
   .png()
   .toFile(path.join(app, "apple-icon.png"));
 await writeFile(path.join(app, "favicon.ico"), await ico([16, 32, 48]));
@@ -85,7 +89,11 @@ async function card({ file, eyebrow, title, text, render }) {
     .toBuffer();
   const { width: imageWidth = 0, height: imageHeight = 0 } =
     await sharp(image).metadata();
-  const mark = await sharp(icon).resize(72, 72).png().toBuffer();
+  const mark = await sharp(icon)
+    .resize(72, 72)
+    .flatten({ background: MARK_BG })
+    .png()
+    .toBuffer();
   const lines = (value, x, y, size, fill, family, weight = "normal") =>
     value
       .split("\n")
@@ -120,7 +128,14 @@ async function card({ file, eyebrow, title, text, render }) {
 // An .ico is a small directory of images; browsers accept PNG entries.
 async function ico(sizes) {
   const images = await Promise.all(
-    sizes.map((size) => sharp(icon).resize(size, size).png().toBuffer()),
+    sizes.map((size) =>
+      sharp(icon)
+        .resize(size, size)
+        .flatten({ background: MARK_BG })
+        .ensureAlpha()
+        .png()
+        .toBuffer(),
+    ),
   );
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);

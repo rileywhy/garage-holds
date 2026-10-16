@@ -244,15 +244,14 @@ svg {
   white-space: nowrap;
 }
 .brand-icon {
-  background: var(--ink);
-  color: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  width: 35px;
-  height: 35px;
+  flex: 0 0 1.3em;
+  width: 1.3em;
+  height: 1.3em;
+  background: currentColor;
+  -webkit-mask: url("/icon.svg") center / contain no-repeat;
+  mask: url("/icon.svg") center / contain no-repeat;
 }
+
 .site-header nav {
   display: flex;
   height: 100%;
@@ -1971,11 +1970,6 @@ svg {
   .brand {
     font-size: 26px;
   }
-  .brand-icon {
-    width: 31px;
-    height: 31px;
-    border-radius: 6px;
-  }
   .site-header nav {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -2199,13 +2193,6 @@ svg {
   }
   .brand {
     font-size: 24px;
-  }
-  .brand-icon {
-    width: 28px;
-    height: 28px;
-  }
-  .brand-icon svg {
-    width: 19px;
   }
   .prototype-bar {
     font-size: 9px;

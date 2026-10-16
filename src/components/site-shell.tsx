@@ -8,7 +8,6 @@ import {
   Check,
   Copy,
   Mail,
-  Mountain,
   Plus,
   FlaskConical,
 } from "lucide-react";
@@ -34,9 +33,7 @@ export function SiteHeader({
     <>
       <header className="site-header">
         <Link href="/" className="brand" aria-label="Garage Holds home">
-          <span className="brand-icon">
-            <Mountain size={23} strokeWidth={2.3} />
-          </span>
+          <span className="brand-icon" aria-hidden="true" />
           <span>garage holds</span>
         </Link>
         <nav aria-label="Main navigation">
