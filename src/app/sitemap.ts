@@ -11,6 +11,7 @@ const LABS = [
   "/make/sloper",
   "/make/jug",
   "/make/foot",
+  "/make/pocket",
   "/make/custom-shape",
 ];
 

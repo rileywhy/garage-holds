@@ -64,7 +64,10 @@ def _room(solid, shank, head, seat, bolt, edge_clearance=None):
         (0.5, shank / 2 + (2 if edge_clearance is None else edge_clearance)),
         (seat / 2, shank / 2 + (2 if edge_clearance is None else edge_clearance)),
         (seat + 0.5, head / 2 + (1.5 if edge_clearance is None else edge_clearance)),
-        (seat + cone + 2, head / 2 + (1.5 if edge_clearance is None else edge_clearance)),
+        (
+            seat + cone + 2,
+            head / 2 + (1.5 if edge_clearance is None else edge_clearance),
+        ),
     ):
         section = solid.slice(z).offset(-margin, manifold.JoinType.Round, 2, 32)
         region = section if region is None else region ^ section
@@ -72,7 +75,13 @@ def _room(solid, shank, head, seat, bolt, edge_clearance=None):
 
 
 def fit_bolt_and_screw(
-    p, solid, bounds, target, *, edge_clearance=None, layout_target=None,
+    p,
+    solid,
+    bounds,
+    target,
+    *,
+    edge_clearance=None,
+    layout_target=None,
     enclose_requested=True,
 ):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
@@ -91,13 +100,29 @@ def fit_bolt_and_screw(
     for seat in seats:
         bolts = points[
             _inside(
-                points, _room(solid, p.bolt_diameter, p.bolt_head_diameter, seat, True, edge_clearance)
+                points,
+                _room(
+                    solid,
+                    p.bolt_diameter,
+                    p.bolt_head_diameter,
+                    seat,
+                    True,
+                    edge_clearance,
+                ),
             )
         ]
         bolts = bolts[np.abs(bolts[:, 0]) < 1e-8]
         screws = points[
             _inside(
-                points, _room(solid, p.shank_diameter, p.head_diameter, seat, False, edge_clearance)
+                points,
+                _room(
+                    solid,
+                    p.shank_diameter,
+                    p.head_diameter,
+                    seat,
+                    False,
+                    edge_clearance,
+                ),
             )
         ]
         if not len(bolts) or not len(screws):
@@ -124,7 +149,13 @@ def fit_bolt_and_screw(
                 # unless the caller lets a seat run above the body (jug).
                 seat = (
                     _highest_enclosed_seat(
-                        p, solid, bolt, screw, requested_seat, float(seat), edge_clearance
+                        p,
+                        solid,
+                        bolt,
+                        screw,
+                        requested_seat,
+                        float(seat),
+                        edge_clearance,
                     )
                     if enclose_requested
                     else requested_seat
@@ -148,7 +179,55 @@ def fit_bolt_and_screw(
     return []
 
 
-def _highest_enclosed_seat(p, solid, bolt, screw, requested, fitted, edge_clearance=None):
+def screw_layout(p, solid, target):
+    """One to three countersunk screws, each at the eligible spot nearest its
+    target: centred for one, spread toward the sides for two, with a third
+    below the middle. The seat lowers in steps until every recess fits."""
+    bounds = np.array(solid.bounding_box()).reshape(2, 3)
+    lo, hi = bounds
+    xx, yy = np.meshgrid(np.linspace(lo[0], hi[0], 51), np.linspace(lo[1], hi[1], 51))
+    points = np.column_stack((xx.ravel(), yy.ravel()))
+    for seat in np.arange(max(2, target), 1.9, -0.5):
+        eligible = points[
+            _inside(
+                points, _room(solid, p.shank_diameter, p.head_diameter, seat, False)
+            )
+        ]
+        if not len(eligible):
+            continue
+        targets = (
+            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
+        )
+        if p.screw_count == 3:
+            targets.append((0, lo[1] * 0.55))
+        chosen = []
+        for x, y in targets:
+            candidates = eligible
+            for hole in chosen:
+                candidates = candidates[
+                    np.linalg.norm(candidates - np.array([hole.x, hole.y]), axis=1)
+                    >= p.head_diameter + 3
+                ]
+            if not len(candidates):
+                break
+            point = candidates[np.argmin(np.sum((candidates - [x, y]) ** 2, axis=1))]
+            chosen.append(
+                Hole(
+                    *map(float, point),
+                    p.shank_diameter,
+                    p.head_diameter,
+                    float(seat),
+                    False,
+                )
+            )
+        if len(chosen) == p.screw_count:
+            return chosen
+    return []
+
+
+def _highest_enclosed_seat(
+    p, solid, bolt, screw, requested, fitted, edge_clearance=None
+):
     """From the requested seat down to the fitted one, the first height at
     which the bolt counterbore and the screw recess both sit inside the
     body. A request at or below the fitted seat is used as is."""
@@ -156,10 +235,20 @@ def _highest_enclosed_seat(p, solid, bolt, screw, requested, fitted, edge_cleara
         return float(requested)
     for candidate in np.arange(requested, fitted - 1e-9, -0.5):
         bolt_room = _room(
-            solid, p.bolt_diameter, p.bolt_head_diameter, float(candidate), True, edge_clearance
+            solid,
+            p.bolt_diameter,
+            p.bolt_head_diameter,
+            float(candidate),
+            True,
+            edge_clearance,
         )
         screw_room = _room(
-            solid, p.shank_diameter, p.head_diameter, float(candidate), False, edge_clearance
+            solid,
+            p.shank_diameter,
+            p.head_diameter,
+            float(candidate),
+            False,
+            edge_clearance,
         )
         if (
             bolt_room

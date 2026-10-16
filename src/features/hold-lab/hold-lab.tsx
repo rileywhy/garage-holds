@@ -696,12 +696,31 @@ export function HoldLab({
                   </select>
                 </label>
               )}
+              {schema.toggles
+                ?.filter((toggle) => toggle.group === name)
+                .map((toggle) => (
+                  <div key={toggle.key}>
+                    <label className="lab-toggle">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(parameters[toggle.key])}
+                        onChange={(e) => change(toggle.key, e.target.checked)}
+                      />
+                      {toggle.label}
+                    </label>
+                    {toggle.help && Boolean(parameters[toggle.key]) && (
+                      <p className="lab-hint">{toggle.help}</p>
+                    )}
+                  </div>
+                ))}
               {schema.controls
                 .filter(
                   (c) =>
                     c.group === name &&
                     mountingControlVisible(c.key, parameters) &&
-                    (!c.shapes || c.shapes.includes(String(parameters.shape))),
+                    (!c.shapes ||
+                      c.shapes.includes(String(parameters.shape))) &&
+                    !(c.hidden_by && parameters[c.hidden_by] === true),
                 )
                 .map((control) => (
                   <ControlRow

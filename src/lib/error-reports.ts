@@ -110,6 +110,7 @@ export const CLIENT_ROUTES = [
   "/make/custom-shape",
   "/make/foot",
   "/make/jug",
+  "/make/pocket",
   "/make/sloper",
   "/phone/[session]",
   "/saved",

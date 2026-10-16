@@ -28,6 +28,7 @@ const PORTS: Record<Kind, number> = {
   sloper: 8771,
   jug: 8781,
   foot: 8785,
+  pocket: 8795,
 };
 const FIXTURE = fileURLToPath(
   new URL("../fixtures/lab-defaults.json", import.meta.url),

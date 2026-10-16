@@ -250,3 +250,28 @@ test("the model card lists each lab's numbers in its own order", () => {
   );
   assert.equal(sloper[4].value, "8 mm");
 });
+
+test("pocket: its own colour, every view, and a floor row under Your model", () => {
+  assert.ok(LAB_KINDS.pocket.color);
+  assert.notEqual(LAB_KINDS.pocket.color, LAB_KINDS.foot.color);
+  assert.equal(LAB_KINDS.pocket.views.length, 6);
+  assert.equal(LAB_KINDS.pocket.clampTyped, false);
+  const closed = modelMetrics(
+    "pocket",
+    preview({ floor: 12.5, parameters: { seat_depth: 3 } }),
+  );
+  assert.ok(
+    closed.some((r) => r.label === "Pocket floor" && r.value === "12.5 mm"),
+  );
+  const open = modelMetrics(
+    "pocket",
+    preview({ floor: 0, parameters: { seat_depth: 3 } }),
+  );
+  assert.ok(
+    open.some(
+      (r) => r.label === "Pocket floor" && r.value === "open to the wall",
+    ),
+  );
+  const foot = modelMetrics("foot", preview({ parameters: { seat_depth: 3 } }));
+  assert.ok(!foot.some((r) => r.label === "Pocket floor"));
+});
