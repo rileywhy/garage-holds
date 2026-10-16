@@ -47,7 +47,19 @@ def sphere_points(radius, segments):
 
 
 def largest(section):
-    return np.asarray(max(section.to_polygons(), key=len))
+    polygons = section.to_polygons()
+    if not polygons:
+        raise ValueError("The pocket does not fit this body.")
+    return np.asarray(max(polygons, key=len))
+
+
+def lip_limit(p):
+    """The most lip rounding a pocket can take: half its depth, so the
+    fillet's lowest ring still meets the cavity wall; no limit once the
+    pocket opens to the wall."""
+    if p.through:
+        return LIMITS["lip_radius"][1]
+    return min(LIMITS["lip_radius"][1], p.pocket_depth / 2)
 
 
 def stadium(width, height, arc=24):
@@ -80,9 +92,6 @@ def shell(p, count):
     scale = p.size / 100
     width, height, depth = p.width * scale, p.height * scale, p.depth * scale
     rim = depth * (1 - p.crown / 100)
-    radius = max(
-        1.0, min(p.edge_rounding * scale, rim - 1, width / 2 - 1, height / 2 - 1)
-    )
     rng = np.random.default_rng(p.seed)
     phase = rng.uniform(0, 2 * math.pi, 2)
     drift = rng.uniform(-1, 1, 2) * 0.1 * p.character * np.array([width, height]) / 2
@@ -95,7 +104,14 @@ def shell(p, count):
     wobble = 1 + 0.08 * p.character * (
         0.6 * np.sin(2 * t + phase[0]) + 0.4 * np.sin(3 * t + phase[1])
     )
-    back = manifold.CrossSection([np.column_stack((x * wobble, y * wobble)).tolist()])
+    outline = np.column_stack((x * wobble, y * wobble))
+    # The rim radius must leave a ring of sphere centres inside the
+    # footprint, wobble included, or the inset outline vanishes.
+    radius = max(
+        1.0,
+        min(p.edge_rounding * scale, rim - 1, np.min(np.hypot(*outline.T)) - 1.5),
+    )
+    back = manifold.CrossSection([outline.tolist()])
     ring = largest(back.offset(-radius, manifold.JoinType.Round, 2.0, 32))
     top = ring * (1 - p.taper / 100)
     front = manifold.CrossSection([top.tolist()]).offset(
@@ -186,14 +202,19 @@ def trumpet(p, solid, cut, depth, quality):
     draped onto the real surface. The hulls between neighbouring rings are
     convex, and their union leaves a rounded edge on the body."""
     q = QUALITY[quality]
-    lip = p.lip_radius
-    mouth = cut.slice(depth)
+    lip = min(p.lip_radius, lip_limit(p))
+    # Each ring starts from the tilted slot's own section at its height, so
+    # the fillet leaves the cavity wall tangentially wherever the floor
+    # angle has moved that wall; stacking one mouth outline straight down
+    # left a ridge where the two crossed.
+    face = float(surface_height(solid, np.array([[0.0, 0.0]]), depth)[0])
     rings = []
     for i in range(q["slabs"] + 1):
         a = math.pi / 2 * i / q["slabs"]
         grow, drop = lip * (1 - math.cos(a)), lip * (1 - math.sin(a))
+        section = cut.slice(face - drop)
         outline = largest(
-            mouth.offset(grow, manifold.JoinType.Round, 2.0, 32) if grow else mouth
+            section.offset(grow, manifold.JoinType.Round, 2.0, 32) if grow else section
         )
         rings.append(
             np.column_stack((outline, surface_height(solid, outline, depth) - drop))
@@ -343,6 +364,13 @@ class Model:
             triangles=len(self.mesh.faces),
             watertight=bool(self.mesh.is_watertight),
             floor=round(float(self.floor), 1),
+            # A shallow pocket caps its lip rounding; the lab limits the
+            # slider to what was built.
+            control_limits=(
+                {"lip_radius": round(limit, 1)}
+                if (limit := lip_limit(self.parameters)) < LIMITS["lip_radius"][1]
+                else {}
+            ),
         )
 
 

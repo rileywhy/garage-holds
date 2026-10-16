@@ -10,15 +10,15 @@ class Parameters:
     # into the hold along the floor; the floor angle tilts that axis.
     opening_width: float = 45
     opening_height: float = 28
-    pocket_depth: float = 30
+    pocket_depth: float = 40
     floor_angle: float = 10
-    lip_radius: float = 4
+    lip_radius: float = 8
     through: bool = False
     # The body, before overall scale.
     size: float = 100
     width: float = 85
     height: float = 85
-    depth: float = 42
+    depth: float = 50
     roundness: float = 100
     edge_rounding: float = 10
     crown: float = 15
@@ -77,7 +77,7 @@ CONTROLS = [
         "Pocket depth",
         "Grip",
         12,
-        50,
+        60,
         1,
         "mm",
         "Measured into the hold along the floor. One finger pad is about 20 mm, two pads about 40.",
@@ -97,11 +97,11 @@ CONTROLS = [
         "lip_radius",
         "Lip rounding",
         "Grip",
-        1,
-        8,
+        2,
+        15,
         0.5,
         "mm",
-        "Rounds the mouth where your fingers rest.",
+        "Rounds the mouth where your fingers rest. A bigger radius is kinder on the skin and needs more body around the opening.",
     ),
     control(
         "size",
@@ -272,39 +272,42 @@ PRESETS = {
         BASE,
         opening_width=26,
         opening_height=26,
-        pocket_depth=28,
+        pocket_depth=36,
         floor_angle=15,
         width=70,
         height=70,
-        depth=40,
+        depth=46,
     ),
     "Three-finger pocket": replace(
         BASE,
         opening_width=66,
         opening_height=30,
-        pocket_depth=32,
+        pocket_depth=40,
         floor_angle=8,
         width=110,
         height=85,
-        depth=44,
+        depth=50,
     ),
-    "Deep two-finger": replace(BASE, pocket_depth=45, floor_angle=12, depth=56),
+    "Deep two-finger": replace(BASE, pocket_depth=52, floor_angle=12, depth=62),
     "Slopey pocket": replace(
         BASE,
         opening_height=30,
-        pocket_depth=22,
+        pocket_depth=26,
         floor_angle=-12,
-        lip_radius=6,
+        lip_radius=10,
         crown=25,
+        width=88,
+        height=88,
+        depth=42,
     ),
     "Pocket rail": replace(
         BASE,
         roundness=25,
         width=120,
         height=70,
-        depth=40,
+        depth=42,
         opening_height=26,
-        pocket_depth=26,
+        pocket_depth=30,
         floor_angle=15,
     ),
 }
