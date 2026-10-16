@@ -25,7 +25,7 @@ import {
 } from "@/features/model-viewer/board-preview";
 import { Bookmark, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { trackEvent } from "@/features/analytics/events";
-import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
+import { previewGeometry } from "@/features/labs/preview-geometry";
 import {
   copyCurrentLink,
   currentSearch,

@@ -23,6 +23,8 @@ npm run build
 
 GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the crimp generator's Python tests and the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
+With the four lab generators running (see [docs/sandbox.md](docs/sandbox.md)), `npm run test:e2e` checks each parametric lab's default output end to end: the first preview, the settings the sliders hold, the link and the exported STL, against `tests/fixtures/lab-defaults.json`.
+
 ## What works
 
 - Search and combined filters for hold type, size, mounting, material, optional special process, and an optional suggested problem grade at 40°. Grades use V0–V1, V2, V3, … V17.
@@ -45,7 +47,7 @@ GitHub Actions runs the same five commands on every pull request and on pushes t
 
 [Crimp Lab](tools/crimp-generator/README.md) is a parametric crimp generator: edge depth, incut, lip rounding, body shape, seeded variation, and screw holes, with a live 3D preview, a centre profile, and STL plus editable JSON export. The geometry is Python (`tools/crimp-generator`); on the site it runs as a Vercel Python function (`api/crimp.py`) behind `/make/crimp`, and locally the same engine has its own browser GUI (`server.py`) or serves the hosted route for `next dev` (`serve_api.py`). Generated holds reach the library only when someone uploads them.
 
-The [Sloper](tools/sloper-generator/README.md), [Jug](tools/jug-generator/README.md) and [Foot](tools/foot-generator/README.md) Labs (`/make/sloper`, `/make/jug`, `/make/foot`) share one React shell (`src/features/hold-lab`) and the crimp engine underneath; the Foot Lab is labelled experimental. The [Custom Shape Lab](tools/custom-shape-generator/README.md) (`/make/custom-shape`) turns a painted silhouette into a hold. Every lab keeps the settings on screen in the address bar (`/make/crimp?edge_depth=22&incut=35`, or `?preset=rock+tooth`) and has a Copy link button, so a shape can be sent to a friend or linked from a Printables listing; the Custom Shape Lab packs its drawing into the link too (`src/features/lab-link`).
+The [Sloper](tools/sloper-generator/README.md), [Jug](tools/jug-generator/README.md) and [Foot](tools/foot-generator/README.md) Labs (`/make/sloper`, `/make/jug`, `/make/foot`) share the crimp engine underneath, and all four parametric labs share one React shell (`src/features/hold-lab`); the Foot Lab is labelled experimental. The [Custom Shape Lab](tools/custom-shape-generator/README.md) (`/make/custom-shape`) turns a painted silhouette into a hold. Every lab keeps the settings on screen in the address bar (`/make/crimp?edge_depth=22&incut=35`, or `?preset=rock+tooth`) and has a Copy link button, so a shape can be sent to a friend or linked from a Printables listing; the Custom Shape Lab packs its drawing into the link too (`src/features/lab-link`).
 
 ## Shared library
 
@@ -67,8 +69,7 @@ Supported model uploads: STL, 3MF, STEP/STP, OBJ, PLY, glTF/GLB, IGES/IGS, F3D, 
 - `src/components`: shared UI and library state.
 - `src/lib/r2.ts`: signed URLs and object checks against Cloudflare R2; credentials never leave the server.
 - `src/lib/supabase`: request-bound Supabase clients for Server Components, Server Functions, and the proxy, plus the server-only admin client used to record verified files.
-- `src/features/crimp-lab`: the Crimp Lab page: controls from the Python schema, the Three.js viewer, and the profile drawing.
-- `src/features/hold-lab`: the shared shell behind the Sloper, Jug and Foot Labs; `src/features/custom-shape-lab`: the painted-silhouette lab; `src/features/lab-link`: the shareable settings links every lab reads and writes.
+- `src/features/hold-lab`: the one shell behind the Crimp, Sloper, Jug and Foot Labs (controls from each Python schema, the Three.js viewer, the profile drawing), with what differs between the four in `kinds.ts`; `src/features/custom-shape-lab`: the painted-silhouette lab; `src/features/lab-link`: the shareable settings links every lab reads and writes.
 - `api/crimp.py`, `api/sloper.py`, `api/jug.py`, `api/foot.py`, `api/custom_shape.py`: the hosted generators, Vercel Python functions sharing the engines under `tools/`.
 - `tests`: domain behavior tests; `tests/integration` runs the row-level security policies with two users on the local Supabase stack.
 - `supabase/migrations`: the schema, applied in order by the Supabase CLI. `supabase/config.toml` configures the local stack; `src/lib/supabase/database.types.ts` is generated from it with `npm run db:types`.

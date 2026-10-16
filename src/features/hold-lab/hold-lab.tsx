@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject,
+} from "react";
 import {
   Bookmark,
   Download,
@@ -14,7 +22,6 @@ import {
 } from "lucide-react";
 import {
   VIEW_LABELS,
-  VIEW_ORDER,
   Viewer,
   isDarkTheme,
   type ViewName,
@@ -23,22 +30,7 @@ import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
-import { previewGeometry } from "@/features/crimp-lab/preview-geometry";
-import {
-  DESIGN_FILE_LIMIT,
-  loadSchema,
-  limitControl,
-  parseDesignFile,
-  post,
-  type Control,
-  type Design,
-  type Kind,
-  type Parameters,
-  type Preview,
-  type Schema,
-} from "./api";
-import { Profile } from "./profile";
-import { mountingControlVisible } from "./mounting";
+import { previewGeometry } from "@/features/labs/preview-geometry";
 import { trackEvent } from "@/features/analytics/events";
 import {
   copyCurrentLink,
@@ -60,18 +52,32 @@ import {
   LAB_COPY,
   PREVIEW_DEBOUNCE_MS,
   labFilename,
-  withInches,
 } from "@/features/labs/conventions";
 import { errorReason } from "@/features/labs/lab-request";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
+import {
+  DESIGN_FILE_LIMIT,
+  KIND_LABELS,
+  limitControl,
+  loadSchema,
+  parseDesignFile,
+  post,
+  validate,
+  type Control,
+  type Design,
+  type Kind,
+  type Parameters,
+  type Preview,
+  type Schema,
+} from "./api";
+import { LAB_KINDS, followPreview, modelMetrics } from "./kinds";
+import { mountingControlVisible } from "./mounting";
+import { Profile } from "./profile";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
 type Group = (typeof GROUPS)[number];
 const CUSTOM = "Custom";
-
-// Each lab gets its own hold colour so the three read as different tools.
-const COLORS: Partial<Record<Kind, number>> = { jug: 0xc2aadf, foot: 0xa9c4ae };
 
 // What the status line says, and the step to try again when it failed.
 interface Status {
@@ -89,6 +95,18 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function reportError(
+  lab: Kind,
+  stage: "start" | "preview" | "export",
+  error: unknown,
+) {
+  trackEvent({ name: "lab_error", lab, stage, reason: errorReason(error) });
+}
+
+// The one lab behind the Crimp, Sloper, Jug and Foot Labs: sliders on the
+// left, the generated hold on the right; on a phone the hold stays pinned
+// above the sliders. Every change asks /api/<kind> for a fresh preview and
+// export asks for a finer STL. What differs between the four is in kinds.ts.
 export function HoldLab({
   kind,
   account = false,
@@ -96,10 +114,14 @@ export function HoldLab({
   kind: Kind;
   account?: boolean;
 }) {
+  const lab = LAB_KINDS[kind];
+  const path = `/make/${kind}`;
   // Presets go to the account when signed in, to this browser otherwise.
   const store = useMemo(() => presetStore(kind, account), [kind, account]);
   const [schema, setSchema] = useState<Schema | null>(null);
   const [parameters, setParameters] = useState<Parameters>({});
+  // Each edit bumps the revision, which is what triggers a preview; the ref
+  // holds the latest settings for that effect to read.
   const latest = useRef<Parameters>({});
   const [revision, setRevision] = useState(0);
   // Bumped by Retry after the generator failed to start.
@@ -128,7 +150,7 @@ export function HoldLab({
   // The settings the person started from: the preset they picked, a saved
   // preset, a loaded file or a shared link. A slider's reset returns there.
   const origin = useRef<Parameters>({});
-  // Presets saved in this browser, and the small form that names a new one.
+  // Presets the person saved, and the small form that renames one.
   const [saved, setSaved] = useState<LabPreset[]>([]);
   const [saving, setSaving] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -142,19 +164,12 @@ export function HoldLab({
       try {
         const loaded = await loadSchema(kind);
         let start: Parameters = { ...loaded.defaults };
-        let presetName = Object.keys(loaded.presets)[0] ?? CUSTOM;
+        let name = Object.keys(loaded.presets)[0] ?? CUSTOM;
         const link = readLink(currentSearch(), loaded.defaults, loaded.presets);
         if (link) {
           try {
-            const checked = await post(
-              "validate",
-              link.parameters,
-              undefined,
-              kind,
-            );
-            start = ((await checked.json()) as { parameters: Parameters })
-              .parameters;
-            presetName = link.preset ?? CUSTOM;
+            start = await validate(kind, link.parameters);
+            name = link.preset ?? CUSTOM;
             trackEvent({ name: "lab_settings", lab: kind, action: "open" });
           } catch (error) {
             // A timeout, lost connection or server failure says nothing
@@ -176,16 +191,11 @@ export function HoldLab({
           })
           .catch(() => {});
         setNaming(false);
-        setPreset(presetName);
+        setPreset(name);
         setSchema(loaded);
       } catch (error) {
         if (cancelled) return;
-        trackEvent({
-          name: "lab_error",
-          lab: kind,
-          stage: "start",
-          reason: errorReason(error),
-        });
+        reportError(kind, "start", error);
         setStatus({
           text: (error as Error).message,
           error: true,
@@ -206,7 +216,7 @@ export function HoldLab({
     try {
       viewer.current = new Viewer(box.current, {
         dark: isDarkTheme(),
-        color: COLORS[kind],
+        color: lab.color,
       });
     } catch {
       // No WebGL: the sliders and export still work without a picture.
@@ -222,94 +232,90 @@ export function HoldLab({
       viewer.current?.dispose();
       viewer.current = null;
     };
-  }, [kind]);
+  }, [kind, lab.color]);
 
   const retryPreview = useCallback(() => {
     setStatus({ text: LAB_COPY.updating, error: false });
     setRevision((r) => r + 1);
   }, []);
 
+  // Debounced preview after every change; superseded requests are dropped.
   useEffect(() => {
     if (!schema) return;
     const request = ++sequence.current;
+    const retire = () => void ++sequence.current;
     const timer = setTimeout(async () => {
       controller.current?.abort();
       controller.current = new AbortController();
       try {
-        const data = (await (
-          await post("preview", latest.current, controller.current.signal, kind)
-        ).json()) as Preview;
+        const response = await post(
+          kind,
+          "preview",
+          latest.current,
+          controller.current.signal,
+        );
+        const data = (await response.json()) as Preview;
         if (request !== sequence.current) return;
         viewer.current?.setGeometry(
-          previewGeometry(data, true),
+          previewGeometry(data, lab.separateBack),
           fitNext.current,
         );
         fitNext.current = false;
         shown.current = true;
-        latest.current = {
-          ...data.parameters,
-          ...(kind === "jug"
-            ? { body_height: latest.current.body_height }
-            : {}),
-        };
+        const outcome = followPreview(
+          kind,
+          latest.current,
+          data,
+          schema.controls,
+        );
+        latest.current = outcome.parameters;
         setParameters(latest.current);
+        if (outcome.custom) setPreset(CUSTOM);
         setPreview(data);
         setDesign(data.design);
-        // The generator only lists settings it had to change against what
-        // was asked for, so a fresh preset reads as current, not adjusted.
-        const notes = Object.entries(data.adjusted).map(([key, value]) => {
-          const control = schema.controls.find((c) => c.key === key);
-          return `${control?.label ?? key} ${Number(value.toFixed(2))}${control?.unit === "°" ? "°" : ` ${control?.unit ?? ""}`}`.trimEnd();
-        });
-        setStatus({
-          text:
-            (notes.length ? LAB_COPY.adjusted(notes) : LAB_COPY.current) +
-            linkNote.current,
-          error: false,
-        });
+        setStatus({ text: outcome.text + linkNote.current, error: false });
         linkNote.current = "";
         // The address bar always holds the shape on screen, ready to share.
         replaceSearch(
           linkSearch(latest.current, schema.defaults, schema.presets),
-          `/make/${kind}`,
+          path,
         );
       } catch (error) {
         if (
-          (error as Error).name !== "AbortError" &&
-          request === sequence.current
-        ) {
-          trackEvent({
-            name: "lab_error",
-            lab: kind,
-            stage: "preview",
-            reason: errorReason(error),
-          });
-          setStatus({
-            text:
-              (error as Error).message +
-              (shown.current ? LAB_COPY.lastValid : ""),
-            error: true,
-            retry: retryPreview,
-          });
-        }
+          (error as Error).name === "AbortError" ||
+          request !== sequence.current
+        )
+          return;
+        reportError(kind, "preview", error);
+        setStatus({
+          text:
+            (error as Error).message +
+            (shown.current ? LAB_COPY.lastValid : ""),
+          error: true,
+          retry: retryPreview,
+        });
       }
     }, PREVIEW_DEBOUNCE_MS);
+    // Leaving the page, or a newer edit: a request still in flight is
+    // cancelled and its number retired, so a late answer changes nothing.
     return () => {
       clearTimeout(timer);
       controller.current?.abort();
+      retire();
     };
-  }, [schema, revision, kind, retryPreview]);
+  }, [schema, revision, kind, path, lab.separateBack, retryPreview]);
 
+  // Every edit goes through here so the stale design is cleared (export
+  // disabled), the status says a preview is on its way, and the preview
+  // effect runs again.
   const edit = useCallback(
     (next: (p: Parameters) => Parameters, name = CUSTOM, fit = false) => {
-      ++sequence.current;
-      controller.current?.abort();
       latest.current = next(latest.current);
       setParameters(latest.current);
       setPreset(name);
       setDesign(null);
       setStatus({ text: LAB_COPY.updating, error: false });
-      fitNext.current = fitNext.current || fit;
+      fitNext.current ||= fit;
       setRevision((r) => r + 1);
     },
     [],
@@ -319,6 +325,8 @@ export function HoldLab({
       edit((p) => ({
         ...p,
         [key]: value,
+        // Moving a fitted value by hand turns its automatic fit off; the
+        // toggle beside the slider is the way back.
         ...(key === "screw_spacing" ? { auto_spacing: false } : {}),
         ...(key === "seat_depth" ? { auto_seat: false } : {}),
         ...(key === "screw_count" && "auto_screw_count" in p
@@ -328,6 +336,15 @@ export function HoldLab({
     [edit],
   );
 
+  function showError(error: unknown) {
+    setStatus({ text: (error as Error).message, error: true });
+  }
+  // A new starting point: a preset, a saved preset or a loaded file. Each
+  // slider's reset returns here, and the view refits to the new shape.
+  function startFrom(settings: Parameters, name: string) {
+    origin.current = { ...settings };
+    edit(() => ({ ...settings }), name, true);
+  }
   function changeBoardAngle(angle: number) {
     if (!Number.isFinite(angle) || angle < 0 || angle > MAX_BOARD_ANGLE) return;
     setBoardAngle(angle);
@@ -336,16 +353,23 @@ export function HoldLab({
   function reset() {
     if (!schema) return;
     changeBoardAngle(DEFAULT_BOARD_ANGLE);
-    origin.current = { ...schema.defaults };
-    edit(() => ({ ...schema.defaults }), Object.keys(schema.presets)[0], true);
+    startFrom(schema.defaults, Object.keys(schema.presets)[0]);
   }
   function variation(seed: number) {
     if (!Number.isInteger(seed) || seed < 0 || seed > 999999) return;
     edit((p) => ({
       ...p,
       seed,
-      character: Math.max(0.65, Number(p.character)),
+      character: Math.max(lab.character, Number(p.character)),
     }));
+  }
+  function newVariation() {
+    variation(
+      (Number(latest.current.seed) +
+        1 +
+        (crypto.getRandomValues(new Uint32Array(1))[0] % 999999)) %
+        1000000,
+    );
   }
   async function loadSettings(file: File | undefined) {
     if (!file) return;
@@ -353,53 +377,33 @@ export function HoldLab({
       if (file.size > DESIGN_FILE_LIMIT)
         throw new Error("Settings files must be smaller than 16 KB.");
       const saved = parseDesignFile(await file.text(), kind);
-      const data = (await (
-        await post("validate", saved, undefined, kind)
-      ).json()) as {
-        parameters: Parameters;
-      };
-      origin.current = { ...data.parameters };
-      edit(() => data.parameters, CUSTOM, true);
+      startFrom(await validate(kind, saved), CUSTOM);
       trackEvent({ name: "lab_settings", lab: kind, action: "load" });
     } catch (error) {
-      setStatus({ text: (error as Error).message, error: true });
+      showError(error);
     }
   }
   function applyPreset(name: string) {
     if (!schema) return;
-    if (isSavedValue(name)) {
-      applySavedPreset(savedId(name));
-      return;
-    }
-    origin.current = { ...schema.presets[name] };
-    edit(() => ({ ...schema.presets[name] }), name, true);
+    if (isSavedValue(name)) void applySavedPreset(savedId(name));
+    else startFrom(schema.presets[name] ?? schema.defaults, name);
   }
-  // A saved preset goes through the generator's validation first, so one
-  // saved before a control changed still opens cleanly.
   async function applySavedPreset(id: string) {
     const found = saved.find((p) => p.id === id);
     if (!schema || !found) return;
     try {
       const link = readLink(found.search, schema.defaults, schema.presets);
-      const data = (await (
-        await post(
-          "validate",
-          (link?.parameters as Parameters | undefined) ?? {
-            ...schema.defaults,
-          },
-          undefined,
-          kind,
-        )
-      ).json()) as { parameters: Parameters };
-      origin.current = { ...data.parameters };
-      edit(() => data.parameters, savedValue(id), true);
+      const settings = await validate(
+        kind,
+        link?.parameters ?? schema.defaults,
+      );
+      startFrom(settings, savedValue(id));
     } catch (error) {
-      setStatus({ text: (error as Error).message, error: true });
+      showError(error);
     }
   }
   function startRenaming() {
-    const found = saved.find((p) => p.id === savedId(preset));
-    setPresetName(found?.name ?? "");
+    setPresetName(saved.find((p) => p.id === savedId(preset))?.name ?? "");
     setNaming(true);
   }
   // One click: the shape on screen, named after its settings. Rename after.
@@ -423,12 +427,12 @@ export function HoldLab({
       trackEvent({ name: "lab_settings", lab: kind, action: "preset" });
       setStatus({ text: savedWhere(account, name), error: false });
     } catch (error) {
-      setStatus({ text: (error as Error).message, error: true });
+      showError(error);
     } finally {
       setSaving(false);
     }
   }
-  async function renameSavedPreset(event: React.FormEvent) {
+  async function renameSavedPreset(event: FormEvent) {
     event.preventDefault();
     const wanted = presetName.trim().replace(/\s+/g, " ").toLowerCase();
     try {
@@ -442,7 +446,7 @@ export function HoldLab({
         error: false,
       });
     } catch (error) {
-      setStatus({ text: (error as Error).message, error: true });
+      showError(error);
     }
   }
   async function removePreset() {
@@ -454,14 +458,14 @@ export function HoldLab({
       setPreset(CUSTOM);
       setStatus({ text: LAB_COPY.presetDeleted(name), error: false });
     } catch (error) {
-      setStatus({ text: (error as Error).message, error: true });
+      showError(error);
     }
   }
   async function copyLink() {
     if (!design || !schema) return;
     replaceSearch(
       linkSearch(latest.current, schema.defaults, schema.presets),
-      `/make/${kind}`,
+      path,
     );
     const copied = await copyCurrentLink();
     if (copied) trackEvent({ name: "lab_settings", lab: kind, action: "link" });
@@ -472,13 +476,14 @@ export function HoldLab({
   }
   async function exportStl() {
     if (!design || !preview) return;
-    const snapshot = { ...design.parameters },
-      request = sequence.current;
+    const snapshot = { ...design.parameters };
+    const request = sequence.current;
     setExporting(true);
     setStatus({ text: LAB_COPY.building, error: false });
     try {
+      const response = await post(kind, "stl", snapshot);
       download(
-        await (await post("stl", snapshot, undefined, kind)).blob(),
+        await response.blob(),
         labFilename(kind, preview.dimensions, "stl"),
       );
       trackEvent({ name: "export_stl", lab: kind });
@@ -486,12 +491,7 @@ export function HoldLab({
         setStatus({ text: LAB_COPY.exported, error: false });
     } catch (error) {
       if (request === sequence.current) {
-        trackEvent({
-          name: "lab_error",
-          lab: kind,
-          stage: "export",
-          reason: errorReason(error),
-        });
+        reportError(kind, "export", error);
         setStatus({
           text: (error as Error).message,
           error: true,
@@ -505,18 +505,64 @@ export function HoldLab({
   function saveSettings() {
     if (!design || !preview) return;
     download(
-      new Blob([JSON.stringify(design, null, 2)], {
-        type: "application/json",
-      }),
+      new Blob([JSON.stringify(design, null, 2)], { type: "application/json" }),
       labFilename(kind, preview.dimensions, "json"),
     );
     trackEvent({ name: "lab_settings", lab: kind, action: "save" });
   }
 
+  // The automatic fits the generator offers, as a toggle beside the span
+  // and seat sliders. Moving a slider turns its fit off; the toggle is the
+  // way back without resetting the rest of the shape.
+  function autoToggle(key: string) {
+    if (
+      key === "screw_spacing" &&
+      "auto_spacing" in parameters &&
+      !parameters.bolt_mount
+    )
+      return {
+        checked: Boolean(parameters.auto_spacing),
+        onChange: (checked: boolean) =>
+          edit((p) => ({ ...p, auto_spacing: checked })),
+      };
+    if (key === "seat_depth" && "auto_seat" in parameters)
+      return {
+        checked: Boolean(parameters.auto_seat),
+        onChange: (checked: boolean) =>
+          edit((p) => ({ ...p, auto_seat: checked })),
+      };
+    return undefined;
+  }
+  // Back to the starting point the person chose (preset, saved preset,
+  // loaded file or link), not the generator's base values. A fitted value
+  // goes back to being fitted when that is how it started.
+  function resetControl(key: string) {
+    if (!schema) return;
+    const start = origin.current;
+    if (key === "screw_spacing")
+      edit((p) => ({
+        ...p,
+        ...(start.auto_spacing === false &&
+        typeof start.screw_spacing === "number"
+          ? { auto_spacing: false, screw_spacing: start.screw_spacing }
+          : { auto_spacing: true }),
+      }));
+    else if (key === "seat_depth")
+      edit((p) => ({
+        ...p,
+        auto_seat: start.auto_seat !== false,
+        seat_depth: Number(start.seat_depth ?? schema.defaults.seat_depth),
+      }));
+    else change(key, Number(start[key] ?? schema.defaults[key]));
+  }
+
   const screws = Boolean(parameters.screws);
   return (
     <div className="lab">
-      <aside className="lab-controls" aria-label={`${kind} controls`}>
+      <aside
+        className="lab-controls"
+        aria-label={`${KIND_LABELS[kind]} controls`}
+      >
         <label className="lab-field">
           <span>Starting point</span>
           <select
@@ -561,12 +607,14 @@ export function HoldLab({
                 )
                   return;
                 event.preventDefault();
+                const last = GROUPS.length - 1;
                 const next =
                   event.key === "Home"
                     ? 0
                     : event.key === "End"
-                      ? 2
-                      : (index + (event.key === "ArrowRight" ? 1 : -1) + 3) % 3;
+                      ? last
+                      : (index + (event.key === "ArrowRight" ? 1 : last)) %
+                        GROUPS.length;
                 setGroup(GROUPS[next]);
                 document.getElementById(`${kind}-tab-${GROUPS[next]}`)?.focus();
               }}
@@ -661,60 +709,10 @@ export function HoldLab({
                     control={limitControl(control, preview)}
                     value={Number(parameters[control.key])}
                     disabled={name === "Mounting" && !screws}
+                    clamp={lab.clampTyped}
                     onChange={change}
-                    // Dragging the span or seat slider turns its automatic
-                    // fit off; the toggle is the way back without resetting
-                    // the rest of the shape.
-                    auto={
-                      control.key === "screw_spacing" &&
-                      "auto_spacing" in parameters &&
-                      !parameters.bolt_mount
-                        ? {
-                            checked: Boolean(parameters.auto_spacing),
-                            onChange: (checked) =>
-                              edit((p) => ({ ...p, auto_spacing: checked })),
-                          }
-                        : control.key === "seat_depth" &&
-                            "auto_seat" in parameters
-                          ? {
-                              checked: Boolean(parameters.auto_seat),
-                              onChange: (checked) =>
-                                edit((p) => ({ ...p, auto_seat: checked })),
-                            }
-                          : undefined
-                    }
-                    onReset={() => {
-                      // Back to the starting point the person chose (preset,
-                      // saved preset, loaded file or link), not the
-                      // generator's base values.
-                      const start = origin.current;
-                      if (control.key === "screw_spacing")
-                        edit((p) => ({
-                          ...p,
-                          ...(start.auto_spacing === false &&
-                          typeof start.screw_spacing === "number"
-                            ? {
-                                auto_spacing: false,
-                                screw_spacing: start.screw_spacing,
-                              }
-                            : { auto_spacing: true }),
-                        }));
-                      else if (control.key === "seat_depth")
-                        edit((p) => ({
-                          ...p,
-                          auto_seat: start.auto_seat !== false,
-                          seat_depth: Number(
-                            start.seat_depth ?? schema.defaults.seat_depth,
-                          ),
-                        }));
-                      else
-                        change(
-                          control.key,
-                          Number(
-                            start[control.key] ?? schema.defaults[control.key],
-                          ),
-                        );
-                    }}
+                    onReset={() => resetControl(control.key)}
+                    auto={autoToggle(control.key)}
                   />
                 ))}
               {name === "Shape" && (
@@ -733,25 +731,14 @@ export function HoldLab({
                       <button
                         className="button button-outline"
                         type="button"
-                        onClick={() =>
-                          variation(
-                            (Number(latest.current.seed) +
-                              1 +
-                              (crypto.getRandomValues(new Uint32Array(1))[0] %
-                                999999)) %
-                              1000000,
-                          )
-                        }
+                        onClick={newVariation}
                       >
                         <Shuffle size={15} />
                         New variation
                       </button>
                     </div>
                   </label>
-                  <p className="lab-hint">
-                    Different rounded surfaces. Reset returns to the clean
-                    default.
-                  </p>
+                  <p className="lab-hint">{lab.seedHint}</p>
                 </div>
               )}
             </div>
@@ -857,89 +844,24 @@ export function HoldLab({
         </p>
       </aside>
       <section className="lab-stage" aria-label="Model preview">
-        <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {VIEW_ORDER.filter(
-            (name) => kind !== "sloper" || name !== "angled-side",
-          ).map((name) => (
-            <button
-              type="button"
-              key={name}
-              aria-pressed={view === name}
-              onClick={() => {
-                setView(name);
-                viewer.current?.setView(name);
-              }}
-            >
-              {VIEW_LABELS[name]}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="lab-toolbar-end"
-            aria-label="Zoom in"
-            title="Zoom in (+)"
-            onClick={() => viewer.current?.zoom(1.25)}
-          >
-            <ZoomIn size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom out"
-            title="Zoom out (−)"
-            onClick={() => viewer.current?.zoom(0.8)}
-          >
-            <ZoomOut size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            title="Fit the whole hold in view (0)"
-            onClick={() => viewer.current?.fit()}
-          >
-            Fit view
-          </button>
-          <button type="button" disabled={!schema} onClick={reset}>
-            <RotateCcw size={13} />
-            Reset
-          </button>
-        </div>
+        <ViewToolbar
+          views={lab.views}
+          view={view}
+          viewer={viewer}
+          ready={Boolean(schema)}
+          onView={(name) => {
+            setView(name);
+            viewer.current?.setView(name);
+          }}
+          onReset={reset}
+        />
         {view === "board" && (
-          <div className="lab-board-controls">
-            <label htmlFor={`${kind}-board-angle`}>Board angle</label>
-            <input
-              id={`${kind}-board-angle`}
-              type="number"
-              min={0}
-              max={MAX_BOARD_ANGLE}
-              step={1}
-              value={boardAngle}
-              aria-describedby={`${kind}-board-angle-hint`}
-              onChange={(e) => changeBoardAngle(e.target.valueAsNumber)}
-            />
-            <span>°</span>
-            <input
-              type="range"
-              min={0}
-              max={MAX_BOARD_ANGLE}
-              step={1}
-              value={boardAngle}
-              aria-label="Board angle slider"
-              aria-describedby={`${kind}-board-angle-hint`}
-              onChange={(e) => changeBoardAngle(e.target.valueAsNumber)}
-            />
-            <button
-              type="button"
-              onClick={() => changeBoardAngle(DEFAULT_BOARD_ANGLE)}
-            >
-              40° standard
-            </button>
-            <button
-              type="button"
-              onClick={() => viewer.current?.setBoardSideView()}
-            >
-              Exact side
-            </button>
-            <p id={`${kind}-board-angle-hint`}>From vertical · 0° is upright</p>
-          </div>
+          <BoardAngleControls
+            kind={kind}
+            angle={boardAngle}
+            viewer={viewer}
+            onChange={changeBoardAngle}
+          />
         )}
         <div
           ref={box}
@@ -994,7 +916,7 @@ export function HoldLab({
         <section className="lab-card">
           <h3>Side profile</h3>
           {preview ? (
-            <Profile data={preview} kind={kind} />
+            <Profile data={preview} kind={kind} parameters={parameters} />
           ) : (
             <p className="small-note">{LAB_COPY.waiting}</p>
           )}
@@ -1003,34 +925,9 @@ export function HoldLab({
           <h3>Your model</h3>
           <dl className="lab-metrics">
             {preview ? (
-              <>
-                <Metric
-                  label="Dimensions"
-                  value={withInches(preview.dimensions)}
-                />
-                <Metric
-                  label="Estimated material"
-                  value={`≈ ${preview.material_grams.join("–")} g`}
-                />
-                <Metric
-                  label="Mesh"
-                  value={`${preview.triangles.toLocaleString()} triangles · closed`}
-                />
-                <Metric
-                  label="Screw holes"
-                  value={String(preview.screws.length)}
-                />
-                {(preview.bolts?.length ?? 0) > 0 && (
-                  <Metric
-                    label="Bolt holes"
-                    value={String(preview.bolts?.length)}
-                  />
-                )}
-                <Metric
-                  label="Seat above wall"
-                  value={`${preview.parameters.seat_depth} mm`}
-                />
-              </>
+              modelMetrics(kind, preview).map((metric) => (
+                <Metric key={metric.label} {...metric} />
+              ))
             ) : (
               <Metric label="Mesh" value="Preparing…" />
             )}
@@ -1053,6 +950,116 @@ export function HoldLab({
   );
 }
 
+// The toolbar above the viewer: the same views in the same order for every
+// lab (less any a lab leaves out), zoom, fit and the way back to the start.
+function ViewToolbar({
+  views,
+  view,
+  viewer,
+  ready,
+  onView,
+  onReset,
+}: {
+  views: ViewName[];
+  view: ViewName;
+  viewer: RefObject<Viewer | null>;
+  ready: boolean;
+  onView: (view: ViewName) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="lab-toolbar" role="group" aria-label="Preview angle">
+      {views.map((name) => (
+        <button
+          type="button"
+          key={name}
+          aria-pressed={view === name}
+          onClick={() => onView(name)}
+        >
+          {VIEW_LABELS[name]}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="lab-toolbar-end"
+        aria-label="Zoom in"
+        title="Zoom in (+)"
+        onClick={() => viewer.current?.zoom(1.25)}
+      >
+        <ZoomIn size={14} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Zoom out"
+        title="Zoom out (−)"
+        onClick={() => viewer.current?.zoom(0.8)}
+      >
+        <ZoomOut size={14} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        title="Fit the whole hold in view (0)"
+        onClick={() => viewer.current?.fit()}
+      >
+        Fit view
+      </button>
+      <button type="button" disabled={!ready} onClick={onReset}>
+        <RotateCcw size={13} />
+        Reset
+      </button>
+    </div>
+  );
+}
+
+// The board's angle, shown with the board preview: a number, a slider, the
+// 40° standard and an exact side-on view.
+function BoardAngleControls({
+  kind,
+  angle,
+  viewer,
+  onChange,
+}: {
+  kind: Kind;
+  angle: number;
+  viewer: RefObject<Viewer | null>;
+  onChange: (angle: number) => void;
+}) {
+  const id = `${kind}-board-angle`;
+  return (
+    <div className="lab-board-controls">
+      <label htmlFor={id}>Board angle</label>
+      <input
+        id={id}
+        type="number"
+        min={0}
+        max={MAX_BOARD_ANGLE}
+        step={1}
+        value={angle}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => onChange(e.target.valueAsNumber)}
+      />
+      <span>°</span>
+      <input
+        type="range"
+        min={0}
+        max={MAX_BOARD_ANGLE}
+        step={1}
+        value={angle}
+        aria-label="Board angle slider"
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => onChange(e.target.valueAsNumber)}
+      />
+      <button type="button" onClick={() => onChange(DEFAULT_BOARD_ANGLE)}>
+        40° standard
+      </button>
+      <button type="button" onClick={() => viewer.current?.setBoardSideView()}>
+        Exact side
+      </button>
+      <p id={`${id}-hint`}>From vertical · 0° is upright</p>
+    </div>
+  );
+}
+
 // Stand-ins for the sliders while the generator wakes up.
 function Skeleton() {
   return (
@@ -1068,25 +1075,29 @@ function ControlRow({
   control,
   value,
   disabled,
+  clamp,
   onChange,
   onReset,
   auto,
 }: {
   control: Control;
-  onReset: () => void;
   value: number;
   disabled: boolean;
+  // Snap a typed value into the slider's range; see LabKind.clampTyped.
+  clamp: boolean;
   onChange: (key: string, value: number) => void;
+  onReset: () => void;
   // An "auto" toggle beside the slider, for settings the generator can fit.
   auto?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
   const id = `lab-${control.key}`;
-  function handle(value: number) {
-    if (
-      Number.isFinite(value) &&
-      (control.key !== "screw_count" || Number.isInteger(value))
-    )
-      onChange(control.key, value);
+  function handle(typed: number) {
+    if (!Number.isFinite(typed)) return;
+    const next = clamp
+      ? Math.min(control.max, Math.max(control.min, typed))
+      : typed;
+    if (control.key === "screw_count" && !Number.isInteger(next)) return;
+    onChange(control.key, next);
   }
   return (
     <div className="lab-control">

@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/features/auth/current-user";
-import { CrimpLab } from "@/features/crimp-lab/crimp-lab";
+import { HoldLab } from "@/features/hold-lab/hold-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
@@ -24,7 +24,7 @@ export default async function CrimpLabPage() {
           STL. Nothing is added to the library unless you upload it.
         </p>
       </div>
-      <CrimpLab account={Boolean(user)} />
+      <HoldLab kind="crimp" account={Boolean(user)} />
     </main>
   );
 }

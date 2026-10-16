@@ -83,6 +83,7 @@ Passed on initial setup:
 - `npm run format:check`, `npm run lint`, `npm run typecheck`.
 - `npm test`: 59 tests.
 - `npm run build`.
+- `npm run test:e2e`: each parametric lab's default output (preview, slider settings, link, STL) against `tests/fixtures/lab-defaults.json`; needs the four generators up.
 - Python unittest discovery: crimp 29, sloper 21, jug 18 tests.
 - HTTP 200 responses for `/`, all three lab pages, `/sign-in`, `/upload`, and
   all three API schemas; all three default geometry preview POSTs succeeded.

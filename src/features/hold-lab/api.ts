@@ -1,20 +1,20 @@
-// The schema is supplied by Python, so limits and defaults have one authority.
-// Sloper, Jug and Foot Labs share this contract and the HoldLab component;
-// only the generator behind /api/<kind> differs.
+// The generator contract behind the Crimp, Sloper, Jug and Foot Labs. GET
+// /api/<kind> returns the control schema; POST runs an action on a set of
+// settings. Python is the one source of limits, defaults and presets, so a
+// lab fetches its schema at load instead of repeating any of it here.
 import {
   EXPORT_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   labRequest,
 } from "@/features/labs/lab-request";
 
-export type Kind = "sloper" | "jug" | "foot";
+export type Kind = "crimp" | "sloper" | "jug" | "foot";
 export const KIND_LABELS: Record<Kind, string> = {
+  crimp: "Crimp",
   sloper: "Sloper",
   jug: "Jug",
   foot: "Foot",
 };
-// The settings-file version each generator writes (design_document).
-const DESIGN_VERSIONS: Record<Kind, number> = { sloper: 1, jug: 2, foot: 2 };
 
 export interface Control {
   key: string;
@@ -38,6 +38,7 @@ export interface Schema {
   // Foot Lab: the generator can pick the screw count from the body size.
   autoScrewCount?: boolean;
 }
+// A settings file, as a lab or the local tool saves it.
 export interface Design {
   generator: string;
   version: number;
@@ -45,10 +46,9 @@ export interface Design {
   parameters: Parameters;
 }
 export interface Preview {
+  // Slider limits the current geometry imposes; see limitControl.
   control_limits?: Record<string, number>;
   control_ranges?: Record<string, { min?: number; max?: number }>;
-  screw_arc_limit?: number | null;
-  seat_depth_limit?: number | null;
   vertices: number[][];
   faces: number[][];
   profile: [number, number][];
@@ -57,9 +57,23 @@ export interface Preview {
   dimensions: number[];
   material_grams: [number, number];
   triangles: number;
-  parameters: Parameters;
+  // Settings the generator changed to make the shape work, e.g. a taller
+  // body so the screws fit. The design's parameters already include them.
   adjusted: Record<string, number>;
   design: Design;
+  // Sloper, jug and foot: the complete settings as built, which the sliders
+  // then show.
+  parameters?: Parameters;
+  // The crimp generator reports its fitted values beside the settings, and
+  // the Crimp Lab shows them: where the grip starts and ends in the
+  // profile, where the countersink starts above the wall (auto or by
+  // hand), the outer screw span (null with fewer than two screws), and the
+  // lip radius actually used, smaller than asked when the edge is short.
+  grip_inner?: [number, number];
+  grip_outer?: [number, number];
+  seat_depth?: number;
+  screw_spacing?: number | null;
+  lip_radius?: number;
 }
 
 export function limitControl(
@@ -84,18 +98,19 @@ export function limitControl(
     help: `${control.help} Current geometry allows ${minimum}–${max} ${control.unit}.`,
   };
 }
+
 export const DESIGN_FILE_LIMIT = 16384;
 
-export async function loadSchema(kind: Kind = "sloper"): Promise<Schema> {
+export async function loadSchema(kind: Kind): Promise<Schema> {
   const response = await labRequest(`/api/${kind}`);
   return response.json();
 }
 
 export async function post(
+  kind: Kind,
   action: "preview" | "stl" | "validate",
   parameters: Parameters,
   signal?: AbortSignal,
-  kind: Kind = "sloper",
 ) {
   return labRequest(`/api/${kind}`, {
     method: "POST",
@@ -106,10 +121,34 @@ export async function post(
   });
 }
 
-export function parseDesignFile(
-  text: string,
-  kind: Kind = "sloper",
-): Parameters {
+// The generator's own reading of a settings set. A shared link, a loaded
+// file and a saved preset all pass through here before they drive the
+// sliders, so one saved before a control changed still opens cleanly.
+export async function validate(
+  kind: Kind,
+  parameters: Parameters,
+): Promise<Parameters> {
+  const response = await post(kind, "validate", parameters);
+  return ((await response.json()) as { parameters: Parameters }).parameters;
+}
+
+// The settings-file version each generator writes (design_document).
+const DESIGN_VERSIONS: Record<Kind, number> = {
+  crimp: 1,
+  sloper: 1,
+  jug: 2,
+  foot: 2,
+};
+// Settings that older files leave out, with the value that keeps the saved
+// shape as it was: crimps saved before the count control had two screws
+// and chose their seat by hand; slopers saved before the lift control had
+// none.
+const OLDER_FILE_DEFAULTS: Partial<Record<Kind, Parameters>> = {
+  crimp: { screw_count: 2, auto_seat: false },
+  sloper: { incut: 0 },
+};
+
+export function parseDesignFile(text: string, kind: Kind): Parameters {
   const design = JSON.parse(text) as Partial<Design> | null;
   if (
     !design ||
@@ -121,7 +160,5 @@ export function parseDesignFile(
     Array.isArray(design.parameters)
   )
     throw new Error(`This is not a ${KIND_LABELS[kind]} Lab settings file.`);
-  return kind === "sloper"
-    ? { incut: 0, ...design.parameters }
-    : design.parameters;
+  return { ...OLDER_FILE_DEFAULTS[kind], ...design.parameters };
 }

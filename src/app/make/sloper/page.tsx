@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/features/auth/current-user";
-import { SloperLab } from "@/features/sloper-lab/sloper-lab";
+import { HoldLab } from "@/features/hold-lab/hold-lab";
 import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
@@ -21,7 +21,7 @@ export default async function SloperLabPage() {
         <h1>Sloper Lab</h1>
         <p>Start rounded. Find your curve and slope, then export an STL.</p>
       </div>
-      <SloperLab account={Boolean(user)} />
+      <HoldLab kind="sloper" account={Boolean(user)} />
     </main>
   );
 }

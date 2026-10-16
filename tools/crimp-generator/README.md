@@ -70,8 +70,9 @@ The files in the original `ai hold models` and `hold models` folders were review
 `api/crimp.py` at the repository root is a Vercel Python function that
 imports this folder's `geometry.py` and `parameters.py` unchanged. GET
 returns the schema; POST takes `{"action": "preview" | "stl" | "validate",
-"parameters": {...}}`. The React page in `src/features/crimp-lab` is a port
-of `web/`, so a settings file saved by either loads in the other. Vercel
+"parameters": {...}}`. The React page (`src/features/hold-lab`, the shell shared
+with the sloper, jug and foot labs) is a port of `web/`, so a settings file
+saved by either loads in the other. Vercel
 installs the root `requirements.txt` (a copy of this folder's) at build
 time; keep the two files identical.
 

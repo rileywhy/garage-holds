@@ -11,9 +11,9 @@ import {
   OrthographicCamera,
   Vector3,
 } from "three";
-import type { Preview } from "../src/features/crimp-lab/api";
+import type { Preview } from "../src/features/hold-lab/api";
 import { Viewer } from "../src/features/model-viewer/viewer";
-import { previewGeometry } from "../src/features/crimp-lab/preview-geometry";
+import { previewGeometry } from "../src/features/labs/preview-geometry";
 import {
   BoardPanel,
   DEFAULT_BOARD_ANGLE,
@@ -118,14 +118,12 @@ function preview(width: number): Preview {
     grip_inner: [0, 0],
     grip_outer: [0, 0],
     dimensions: [width, 48, 22],
-    volume_cm3: 1,
     material_grams: [1, 2],
     adjusted: {},
     seat_depth: 10,
     triangles: faces.length,
     screw_spacing: null,
     lip_radius: 5,
-    watertight: true,
     design: {
       generator: "garage-holds-crimp",
       version: 1,
