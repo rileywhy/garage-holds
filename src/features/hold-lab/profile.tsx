@@ -24,7 +24,6 @@ const NOUNS: Record<Kind, string> = {
   sloper: "sloper",
   jug: "jug",
   foot: "foothold",
-  pocket: "pocket hold",
 };
 
 function outline(
@@ -133,10 +132,6 @@ function CrimpProfile({
 function caption(kind: Kind, p: Parameters) {
   if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
   if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
-  if (kind === "pocket")
-    return `${p.opening_width} mm opening · ${
-      p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
-    } · ${p.incut} mm incut`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
 }
 

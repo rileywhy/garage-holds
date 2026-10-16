@@ -22,10 +22,6 @@
       "maxDuration": 30,
       "memory": 1024
     },
-    "api/pocket.py": {
-      "maxDuration": 30,
-      "memory": 1024
-    },
     "api/preview_mesh.py": {
       "maxDuration": 60,
       "memory": 1024

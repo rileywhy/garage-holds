@@ -18,7 +18,14 @@ else:
     from crimp_engine import geometry as crimp
     from parameters import CONTROLS, parse_parameters
 
-from tools.hold_mounting import closed_mesh, drill, fit_bolt_and_screw, screw_layout
+from tools.hold_mounting import (
+    Hole,
+    _inside,
+    _room,
+    closed_mesh,
+    drill,
+    fit_bolt_and_screw,
+)
 
 
 def shaped_body(p, quality):
@@ -180,6 +187,50 @@ def body(p, quality):
     if solid.status() != manifold.Error.NoError:
         raise ValueError("Could not close the foothold body.")
     return solid, profile, radii[2]
+
+
+def screw_layout(p, solid, target):
+    bounds = np.array(solid.bounding_box()).reshape(2, 3)
+    lo, hi = bounds
+    xx, yy = np.meshgrid(np.linspace(lo[0], hi[0], 51), np.linspace(lo[1], hi[1], 51))
+    points = np.column_stack((xx.ravel(), yy.ravel()))
+    for seat in np.arange(max(2, target), 1.9, -0.5):
+        eligible = points[
+            _inside(
+                points, _room(solid, p.shank_diameter, p.head_diameter, seat, False)
+            )
+        ]
+        if not len(eligible):
+            continue
+        # Centred small chip; spread pairs toward opposite sides of the body.
+        targets = (
+            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
+        )
+        if p.screw_count == 3:
+            targets.append((0, lo[1] * 0.55))
+        chosen = []
+        for x, y in targets:
+            candidates = eligible
+            for hole in chosen:
+                candidates = candidates[
+                    np.linalg.norm(candidates - np.array([hole.x, hole.y]), axis=1)
+                    >= p.head_diameter + 3
+                ]
+            if not len(candidates):
+                break
+            point = candidates[np.argmin(np.sum((candidates - [x, y]) ** 2, axis=1))]
+            chosen.append(
+                Hole(
+                    *map(float, point),
+                    p.shank_diameter,
+                    p.head_diameter,
+                    float(seat),
+                    False,
+                )
+            )
+        if len(chosen) == p.screw_count:
+            return chosen
+    return []
 
 
 class Model:

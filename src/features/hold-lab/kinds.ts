@@ -1,4 +1,4 @@
-// Where the five labs differ. Everything else about them is one shell,
+// Where the four labs differ. Everything else about them is one shell,
 // hold-lab.tsx: the same generator contract, controls, presets, links,
 // viewer and export.
 import { VIEW_ORDER, type ViewName } from "@/features/model-viewer/viewer";
@@ -46,13 +46,6 @@ export const LAB_KINDS: Record<Kind, LabKind> = {
   },
   jug: { ...rounded, color: 0xc2aadf, views: VIEW_ORDER },
   foot: { ...rounded, color: 0xa9c4ae, views: VIEW_ORDER },
-  pocket: {
-    ...rounded,
-    color: 0xa9bbd8,
-    views: VIEW_ORDER,
-    seedHint:
-      "Seeds wobble the rim and drift the crown; the pocket stays put. Reset returns to the clean default.",
-  },
 };
 
 // What a preview does to the lab once it lands: the settings the sliders
@@ -162,11 +155,6 @@ export function modelMetrics(kind: Kind, data: Preview): Metric[] {
       value: `${data.triangles.toLocaleString()} triangles · closed`,
     },
   ];
-  if (kind === "pocket" && data.floor != null)
-    rows.push({
-      label: "Pocket floor",
-      value: data.floor === 0 ? "open to the wall" : `${data.floor} mm`,
-    });
   if (kind === "crimp" && data.screws.length)
     rows.push({
       label: "Screw seat",

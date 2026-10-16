@@ -129,22 +129,3 @@ test("a taken name gets a number", () => {
   assert.equal(uniqueName("Edge", ["edge"]), "Edge 2");
   assert.equal(uniqueName("Edge", ["Edge", "Edge 2"]), "Edge 3");
 });
-
-test("pocket presets name themselves by opening and depth, or open to the wall", () => {
-  assert.equal(
-    defaultPresetName("pocket", {
-      opening_width: 45,
-      pocket_depth: 30,
-      through: false,
-    }),
-    "45 mm opening · 30 mm deep",
-  );
-  assert.equal(
-    defaultPresetName("pocket", {
-      opening_width: 26,
-      pocket_depth: 30,
-      through: true,
-    }),
-    "26 mm opening · open to the wall",
-  );
-});

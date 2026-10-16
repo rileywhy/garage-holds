@@ -86,7 +86,7 @@ await card({
   file: path.join(app, "make", "opengraph-image.png"),
   eyebrow: "Hold Labs · garageholds.com",
   title: "Shape your own\nclimbing hold",
-  text: "Crimp, sloper, jug, foot, pocket, or a shape\nyou paint. Live preview, filament estimate, STL export.",
+  text: "Crimp, sloper, jug, foot, or a shape you paint.\nLive preview, filament estimate, STL export.",
   render: "jug",
 });
 const labs = {
@@ -105,10 +105,6 @@ const labs = {
   foot: [
     "Foot Lab",
     "Edges, chips, smears, balls and dishes\nwith screw holes. Export a printable STL.",
-  ],
-  pocket: [
-    "Pocket Lab",
-    "A mono, two- or three-finger pocket in a\nround body. Export a printable STL.",
   ],
   "custom-shape": [
     "Custom Shape Lab",

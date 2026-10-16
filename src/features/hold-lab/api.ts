@@ -1,20 +1,19 @@
-// The generator contract behind the Crimp, Sloper, Jug, Foot and Pocket
-// Labs. GET /api/<kind> returns the control schema; POST runs an action on a
-// set of settings. Python is the one source of limits, defaults and presets,
-// so a lab fetches its schema at load instead of repeating any of it here.
+// The generator contract behind the Crimp, Sloper, Jug and Foot Labs. GET
+// /api/<kind> returns the control schema; POST runs an action on a set of
+// settings. Python is the one source of limits, defaults and presets, so a
+// lab fetches its schema at load instead of repeating any of it here.
 import {
   EXPORT_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   labRequest,
 } from "@/features/labs/lab-request";
 
-export type Kind = "crimp" | "sloper" | "jug" | "foot" | "pocket";
+export type Kind = "crimp" | "sloper" | "jug" | "foot";
 export const KIND_LABELS: Record<Kind, string> = {
   crimp: "Crimp",
   sloper: "Sloper",
   jug: "Jug",
   foot: "Foot",
-  pocket: "Pocket",
 };
 
 export interface Control {
@@ -28,16 +27,6 @@ export interface Control {
   help: string;
   // Foot Lab: the body shapes this control applies to; absent means all.
   shapes?: string[];
-  // A switch (see Toggle) that hides this control while it is on: the
-  // Pocket Lab's depth has no meaning once the pocket opens to the wall.
-  hidden_by?: string;
-}
-// A boolean setting shown as a checkbox above its tab's sliders.
-export interface Toggle {
-  key: string;
-  label: string;
-  group: Control["group"];
-  help?: string;
 }
 export type Parameters = Record<string, number | boolean | string>;
 export interface Schema {
@@ -48,9 +37,6 @@ export interface Schema {
   shapes?: Record<string, string>;
   // Foot Lab: the generator can pick the screw count from the body size.
   autoScrewCount?: boolean;
-  // Pocket Lab: switches the generator declares, beside the mounting ones
-  // every lab has.
-  toggles?: Toggle[];
 }
 // A settings file, as a lab or the local tool saves it.
 export interface Design {
@@ -75,12 +61,9 @@ export interface Preview {
   // body so the screws fit. The design's parameters already include them.
   adjusted: Record<string, number>;
   design: Design;
-  // Sloper, jug, foot and pocket: the complete settings as built, which the
-  // sliders then show.
+  // Sloper, jug and foot: the complete settings as built, which the sliders
+  // then show.
   parameters?: Parameters;
-  // Pocket: the material left behind the pocket, zero when it opens to the
-  // wall.
-  floor?: number;
   // The crimp generator reports its fitted values beside the settings, and
   // the Crimp Lab shows them: where the grip starts and ends in the
   // profile, where the countersink starts above the wall (auto or by
@@ -155,7 +138,6 @@ const DESIGN_VERSIONS: Record<Kind, number> = {
   sloper: 1,
   jug: 2,
   foot: 2,
-  pocket: 1,
 };
 // Settings that older files leave out, with the value that keeps the saved
 // shape as it was: crimps saved before the count control had two screws

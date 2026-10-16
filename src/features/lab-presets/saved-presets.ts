@@ -5,14 +5,12 @@
 // localStorage, one list per lab. Either way they appear in the lab's
 // starting-point menu under "My presets".
 
-export type PresetLab =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "custom-shape";
+export type PresetLab = "crimp" | "sloper" | "jug" | "foot" | "custom-shape";
 export const PRESET_LABS: PresetLab[] = [
   "crimp",
   "sloper",
   "jug",
   "foot",
-  "pocket",
   "custom-shape",
 ];
 export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
@@ -20,7 +18,6 @@ export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   sloper: "Sloper Lab",
   jug: "Jug Lab",
   foot: "Foot Lab",
-  pocket: "Pocket Lab",
   "custom-shape": "Custom Shape Lab",
 };
 
@@ -114,19 +111,10 @@ export function defaultPresetName(lab: PresetLab, parameters: object): string {
                 number(p.edge_depth) && `${number(p.edge_depth)} mm toe`,
                 number(p.incut) && `${number(p.incut)}° bite`,
               ]
-            : lab === "pocket"
-              ? [
-                  number(p.opening_width) &&
-                    `${number(p.opening_width)} mm opening`,
-                  p.through === true
-                    ? "open to the wall"
-                    : number(p.pocket_depth) &&
-                      `${number(p.pocket_depth)} mm deep`,
-                ]
-              : [
-                  number(p.scale) && `${number(p.scale)} mm wide`,
-                  number(p.depth) && `${number(p.depth)} mm deep`,
-                ];
+            : [
+                number(p.scale) && `${number(p.scale)} mm wide`,
+                number(p.depth) && `${number(p.depth)} mm deep`,
+              ];
   const name = parts.filter(Boolean).join(" · ");
   return name || "Saved shape";
 }

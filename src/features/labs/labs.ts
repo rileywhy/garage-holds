@@ -50,16 +50,6 @@ export const LABS: LabInfo[] = [
     experimental: true,
   },
   {
-    slug: "pocket",
-    name: "Pocket Lab",
-    short: "pocket",
-    href: "/make/pocket",
-    image: "/images/hold-labs/pocket.webp",
-    description:
-      "A mono, two-finger or three-finger pocket in a round body. Set the opening, depth and floor angle, then export an STL.",
-    experimental: true,
-  },
-  {
     slug: "custom-shape",
     name: "Custom Shape Lab",
     short: "custom shape",

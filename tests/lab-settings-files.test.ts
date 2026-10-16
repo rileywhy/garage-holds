@@ -77,15 +77,3 @@ test("each lab refuses other labs' files, other versions and malformed settings"
   assert.throws(() => parseDesignFile(jug, "jug"), /Jug Lab settings file/);
   assert.throws(() => parseDesignFile(jug, "foot"), /Foot Lab settings file/);
 });
-
-test("Pocket Lab settings files round-trip as they are", () => {
-  const pocket = { opening_width: 26, through: true };
-  assert.deepEqual(
-    parseDesignFile(file("garage-holds-pocket", 1, pocket), "pocket"),
-    pocket,
-  );
-  assert.throws(
-    () => parseDesignFile(file("garage-holds-pocket", 1, pocket), "foot"),
-    /Foot Lab settings file/,
-  );
-});
