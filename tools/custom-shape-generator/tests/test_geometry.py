@@ -9,6 +9,50 @@ def request(holes=None):
     return dict(document=dict(version=1,size=256,material=mask.ravel().tolist(),holes=holes or []),parameters=dict(scale=200,depth=30,incut=10))
 
 class GeometryTests(unittest.TestCase):
+    def test_binary_preview_transports_mesh_and_metadata_exactly(self):
+        import struct
+        api=importlib.import_module('api.custom_shape')
+        r=request();r['action']='preview'
+        mesh=engine.build(r)
+        payload=api.preview_bytes(mesh)
+        vertices,faces,volume,seat=struct.unpack('<IIdd',payload[:24])
+        self.assertEqual(len(payload),24+12*(vertices+faces))
+        self.assertEqual(volume,round(mesh.volume/1000,2))
+        self.assertEqual(seat,mesh.metadata['seatDepth'])
+        np.testing.assert_array_equal(np.frombuffer(payload,dtype='<f4',count=vertices*3,offset=24).reshape((-1,3)),mesh.vertices.astype(np.float32))
+        np.testing.assert_array_equal(np.frombuffer(payload,dtype='<u4',offset=24+vertices*12).reshape((-1,3)),mesh.faces)
+
+    def test_preview_is_lighter_and_matches_export_dimensions(self):
+        for settings in ({'incut':0}, {'incut':35,'gripDepth':8},
+                         {'incut':0,'bodyTaper':8}, {'incut':0,'gripAllSides':True,'gripDepth':6}):
+            with self.subTest(settings=settings):
+                r=request([dict(x=100,y=128),dict(x=156,y=128)])
+                r['parameters'].update(settings)
+                full=engine.build(r)
+                r['action']='preview'
+                preview=engine.build(r)
+                self.assertTrue(preview.is_watertight)
+                self.assertTrue(preview.is_winding_consistent)
+                self.assertLess(len(preview.faces),len(full.faces)*.65)
+                np.testing.assert_allclose(preview.bounds,full.bounds,atol=.03)
+                self.assertLess(abs(preview.volume-full.volume)/full.volume,.003)
+                self.assertAlmostEqual(preview.metadata['seatDepth'],full.metadata['seatDepth'])
+
+    def test_drawing_cache_reuses_outline_for_parameter_and_hole_edits(self):
+        engine.prepared_body.cache_clear()
+        engine.prepare_mask.cache_clear()
+        r=request()
+        engine.build(r)
+        r['parameters']['depth']=35
+        r['document']['holes']=[dict(x=100,y=128)]
+        engine.build(r)
+        self.assertEqual(engine.prepare_mask.cache_info().hits,1)
+        self.assertEqual(engine.prepare_mask.cache_info().misses,1)
+        # Changing the mask must not reuse geometry from the earlier drawing.
+        r['document']['material'][0]=1
+        with self.assertRaisesRegex(ValueError,'connect'):
+            engine.build(r)
+
     def test_watertight_flat_back(self):
         mesh=engine.build(request())
         self.assertTrue(mesh.is_watertight)

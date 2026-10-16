@@ -1,49 +1,15 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  VIEW_LABELS,
-  VIEW_ORDER,
-  Viewer,
-  isDarkTheme,
-} from "@/features/model-viewer/viewer";
+
+import { cloneCut } from "./cut-profiles";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
-import {
-  LAB_COPY,
-  PREVIEW_DEBOUNCE_MS,
-  labFilename,
-  meshExtents,
-  withInches,
-} from "@/features/labs/conventions";
-import {
-  EXPORT_TIMEOUT_MS,
-  errorReason,
-  labRequest,
-} from "@/features/labs/lab-request";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
 } from "@/features/model-viewer/board-preview";
-import { Bookmark, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
-import { trackEvent } from "@/features/analytics/events";
-import { previewGeometry } from "@/features/labs/preview-geometry";
-import {
-  copyCurrentLink,
-  currentSearch,
-  linkSearch,
-  readLink,
-  replaceSearch,
-  type LinkParameters,
-} from "@/features/lab-link/lab-link";
-import {
-  HOLES_KEY,
-  LINK_LIMIT,
-  MASK_KEY,
-  decodeMask,
-  encodeMask,
-  holesFromLink,
-  holesToLink,
-  linkCodecAvailable,
-} from "./link";
+import { RotateCcw } from "lucide-react";
+import { decodePreview, previewMesh } from "./preview";
 import {
   ARTWORK_COLORS,
   RESOLUTION,
@@ -64,16 +30,11 @@ import {
   normalizeParameters,
 } from "./controls";
 import styles from "./custom-shape-lab.module.css";
+import { BrushSizeControl } from "./brush-size-control";
 import { drawingContours } from "./drawing-preview";
-import {
-  defaultPresetName,
-  isSavedValue,
-  savedId,
-  savedValue,
-  uniqueName,
-  type LabPreset,
-} from "@/features/lab-presets/saved-presets";
-import { presetStore, savedWhere } from "@/features/lab-presets/preset-store";
+import { smoothStroke } from "./smoothing";
+import { CutProfileEditor } from "./cut-profile-editor";
+import type { CutProfile, CutEdge } from "./cut-profiles";
 
 const defaults = DEFAULT_PARAMETERS;
 const initialDocument = exampleDocument();
@@ -88,15 +49,42 @@ const endpoint =
   process.env.NODE_ENV === "development"
     ? "/api/custom-shape"
     : "/api/custom_shape";
-type Tool = "brush" | "eraser" | "hole";
-export function CustomShapeLab({ account = false }: { account?: boolean }) {
-  // Presets go to the account when signed in, to this browser otherwise.
-  const store = useMemo(() => presetStore("custom-shape", account), [account]);
-  const [saved, setSaved] = useState<LabPreset[]>([]);
-  const [presetValue, setPresetValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [naming, setNaming] = useState(false);
-  const [presetName, setPresetName] = useState("");
+type Tool = "brush" | "eraser" | "smooth" | "hole";
+const VIEWS: [ViewName, string][] = [
+  ["three-quarter", "3D overview"],
+  ["board", "On a board"],
+  ["side", "Side"],
+  ["angled-side", "Angled side"],
+  ["top", "Above"],
+  ["front", "Front"],
+];
+export function CustomShapeLab() {
+  const [mode, setMode] = useState<"shape" | "cuts" | "preview">("shape");
+  const [documentSnapshot, setDocumentSnapshot] = useState(() =>
+    serializeDocument(initialDocument),
+  );
+  const [draftCut, setDraftCut] = useState<CutProfile | null>(null);
+  const cutRotation = useRef(0);
+  const lastMesh = useRef<ReturnType<typeof decodePreview> | null>(null);
+  const previewGeneration = useRef(0);
+  function orientCutView(edge: CutEdge, viewBased: boolean) {
+    const angles = viewBased
+      ? { right: 0, left: Math.PI, top: -Math.PI / 2, bottom: Math.PI / 2 }
+      : { top: Math.PI, bottom: 0, left: Math.PI / 2, right: -Math.PI / 2 };
+    cutRotation.current = angles[edge];
+    if (lastMesh.current)
+      viewer.current?.setGeometry(
+        previewMesh(lastMesh.current).rotateZ(cutRotation.current),
+      );
+    setView("side");
+    viewer.current?.setView("side");
+  }
+  function clearCutView() {
+    cutRotation.current = 0;
+    if (lastMesh.current)
+      viewer.current?.setGeometry(previewMesh(lastMesh.current));
+  }
+  const [smoothStrength, setSmoothStrength] = useState(0.8);
   const canvas = useRef<HTMLCanvasElement>(null),
     container = useRef<HTMLDivElement>(null),
     viewer = useRef<Viewer | null>(null);
@@ -112,6 +100,7 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
   const bitmap = useRef<HTMLCanvasElement | null>(null);
   const materialDirty = useRef(true);
   const frame = useRef<number | null>(null);
+  const previewFlight = useRef<Promise<void> | null>(null);
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
   const [fittedSeat, setFittedSeat] = useState<number | null>(null);
@@ -120,12 +109,8 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
     [brush, setBrush] = useState(30),
     [eraser, setEraser] = useState(30);
   const [parameters, setParameters] = useState(defaults),
-    [message, setMessage] = useState(LAB_COPY.firstPreview),
+    [message, setMessage] = useState("Preparing preview…"),
     [notice, setNotice] = useState("");
-  // The step to try again after the generator failed, shown as a button.
-  const [retry, setRetry] = useState<(() => void) | null>(null);
-  // The hold's bounding box, for the status line and the export filename.
-  const [extents, setExtents] = useState<number[] | null>(null);
   const [ready, setReady] = useState(false),
     [exporting, setExporting] = useState(false),
     [viewerFailed, setViewerFailed] = useState(false);
@@ -135,12 +120,6 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
     redo: 0,
   });
   const [edgeDepthMax, setEdgeDepthMax] = useState(initialEdgeDepthMax);
-  // Link writing is async (the mask is deflated); only the newest wins, and
-  // it reads the sliders through a ref so the callback itself never changes.
-  const linkSequence = useRef(0);
-  const linkTooLong = useRef(false);
-  const latestParameters = useRef(parameters);
-  latestParameters.current = parameters;
   const [drawingHeight, setDrawingHeight] = useState(() =>
     materialHeight(initialDocument, 1),
   );
@@ -234,14 +213,7 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
         dark: isDarkTheme(),
       });
     } catch {
-      // No WebGL: drawing and export still work without a picture.
       queueMicrotask(() => setViewerFailed(true));
-      trackEvent({
-        name: "lab_error",
-        lab: "custom-shape",
-        stage: "start",
-        reason: "webgl",
-      });
     }
     return () => {
       viewer.current?.dispose();
@@ -249,177 +221,80 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
   }, []);
-  // The query for the drawing and settings on screen; empty for the example
-  // drawing with default settings. Async because the mask is deflated.
-  const linkText = useCallback(async () => {
-    const doc = drawing.current;
-    const example = exampleDocument();
-    const query = new URLSearchParams(
-      linkSearch(
-        latestParameters.current as unknown as LinkParameters,
-        defaults as unknown as LinkParameters,
-      ),
-    );
-    const sameDrawing =
-      holesToLink(doc.holes) === holesToLink(example.holes) &&
-      doc.material.every((cell, i) => cell === example.material[i]);
-    if (!sameDrawing) {
-      query.set(MASK_KEY, await encodeMask(doc.material));
-      if (doc.holes.length) query.set(HOLES_KEY, holesToLink(doc.holes));
-    }
-    return query.toString();
-  }, []);
-  // The address bar always holds the drawing and settings on screen.
-  const writeLink = useCallback(async () => {
-    if (!linkCodecAvailable()) return;
-    const sequence = ++linkSequence.current;
-    const text = await linkText();
-    if (sequence !== linkSequence.current) return;
-    linkTooLong.current = text.length > LINK_LIMIT;
-    replaceSearch(
-      linkTooLong.current || !text ? "" : `?${text}`,
-      "/make/custom-shape",
-    );
-  }, [linkText]);
-  // Presets load once; a failure there never blocks the lab.
-  useEffect(() => {
-    let cancelled = false;
-    store
-      .list()
-      .then((list) => {
-        if (!cancelled) setSaved(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [store]);
-  // Apply a link query: the painted mask, the holes and the sliders. Once on
-  // arrival (keeping whatever is drawn when the link has no drawing), and
-  // for a saved preset (which starts from the example drawing).
-  async function applySearch(
-    search: string,
-    fresh: boolean,
-    stale: () => boolean,
-  ) {
-    const query = new URLSearchParams(search);
-    const link = readLink(search, defaults as unknown as LinkParameters);
-    const mask = query.get(MASK_KEY);
-    const holes = query.get(HOLES_KEY);
-    if (!fresh && !link && mask === null && holes === null) return false;
-    const material =
-      mask !== null && linkCodecAvailable()
-        ? await decodeMask(mask, RESOLUTION ** 2)
-        : null;
-    if (stale()) return false;
-    if (fresh || material || holes !== null) {
-      const doc = fresh ? exampleDocument() : cloneDocument(drawing.current);
-      if (material) {
-        doc.material = material;
-        doc.holes = [];
-      }
-      if (holes !== null) doc.holes = holesFromLink(holes, RESOLUTION);
-      drawing.current = doc;
-      undo.current = [];
-      redo.current = [];
-    }
-    if (fresh || link) {
-      const next = {
-        ...defaults,
-        ...((link?.parameters ?? {}) as Partial<ShapeParameters>),
-      };
-      setParameters(
-        normalizeParameters(next, materialHeight(drawing.current, next.scale)),
-      );
-    }
-    commit();
-    return true;
-  }
-  useEffect(() => {
-    let cancelled = false;
-    void applySearch(currentSearch(), false, () => cancelled).then(
-      (applied) => {
-        if (applied)
-          trackEvent({
-            name: "lab_settings",
-            lab: "custom-shape",
-            action: "open",
-          });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-    // Runs once, on arrival; applySearch reads refs and stable setters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   useEffect(() => {
     const controller = new AbortController();
+    const generation = previewGeneration.current;
     const timer = setTimeout(async () => {
-      setMessage(LAB_COPY.updating);
-      setRetry(null);
-      try {
-        const response = await labRequest(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "preview",
-            document: serializeDocument(drawing.current),
-            parameters,
-          }),
-          signal: controller.signal,
-        });
-        const data = await response.json();
-        if (controller.signal.aborted || active.current?.changed) return;
-        viewer.current?.setGeometry(previewGeometry(data), revision === 0);
-        const size = meshExtents(data.vertices);
-        setExtents(size);
-        setReady(true);
-        setFittedSeat(data.seatDepth);
-        setMessage(
-          `Preview is current · ${withInches(size)} · ${data.volume_cm3} cm³`,
-        );
-        void writeLink();
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          trackEvent({
-            name: "lab_error",
-            lab: "custom-shape",
-            stage: "preview",
-            reason: errorReason(error),
+      await previewFlight.current;
+      if (controller.signal.aborted) return;
+      const update = async () => {
+        setMessage("Updating preview…");
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "preview",
+              previewEncoding: "binary",
+              document: {
+                ...serializeDocument(drawing.current),
+                cuts: draftCut
+                  ? [
+                      ...drawing.current.cuts
+                        .filter((c) => c.id !== draftCut.id)
+                        .map(cloneCut),
+                      cloneCut(draftCut),
+                    ]
+                  : drawing.current.cuts.map(cloneCut),
+              },
+              parameters,
+            }),
           });
-          setReady(false);
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "Could not generate preview.",
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error ?? "Could not generate the hold.");
+          }
+          const data = decodePreview(await response.arrayBuffer());
+          if (
+            controller.signal.aborted ||
+            generation !== previewGeneration.current ||
+            active.current?.changed
+          )
+            return;
+          lastMesh.current = data;
+          viewer.current?.setGeometry(
+            previewMesh(data).rotateZ(cutRotation.current),
+            revision === 0,
           );
-          setRetry(() => () => setRevision((r) => r + 1));
+          setReady(true);
+          setFittedSeat(data.seatDepth);
+          setMessage(
+            `Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`,
+          );
+        } catch (error) {
+          if (
+            !controller.signal.aborted &&
+            generation === previewGeneration.current
+          ) {
+            setReady(false);
+            setMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not generate preview.",
+            );
+          }
         }
-      }
-    }, PREVIEW_DEBOUNCE_MS);
+      };
+      const pending = update();
+      previewFlight.current = pending;
+      await pending;
+      if (previewFlight.current === pending) previewFlight.current = null;
+    }, 0);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [revision, parameters, writeLink]);
-  async function copyLink() {
-    await writeLink();
-    if (linkTooLong.current) {
-      setNotice(
-        "This drawing is too detailed to fit in a link. Download the STL instead.",
-      );
-      return;
-    }
-    const copied = await copyCurrentLink();
-    if (copied)
-      trackEvent({ name: "lab_settings", lab: "custom-shape", action: "link" });
-    setNotice(
-      copied
-        ? "Link copied. Anyone who opens it gets this drawing and these settings."
-        : "Could not reach the clipboard. Copy the address from the address bar instead.",
-    );
-  }
+  }, [revision, parameters, draftCut]);
   function checkpoint() {
     undo.current.push(cloneDocument(drawing.current));
     if (undo.current.length > 30) undo.current.shift();
@@ -427,8 +302,8 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
   }
   function commit() {
     materialDirty.current = true;
-    setPresetValue("");
     setDrawingHeight(materialHeight(drawing.current, 1));
+    setDocumentSnapshot(serializeDocument(drawing.current));
     setParameters((p) => {
       const next = normalizeParameters(
         p,
@@ -502,7 +377,9 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
         );
     } else {
       checkpoint();
-      stroke(drawing.current, p, p, diameter, tool === "eraser");
+      if (tool === "smooth")
+        smoothStroke(drawing.current, p, p, diameter, smoothStrength);
+      else stroke(drawing.current, p, p, diameter, tool === "eraser");
       materialDirty.current = true;
       active.current = { point: p, changed: true };
       setReady(false);
@@ -531,7 +408,22 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
           setReady(false);
         }
       } else {
-        stroke(drawing.current, gesture.point, p, diameter, tool === "eraser");
+        if (tool === "smooth")
+          smoothStroke(
+            drawing.current,
+            gesture.point,
+            p,
+            diameter,
+            smoothStrength,
+          );
+        else
+          stroke(
+            drawing.current,
+            gesture.point,
+            p,
+            diameter,
+            tool === "eraser",
+          );
         materialDirty.current = true;
         gesture.point = p;
         gesture.changed = true;
@@ -553,12 +445,38 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
       commit();
     }
   }
+  const onHistoryShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (mode === "cuts") return;
+    if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.altKey ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.key.toLowerCase() !== "z"
+    )
+      return;
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.closest('input:not([type="range"]), textarea, select'))
+    )
+      return;
+    const direction = event.shiftKey ? "redo" : "undo";
+    if (!(direction === "undo" ? undo.current : redo.current).length) return;
+    event.preventDefault();
+    finish();
+    history(direction);
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => onHistoryShortcut(event);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
   async function download() {
     setExporting(true);
-    setMessage(LAB_COPY.building);
-    setRetry(null);
     try {
-      const response = await labRequest(endpoint, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -566,29 +484,16 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
           document: serializeDocument(drawing.current),
           parameters,
         }),
-        timeoutMs: EXPORT_TIMEOUT_MS,
       });
+      if (!response.ok) throw new Error((await response.json()).error);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = labFilename(
-        "custom-shape",
-        extents ?? [parameters.scale, parameters.scale, parameters.depth],
-        "stl",
-      );
+      link.download = "custom-shape.stl";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      trackEvent({ name: "export_stl", lab: "custom-shape" });
-      setMessage(LAB_COPY.exported);
     } catch (error) {
-      trackEvent({
-        name: "lab_error",
-        lab: "custom-shape",
-        stage: "export",
-        reason: errorReason(error),
-      });
-      setMessage(error instanceof Error ? error.message : "Export failed.");
-      setRetry(() => download);
+      setNotice(error instanceof Error ? error.message : "Export failed.");
     } finally {
       setExporting(false);
     }
@@ -599,7 +504,6 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
   ) {
     if (!Number.isFinite(value)) return;
     setReady(false);
-    setPresetValue("");
     setParameters((p) => {
       const next = normalizeParameters(
         {
@@ -649,85 +553,101 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
       return next;
     });
   }
-  // One click: the drawing and settings on screen, named after the size.
-  async function saveAsPreset() {
-    setSaving(true);
-    try {
-      const text = await linkText();
-      if (text.length > LINK_LIMIT)
-        throw new Error(
-          "This drawing is too detailed to keep as a preset. Download the STL instead.",
-        );
-      const name = uniqueName(
-        defaultPresetName("custom-shape", parameters),
-        saved.map((p) => p.name),
-      );
-      const list = await store.save(name, text ? `?${text}` : "");
-      const made = list.find((p) => p.name === name) ?? list[0];
-      setSaved(list);
-      if (made) setPresetValue(savedValue(made.id));
-      trackEvent({
-        name: "lab_settings",
-        lab: "custom-shape",
-        action: "preset",
-      });
-      setNotice(savedWhere(account, name));
-    } catch (error) {
-      setNotice((error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-  async function applyPreset(value: string) {
-    const found = saved.find((p) => p.id === savedId(value));
-    if (!found) return;
-    setNaming(false);
-    await applySearch(found.search, true, () => false);
-    setPresetValue(value);
-    setNotice(`Opened “${found.name}”.`);
-  }
-  function startRenaming() {
-    const found = saved.find((p) => p.id === savedId(presetValue));
-    setPresetName(found?.name ?? "");
-    setNaming(true);
-  }
-  async function renameSavedPreset(event: React.FormEvent) {
-    event.preventDefault();
-    const wanted = presetName.trim().replace(/\s+/g, " ").toLowerCase();
-    try {
-      const list = await store.rename(savedId(presetValue), presetName);
-      const renamed = list.find((p) => p.name.toLowerCase() === wanted);
-      setSaved(list);
-      if (renamed) setPresetValue(savedValue(renamed.id));
-      setNaming(false);
-      setNotice(`Renamed to “${renamed?.name ?? presetName}”.`);
-    } catch (error) {
-      setNotice((error as Error).message);
-    }
-  }
-  async function removePreset() {
-    if (!isSavedValue(presetValue)) return;
-    const id = savedId(presetValue);
-    const name = saved.find((p) => p.id === id)?.name ?? "";
-    try {
-      setSaved(await store.remove(id));
-      setPresetValue("");
-      setNotice(`Deleted the preset “${name}”.`);
-    } catch (error) {
-      setNotice((error as Error).message);
-    }
-  }
   function changeBoardAngle(value: number) {
     if (!Number.isFinite(value)) return;
     const angle = Math.max(0, Math.min(MAX_BOARD_ANGLE, Math.round(value)));
     setBoardAngle(angle);
     viewer.current?.setBoardAngle(angle);
   }
+  const previewHasError =
+    !ready &&
+    !["Updating", "Preview is current", "Preparing"].some((prefix) =>
+      message.startsWith(prefix),
+    );
   return (
-    <div className={styles.layout}>
-      <section className={styles.panel} aria-label="Paint editor">
-        <div className={styles.toolbar}>
-          {(["brush", "eraser", "hole"] as const).map((t) => (
+    <div
+      className={`${styles.layout} ${mode === "preview" ? styles.previewOnly : ""}`}
+    >
+      <div className={styles.modes} role="group" aria-label="Editing mode">
+        {(
+          [
+            ["shape", "Shape"],
+            ["cuts", "Cut Profiles"],
+            ["preview", "Preview"],
+          ] as const
+        ).map(([value, label], index) => (
+          <button
+            key={value}
+            aria-pressed={mode === value}
+            onClick={() => {
+              finish();
+              clearCutView();
+              setDraftCut(null);
+              setReady(false);
+              setRevision((r) => r + 1);
+              setMode(value);
+            }}
+          >
+            <span className={styles.stepNumber} aria-hidden="true">
+              {index + 1}
+            </span>
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === "cuts" && (
+        <CutProfileEditor
+          onPreviewPending={() => {
+            previewGeneration.current++;
+            setReady(false);
+          }}
+          onView={orientCutView}
+          document={documentSnapshot}
+          parameters={parameters}
+          endpoint={endpoint}
+          onPreview={(cut) => {
+            if (cut === draftCut) return;
+            setDraftCut(cut);
+            setReady(false);
+          }}
+          onApply={(cuts) => {
+            checkpoint();
+            drawing.current.cuts = cuts;
+            setDraftCut(null);
+            commit();
+          }}
+          onHistory={history}
+          undoCount={editorState.undo}
+          redoCount={editorState.redo}
+          previewReadyId={ready && draftCut ? draftCut.id : null}
+          previewError={
+            draftCut &&
+            !ready &&
+            !message.startsWith("Preview is current") &&
+            !message.startsWith("Updating")
+              ? message
+              : ""
+          }
+        />
+      )}
+      <section
+        hidden={mode !== "shape"}
+        className={styles.panel}
+        aria-label="Paint editor"
+      >
+        <div className={styles.panelHeading}>
+          <div>
+            <h2>Paint your shape</h2>
+            <p>Draw the outline of your hold, then add mounting holes.</p>
+          </div>
+          <span className={styles.badge}>Top view</span>
+        </div>
+        <div
+          className={styles.toolbar}
+          role="group"
+          aria-label="Painting tools"
+        >
+          {(["brush", "eraser", "smooth", "hole"] as const).map((t) => (
             <button
               key={t}
               aria-pressed={tool === t}
@@ -737,51 +657,84 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
                 ? "Mounting hole"
                 : t === "brush"
                   ? "Brush"
-                  : "Eraser"}
+                  : t === "smooth"
+                    ? "Smooth"
+                    : "Eraser"}
             </button>
           ))}
-          <button disabled={!editorState.undo} onClick={() => history("undo")}>
+        </div>
+        <div className={styles.historyBar}>
+          <button
+            disabled={!editorState.undo}
+            onClick={() => history("undo")}
+            title="Undo (Ctrl+Z / Cmd+Z)"
+            aria-keyshortcuts="Control+Z Meta+Z"
+          >
             Undo
           </button>
-          <button disabled={!editorState.redo} onClick={() => history("redo")}>
+          <button
+            disabled={!editorState.redo}
+            onClick={() => history("redo")}
+            title="Redo (Ctrl+Shift+Z / Cmd+Shift+Z)"
+            aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z"
+          >
             Redo
           </button>
-          <button
-            onClick={() => {
-              checkpoint();
-              drawing.current = emptyDocument();
-              commit();
-            }}
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              checkpoint();
-              drawing.current = exampleDocument();
-              commit();
-            }}
-          >
-            Example shape
-          </button>
+          <details className={styles.moreActions}>
+            <summary>Canvas options</summary>
+            <button
+              onClick={() => {
+                checkpoint();
+                drawing.current = emptyDocument();
+                commit();
+              }}
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => {
+                checkpoint();
+                drawing.current = exampleDocument();
+                commit();
+              }}
+            >
+              Example shape
+            </button>
+          </details>
         </div>
         {tool !== "hole" && (
+          <BrushSizeControl
+            label={`${tool} size`}
+            value={(diameter * parameters.scale) / RESOLUTION}
+            min={(2 * parameters.scale) / RESOLUTION}
+            max={(100 * parameters.scale) / RESOLUTION}
+            onChange={(mm) =>
+              tool === "eraser"
+                ? setEraser((mm * RESOLUTION) / parameters.scale)
+                : setBrush((mm * RESOLUTION) / parameters.scale)
+            }
+          />
+        )}
+        <p className={styles.toolHint}>
+          {tool === "hole"
+            ? "Click to add a screw hole. Drag a red hole to reposition it."
+            : tool === "smooth"
+              ? "Brush along the blue edge to soften bumps and fill small notches."
+              : tool === "eraser"
+                ? "Brush over blue material to remove it. Undo brings it back."
+                : "Paint blue to add material. Keep your shape connected."}
+        </p>
+        {tool === "smooth" && (
           <label className={styles.slider}>
-            {tool === "brush" ? "Brush" : "Eraser"} diameter{" "}
-            <span>
-              {Math.round((diameter * parameters.scale) / RESOLUTION)} mm
-            </span>
+            Smooth strength <span>{Math.round(smoothStrength * 100)}%</span>
             <input
-              aria-label={`${tool} size`}
+              aria-label="Smooth strength"
               type="range"
-              min={2}
-              max={100}
-              value={diameter}
-              onChange={(e) =>
-                tool === "brush"
-                  ? setBrush(+e.target.value)
-                  : setEraser(+e.target.value)
-              }
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={smoothStrength}
+              onChange={(e) => setSmoothStrength(+e.target.value)}
             />
           </label>
         )}
@@ -804,8 +757,9 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
           }}
         />
         <p className={styles.hint}>
-          Blue: material · red: screw recess · white: empty. Drag red holes to
-          move them. Scale is the width of the full canvas.
+          <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
+          <span className={styles.redKey}>Red: screw holes</span> · Canvas width{" "}
+          {parameters.scale} mm
         </p>
         <div className={styles.holes}>
           {editorState.holes.map((h, i) => (
@@ -829,47 +783,54 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
         className={`${styles.stage} ${styles.panel}`}
         aria-label="Generated hold"
       >
-        <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {VIEW_ORDER.map((name) => (
-            <button
-              type="button"
-              key={name}
-              aria-pressed={view === name}
-              onClick={() => {
-                setView(name);
-                viewer.current?.setView(name);
+        <div className={styles.panelHeading}>
+          <div>
+            <h2>{mode === "preview" ? "Review your hold" : "Live preview"}</h2>
+            <p>
+              {mode === "cuts"
+                ? "Your painted cut appears here automatically."
+                : "Check the shape from any angle."}
+            </p>
+          </div>
+          <span className={styles.badge}>
+            {ready
+              ? "Up to date"
+              : previewHasError
+                ? "Check settings"
+                : "Updating…"}
+          </span>
+        </div>
+        <div
+          className={`${styles.toolbar} ${styles.viewToolbar}`}
+          role="group"
+          aria-label="Preview angle"
+        >
+          <label className={styles.viewSelect}>
+            View
+            <select
+              aria-label="Camera view"
+              value={view}
+              onChange={(e) => {
+                const next = e.target.value as ViewName;
+                clearCutView();
+                setView(next);
+                viewer.current?.setView(next);
               }}
             >
-              {VIEW_LABELS[name]}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="lab-toolbar-end"
-            aria-label="Zoom in"
-            title="Zoom in (+)"
-            onClick={() => viewer.current?.zoom(1.25)}
-          >
-            <ZoomIn size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom out"
-            title="Zoom out (−)"
-            onClick={() => viewer.current?.zoom(0.8)}
-          >
-            <ZoomOut size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            title="Fit the whole hold in view (0)"
-            onClick={() => viewer.current?.fit()}
-          >
-            Fit view
+              {VIEWS.map(([name, label]) => (
+                <option key={name} value={name}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={() => viewer.current?.fit()}>
+            Fit
           </button>
           <button
             type="button"
             onClick={() => {
+              clearCutView();
               setView("three-quarter");
               changeBoardAngle(DEFAULT_BOARD_ANGLE);
               viewer.current?.setView("three-quarter");
@@ -882,7 +843,7 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
         </div>
         {view === "board" && (
           <div className="lab-board-controls">
-            <label htmlFor="custom-shape-board-angle">Board angle</label>
+            <label htmlFor="custom-shape-board-angle">board angle</label>
             <input
               id="custom-shape-board-angle"
               type="number"
@@ -910,32 +871,56 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
               type="button"
               onClick={() => viewer.current?.setBoardSideView()}
             >
-              Exact side
+              exact side
             </button>
-            <p>From vertical · 0° is upright</p>
+            <p>from vertical · 0° is upright</p>
           </div>
         )}
         <div
           ref={container}
-          className="lab-viewer"
+          className={`lab-viewer ${styles.viewer}`}
           role="img"
-          aria-label="Interactive 3D hold preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view."
+          aria-label="Interactive 3D hold preview"
         >
-          {viewerFailed ? (
-            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
-          ) : (
-            !extents &&
-            !retry && <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
+          {viewerFailed && (
+            <p>
+              3D viewing is unavailable in this browser. Validated STL export
+              remains available.
+            </p>
           )}
         </div>
         <p className="lab-caption">
-          <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
+          <span>drag to rotate · scroll to zoom</span>
           <span>
             {view === "board"
-              ? `Mounted on a ${boardAngle}° board`
-              : "Flat back on the wall plane"}
+              ? `mounted on a ${boardAngle}° board`
+              : "flat back on the wall plane"}
           </span>
         </p>
+        <div className={styles.exportBar}>
+          <p className={styles.status} role="status">
+            {previewHasError
+              ? message
+              : draftCut
+                ? ready
+                  ? "Cut ready. Apply it to include it in your STL."
+                  : "Updating your cut…"
+                : !ready && message.startsWith("Preview is current")
+                  ? "Updating preview…"
+                  : message}
+          </p>
+          <button
+            className="button button-dark"
+            disabled={!ready || exporting || !!draftCut}
+            onClick={download}
+          >
+            {exporting ? "Exporting…" : "Download STL"}
+          </button>
+        </div>
+        <div className={styles.settingsHeading}>
+          <h3>Hold settings</h3>
+          <span>Size, grip & mounting</span>
+        </div>
         <div className={styles.controlScroll}>
           {(
             [
@@ -1001,8 +986,18 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
               },
             ] as const
           ).map((group) => (
-            <div className={styles.controls} key={group.title}>
-              <h3>{group.title}</h3>
+            <details
+              className={styles.controls}
+              key={group.title}
+              open={group.title === "Shape"}
+            >
+              <summary>
+                {group.title === "Shape"
+                  ? "Size & shape"
+                  : group.title === "Grip"
+                    ? "Grip & rounding"
+                    : "Screw holes"}
+              </summary>
               {group.title === "Grip" && (
                 <label className="lab-toggle">
                   <input
@@ -1107,113 +1102,8 @@ export function CustomShapeLab({ account = false }: { account?: boolean }) {
                     ? "Body taper makes the bottom thinner while keeping the top grabbing edge at full depth."
                     : "Seat height changes countersink depth. Manual adjustment turns auto off. Recess diameter changes the cut, never the hole centers or body dimensions."}
               </p>
-            </div>
+            </details>
           ))}
-          <div
-            className={`lab-status ${retry ? "error" : ""} ${styles.status}`}
-          >
-            <p role="status" aria-live="polite">
-              {!ready && message.startsWith("Preview is current")
-                ? LAB_COPY.updating
-                : message}
-            </p>
-            {retry && (
-              <button type="button" onClick={retry}>
-                Retry
-              </button>
-            )}
-          </div>
-          <div className={styles.actions}>
-            <button
-              className="button button-dark"
-              type="button"
-              disabled={!ready || exporting}
-              onClick={download}
-            >
-              {exporting ? "Exporting…" : "Export STL"}
-            </button>
-            <button
-              className="button button-outline"
-              type="button"
-              disabled={!ready || exporting}
-              onClick={copyLink}
-              title="Copy a link that opens this drawing and these settings"
-            >
-              Copy link
-            </button>
-            <button
-              className="button button-outline"
-              type="button"
-              disabled={!ready || exporting || saving}
-              onClick={saveAsPreset}
-              title={
-                account
-                  ? "Keep this drawing and these settings under Saved and in My presets"
-                  : "Keep this drawing and these settings in this browser"
-              }
-            >
-              <Bookmark size={15} aria-hidden="true" /> Save as preset
-            </button>
-            {saved.length > 0 && (
-              <select
-                className="lab-preset-select"
-                aria-label="My presets"
-                value={presetValue}
-                onChange={(e) => void applyPreset(e.target.value)}
-              >
-                <option value="">My presets…</option>
-                {saved.map((p) => (
-                  <option key={p.id} value={savedValue(p.id)}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {isSavedValue(presetValue) && !naming && (
-              <>
-                <button
-                  className="button button-outline"
-                  type="button"
-                  onClick={startRenaming}
-                >
-                  Rename
-                </button>
-                <button
-                  className="button button-outline"
-                  type="button"
-                  onClick={removePreset}
-                >
-                  Delete preset
-                </button>
-              </>
-            )}
-          </div>
-          {naming && (
-            <form className="lab-preset-form" onSubmit={renameSavedPreset}>
-              <input
-                type="text"
-                value={presetName}
-                maxLength={40}
-                autoFocus
-                aria-label="Preset name"
-                placeholder="New name"
-                onChange={(e) => setPresetName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setNaming(false);
-                }}
-              />
-              <button type="submit" className="button button-dark">
-                Rename
-              </button>
-              <button
-                className="button button-outline"
-                type="button"
-                onClick={() => setNaming(false)}
-              >
-                Cancel
-              </button>
-            </form>
-          )}
         </div>
       </section>
     </div>

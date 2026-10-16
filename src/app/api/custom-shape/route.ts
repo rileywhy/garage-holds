@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 // Development-only bridge to the isolated Python service. Hosted builds use
 // the dedicated Python function directly, like the established labs.
 export async function POST(request: Request) {
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
       { status: 404 },
     );
   const body = await request.text();
-  if (body.length > 450000)
+  if (body.length > 4000000)
     return NextResponse.json({ error: "Drawing too large." }, { status: 413 });
   try {
     const response = await fetch("http://127.0.0.1:8791/api/custom_shape", {

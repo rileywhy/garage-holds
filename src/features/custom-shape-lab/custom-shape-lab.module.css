@@ -1,14 +1,97 @@
-.layout {
+﻿.layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: 20px;
   align-items: start;
 }
 .panel {
   min-width: 0;
-  padding: 20px;
-  border: 1px solid var(--border, #aaa8);
-  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+.modes {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 14px;
+}
+.modes button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 12px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.modes button[aria-pressed="true"] {
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow: 0 2px 5px #00000008;
+  font-weight: 650;
+}
+.previewOnly {
+  grid-template-columns: minmax(0, 1fr);
+}
+.profileCanvas {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
+}
+.cutList {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.cutList li {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cutList button {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.cutError {
+  color: var(--error-ink);
+  background: var(--error-bg);
+  border: 1px solid var(--error-line);
+  padding: 12px;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.field input,
+.field select {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 .stage {
   display: flex;
@@ -16,24 +99,30 @@
   gap: 12px;
 }
 .controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: block;
   padding: 16px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+.controls summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.controls[open] summary {
+  margin-bottom: 20px;
+}
+.controls :global(.lab-control) {
+  margin: 18px 0;
 }
 .controls h3 {
   margin: 4px 0;
   font-size: 14px;
 }
 .controlScroll {
-  max-height: min(560px, calc(100vh - 330px));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 2px 10px 4px 0;
-  scrollbar-gutter: stable;
+  display: grid;
+  gap: 10px;
 }
 .toolbar {
   display: flex;
@@ -42,8 +131,10 @@
   margin-bottom: 16px;
 }
 .toolbar button,
-.holes button {
-  border: 1px solid #8886;
+.holes button,
+.historyBar button,
+.cutActions button {
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 12px;
   background: transparent;
@@ -51,10 +142,13 @@
   cursor: pointer;
 }
 .toolbar button[aria-pressed="true"] {
-  background: #007bff;
+  background: #1765c1;
   color: white;
 }
-.toolbar button:disabled {
+.toolbar button:disabled,
+.historyBar button:disabled,
+.cutActions button:disabled,
+.cutList button:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -68,7 +162,7 @@
   display: block;
 }
 .viewer {
-  height: 480px;
+  height: 380px;
   position: relative;
   overflow: hidden;
   border-radius: 12px;
@@ -77,7 +171,8 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  margin: 16px 0;
+  margin: 18px 0;
+  font-size: 13px;
 }
 .slider input {
   grid-column: 1 / -1;
@@ -91,8 +186,9 @@
   cursor: pointer;
 }
 .status {
-  min-height: 48px;
-  margin: 12px 0;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 .holes {
   display: flex;
@@ -101,26 +197,296 @@
   margin-top: 10px;
 }
 .hint {
-  font-size: 0.85rem;
-  opacity: 0.7;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.panelHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.panelHeading h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.4px;
+}
+.panelHeading p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+.badge {
+  flex-shrink: 0;
+  background: var(--pale);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+.stepNumber {
+  display: inline-grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.historyBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.historyBar button {
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.moreActions {
+  margin-left: auto;
+  font-size: 12px;
+}
+.moreActions summary {
+  padding: 7px 0;
+  cursor: pointer;
+}
+.moreActions[open] {
+  flex-basis: 100%;
+}
+.moreActions button {
+  margin: 6px 8px 6px 0;
+}
+.brushSize {
+  padding: 14px 16px;
+  background: var(--pale);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 16px 0;
+}
+.controlHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 550;
+  margin-bottom: 12px;
+}
+.valueInput {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.valueInput input {
+  width: 65px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+.brushSize > input {
+  width: 100%;
+  accent-color: #1765c1;
+  cursor: pointer;
+}
+.rangeLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.toolHint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  min-height: 18px;
+}
+.viewToolbar {
+  align-items: center;
+  margin: 0;
+}
+.viewSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  font-size: 12px;
+}
+.viewSelect select {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  max-width: 160px;
+}
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.exportBar p {
+  flex: 1;
+  min-width: 160px;
+}
+.settingsHeading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+}
+.settingsHeading h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.settingsHeading span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.cutOptions {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.cutOptions summary {
+  cursor: pointer;
+}
+.cutOptions summary span {
+  color: var(--muted);
+  margin-left: 8px;
+  font-size: 11px;
+}
+.cutOptions[open] summary {
+  margin-bottom: 16px;
+}
+.blendOptions {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  margin: 16px 0;
+  background: var(--pale);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.blendOptions h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.cutActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.historyBar .primaryAction,
+.cutActions .primaryAction {
+  background: #1765c1;
+  color: white;
+  border-color: #1765c1;
+}
+.cutList li {
+  padding: 10px;
+  background: var(--pale);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.cutList label {
+  flex: 1;
+}
+.emptyState {
+  padding: 36px 20px;
+  margin-top: 20px;
+  text-align: center;
+  background: var(--pale);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+.emptyState h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.emptyState p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+.blueKey {
+  color: #1765c1;
+}
+.redKey {
+  color: #ba4b36;
+}
+.previewOnly .viewer {
+  height: 520px;
+}
+.previewOnly .controlScroll {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
 }
 @media (max-width: 800px) {
   .layout {
     grid-template-columns: 1fr;
   }
   .viewer {
-    height: 360px;
+    height: 320px;
   }
   .controlScroll {
     max-height: none;
     overflow: visible;
     padding-right: 0;
   }
+  .panel {
+    padding: 16px;
+  }
+  .modes button {
+    font-size: 12px;
+    gap: 6px;
+    padding: 10px 4px;
+  }
+  .stepNumber {
+    width: 19px;
+    height: 19px;
+    font-size: 10px;
+  }
+  .panelHeading h2 {
+    font-size: 18px;
+  }
+  .previewOnly .controlScroll {
+    grid-template-columns: 1fr;
+  }
+  .previewOnly .viewer {
+    height: 380px;
+  }
+  .exportBar :global(.button) {
+    width: 100%;
+  }
 }
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+@media (prefers-reduced-motion: no-preference) {
+  .toolbar button,
+  .modes button {
+    transition:
+      background 120ms,
+      border-color 120ms;
+  }
 }
