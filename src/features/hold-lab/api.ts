@@ -95,7 +95,7 @@ export function limitControl(
     ...control,
     min: minimum,
     max,
-    help: `${control.help} Current geometry allows ${minimum}–${max} ${control.unit}.`,
+    help: `${control.help} Current geometry allows ${Number(minimum.toFixed(2))}–${Number(max.toFixed(2))} ${control.unit}.`,
   };
 }
 
