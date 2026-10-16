@@ -37,6 +37,8 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
           URLS: >-
             https://garageholds.com/
+            https://garageholds.com/make
+            https://garageholds.com/make/crimp
             https://garageholds.com/api/health
         run: |
           mkdir -p state

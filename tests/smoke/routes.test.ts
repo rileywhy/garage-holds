@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
+import { KIND_LABELS } from "../../src/features/hold-lab/api";
 import { LABS } from "../../src/features/labs/labs";
 
 // Every route of the production build answers without a server error. The
@@ -15,7 +16,9 @@ import { LABS } from "../../src/features/labs/labs";
 // Run after `npm run build` (npm run test:smoke). The test starts `next start`
 // on a spare port; CI sets no environment variables, so it checks the app's
 // "not configured" paths. SMOKE_URL points it at a running site instead, such
-// as a preview deployment.
+// as a preview deployment; .github/workflows/deploy-smoke.yml does that after
+// every Vercel deployment. VERCEL_AUTOMATION_BYPASS_SECRET, when set, is sent
+// so a preview behind Vercel's deployment protection answers.
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const APP = join(ROOT, "src", "app");
@@ -54,12 +57,24 @@ const ROUTES = [
   ]),
 ].sort();
 
+const DEPLOYED = process.env.SMOKE_URL?.replace(/\/$/, "") ?? "";
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
 let server: ChildProcess | undefined;
-let base = process.env.SMOKE_URL?.replace(/\/$/, "") ?? "";
+let base = DEPLOYED;
 let log = "";
 
 before(async () => {
-  if (base) return;
+  if (base) {
+    // A protected preview redirects every request to Vercel's login, which
+    // would pass the "no server error" checks without testing anything.
+    const location = (await get("/")).headers.get("location") ?? "";
+    assert.ok(
+      !location.startsWith("https://vercel.com/sso"),
+      `${base} is behind Vercel's deployment protection; set VERCEL_AUTOMATION_BYPASS_SECRET (docs/hosted-setup.md)`,
+    );
+    return;
+  }
   const port = await sparePort();
   base = `http://127.0.0.1:${port}`;
   server = spawn(
@@ -114,8 +129,33 @@ test("the sitemap lists every lab", async () => {
     );
 });
 
+// The generators are Python functions that only Vercel runs (api/*.py), so
+// next start has nothing behind these addresses; a deployed site must answer
+// each with its control schema, or every lab page loads to an error.
+for (const kind of Object.keys(KIND_LABELS))
+  test(
+    `/api/${kind} serves its generator schema`,
+    { skip: !DEPLOYED && "the generators only run on a deployed site" },
+    async () => {
+      const response = await get(`/api/${kind}`);
+      assert.equal(
+        response.status,
+        200,
+        `/api/${kind} answered ${response.status}`,
+      );
+      const schema = await response.json();
+      assert.ok(
+        schema.defaults &&
+          Array.isArray(schema.controls) &&
+          schema.controls.length,
+        `/api/${kind} answered without defaults and controls`,
+      );
+    },
+  );
+
 function get(route: string) {
   return fetch(base + route, {
+    headers: BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {},
     redirect: "manual",
     signal: AbortSignal.timeout(30_000),
   });
