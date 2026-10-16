@@ -244,7 +244,7 @@ svg {
   white-space: nowrap;
 }
 .brand-icon {
-  background: var(--ink);
+  background: #faf9f6;
   color: var(--bg);
   display: flex;
   align-items: center;
