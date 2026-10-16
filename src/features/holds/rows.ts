@@ -1,5 +1,12 @@
 import type { Tables } from "@/lib/supabase/database.types";
-import type { Hold, ModelFile, Photo, Review, SpecialProcess } from "./types";
+import type {
+  Hold,
+  ModelFile,
+  Photo,
+  RatingSummary,
+  Review,
+  SpecialProcess,
+} from "./types";
 import type { License } from "./licenses";
 import { holdColor } from "./colors";
 import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
@@ -10,6 +17,8 @@ import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
 // Columns come from the generated database types. Text columns that the
 // schema restricts with check constraints are narrowed to the domain unions
 // here, since the generator only sees `text`.
+// The search vector is the database's business (see catalog-query.ts) and
+// the ratings come embedded, so a page of cards needs no second query.
 export type DesignRow = Omit<
   Tables<"designs">,
   | "hold_type"
@@ -19,6 +28,7 @@ export type DesignRow = Omit<
   | "special_process"
   | "status"
   | "design_method"
+  | "search"
 > & {
   hold_type: Hold["type"];
   size: Hold["size"];
@@ -29,6 +39,7 @@ export type DesignRow = Omit<
   status: Hold["status"];
   profiles: { display_name: string } | null;
   design_files: DesignFileRow[];
+  reviews: { rating: number }[];
 };
 
 export type DesignFileRow = Omit<Tables<"design_files">, "kind" | "status"> & {
@@ -99,7 +110,17 @@ export function designRowToHold(
     color: holdColor(row.id),
     photos,
     files,
+    rating: ratingSummary(row.reviews.map((review) => review.rating)),
     createdAt: row.created_at,
+  };
+}
+
+export function ratingSummary(ratings: number[]): RatingSummary {
+  return {
+    count: ratings.length,
+    average: ratings.length
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : null,
   };
 }
 

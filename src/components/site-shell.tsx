@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   Bookmark,
+  Mail,
   Mountain,
   Plus,
   FlaskConical,
@@ -14,6 +15,10 @@ import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { AMAZON_DISCLOSURE, TIP_URL, amazonTag } from "@/features/gear/gear";
 import { trackEvent } from "@/features/analytics/events";
 import { ThemeToggle } from "./theme-toggle";
+
+// Where general questions go; inlined at build time, like every
+// NEXT_PUBLIC_ value, and absent until one is configured.
+const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "";
 
 export function SiteHeader({
   account,
@@ -83,6 +88,11 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
       </div>
       <div className="footer-links">
         <FeedbackWidget signedIn={signedIn} />
+        {CONTACT_EMAIL && (
+          <a href={`mailto:${CONTACT_EMAIL}`}>
+            <Mail size={15} /> {CONTACT_EMAIL}
+          </a>
+        )}
         <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
           <a

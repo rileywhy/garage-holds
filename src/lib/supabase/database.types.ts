@@ -112,6 +112,7 @@ export type Database = {
           print_notes: string;
           problem_grade: number | null;
           published_at: string | null;
+          search: unknown;
           size: string;
           special_process: string | null;
           status: string;
@@ -135,6 +136,7 @@ export type Database = {
           print_notes?: string;
           problem_grade?: number | null;
           published_at?: string | null;
+          search?: unknown;
           size: string;
           special_process?: string | null;
           status?: string;
@@ -157,6 +159,7 @@ export type Database = {
           print_notes?: string;
           problem_grade?: number | null;
           published_at?: string | null;
+          search?: unknown;
           size?: string;
           special_process?: string | null;
           status?: string;
@@ -429,7 +432,14 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      catalog_type_counts: {
+        Row: {
+          designs: number | null;
+          hold_type: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [];
+      };
     };
     Functions: {
       [_ in never]: never;

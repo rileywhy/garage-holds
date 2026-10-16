@@ -77,6 +77,12 @@ export interface DesignInput {
   designMethod: DesignMethod;
 }
 
+// How a design's reviews add up, for the card and the detail page.
+export interface RatingSummary {
+  count: number;
+  average: number | null;
+}
+
 export interface Hold extends DesignInput {
   id: string;
   ownerId: string | null;
@@ -86,6 +92,7 @@ export interface Hold extends DesignInput {
   color: string;
   photos: Photo[];
   files: ModelFile[];
+  rating: RatingSummary;
   createdAt: string;
 }
 

@@ -1,199 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  filterHolds,
   reviewSummary,
   activeFilterCount,
 } from "../src/features/holds/catalog";
-import { SAMPLE_HOLDS } from "./fixtures/sample-holds";
-import {
-  DEFAULT_FILTERS,
-  SPECIAL_PROCESSES,
-  type Hold,
-  type Review,
-} from "../src/features/holds/types";
-
-test("design method filters combine with hold type and reset to all designs", () => {
-  const generated: Hold = {
-    ...SAMPLE_HOLDS[1],
-    id: "generated-edge",
-    designMethod: "generated",
-  };
-  const holds = [...SAMPLE_HOLDS, generated];
-  const filters = {
-    ...DEFAULT_FILTERS,
-    designMethod: "human-shaped" as const,
-    types: ["Crimp"] as Hold["type"][],
-  };
-  assert.deepEqual(
-    filterHolds(holds, filters).map((hold) => hold.id),
-    ["mesa-edge", "canyon-crimp"],
-  );
-  assert.equal(activeFilterCount(filters), 2);
-  assert.deepEqual(
-    filterHolds(holds, { ...filters, designMethod: "generated" }).map(
-      (hold) => hold.id,
-    ),
-    ["generated-edge"],
-  );
-  assert.equal(filterHolds(holds, DEFAULT_FILTERS).length, holds.length);
-});
-
-test("combines hold type, mounting, material, and suggested grade filters", () => {
-  const matches = filterHolds(SAMPLE_HOLDS, {
-    ...DEFAULT_FILTERS,
-    types: ["Crimp"],
-    mounts: ["Screw-on"],
-    materials: ["PETG-CF"],
-    targetGrade: 5,
-  });
-  assert.deepEqual(
-    matches.map((hold) => hold.id),
-    ["mesa-edge"],
-  );
-  assert.equal(
-    filterHolds(SAMPLE_HOLDS, {
-      ...DEFAULT_FILTERS,
-      types: ["Crimp"],
-      mounts: ["Screw-on"],
-      targetGrade: 2,
-    }).length,
-    0,
-  );
-});
-
-test("material and special process must match a single recipe", () => {
-  const hold: Hold = {
-    ...SAMPLE_HOLDS[0],
-    recipes: [
-      {
-        material: "PETG",
-        specialProcess: null,
-        notes: "",
-        textureNotes: "",
-        postProcessing: "",
-      },
-      {
-        material: "Resin",
-        specialProcess: SPECIAL_PROCESSES[1],
-        notes: "",
-        textureNotes: "",
-        postProcessing: "",
-      },
-    ],
-  };
-  assert.equal(
-    filterHolds([hold], {
-      ...DEFAULT_FILTERS,
-      materials: ["PETG"],
-      specialProcesses: [SPECIAL_PROCESSES[1]],
-    }).length,
-    0,
-  );
-  assert.equal(
-    filterHolds([hold], {
-      ...DEFAULT_FILTERS,
-      materials: ["PETG"],
-      specialProcesses: [],
-    }).length,
-    1,
-  );
-});
-
-test("search includes fuzzy skin notes and filters exclude normal prints when a special process is selected", () => {
-  const hold: Hold = {
-    ...SAMPLE_HOLDS[0],
-    recipes: [
-      {
-        ...SAMPLE_HOLDS[0].recipes[0],
-        specialProcess: null,
-        textureNotes:
-          "Fuzzy skin in my slicer: thickness and point distance notes.",
-      },
-    ],
-  };
-  assert.equal(
-    filterHolds([hold], { ...DEFAULT_FILTERS, query: "fuzzy skin" }).length,
-    1,
-  );
-  assert.equal(
-    filterHolds([hold], {
-      ...DEFAULT_FILTERS,
-      specialProcesses: [SPECIAL_PROCESSES[0]],
-    }).length,
-    0,
-  );
-  assert.deepEqual(
-    filterHolds(SAMPLE_HOLDS, {
-      ...DEFAULT_FILTERS,
-      specialProcesses: [SPECIAL_PROCESSES[0]],
-    }).map((hold) => hold.id),
-    ["mesa-edge"],
-  );
-});
-
-test("search matches creators, materials and process tags without case sensitivity", () => {
-  assert.deepEqual(
-    filterHolds(SAMPLE_HOLDS, {
-      ...DEFAULT_FILTERS,
-      query: " PETG-CF salt annealing ",
-    }).map((hold) => hold.id),
-    ["mesa-edge"],
-  );
-  assert.equal(
-    filterHolds(SAMPLE_HOLDS, { ...DEFAULT_FILTERS, query: "northLINE" })
-      .length,
-    3,
-  );
-});
-
-test("sorting does not mutate the original catalog", () => {
-  const original = SAMPLE_HOLDS.map((hold) => hold.id);
-  const sorted = filterHolds(SAMPLE_HOLDS, {
-    ...DEFAULT_FILTERS,
-    sort: "title",
-  });
-  assert.equal(sorted[0].id, "canyon-crimp");
-  assert.deepEqual(
-    SAMPLE_HOLDS.map((hold) => hold.id),
-    original,
-  );
-});
-
-test("grade filtering matches the single suggestion and excludes unspecified grades", () => {
-  assert.ok(
-    filterHolds(SAMPLE_HOLDS, {
-      ...DEFAULT_FILTERS,
-      targetGrade: 5,
-    }).some((hold) => hold.id === "mesa-edge"),
-  );
-  assert.equal(
-    filterHolds(SAMPLE_HOLDS, {
-      ...DEFAULT_FILTERS,
-      targetGrade: 4,
-    }).some((hold) => hold.id === "mesa-edge"),
-    false,
-  );
-  assert.equal(
-    filterHolds(
-      [
-        {
-          ...SAMPLE_HOLDS[0],
-          problemGrade: null,
-        },
-      ],
-      { ...DEFAULT_FILTERS, targetGrade: 4 },
-    ).length,
-    0,
-  );
-  assert.equal(
-    filterHolds([{ ...SAMPLE_HOLDS[0], problemGrade: 0 }], {
-      ...DEFAULT_FILTERS,
-      targetGrade: 0,
-    }).length,
-    1,
-  );
-});
+import { DEFAULT_FILTERS, type Review } from "../src/features/holds/types";
 
 test("review averages include only reviews for the selected hold", () => {
   const reviews = [
@@ -206,4 +17,19 @@ test("review averages include only reviews for the selected hold", () => {
     count: 0,
     average: null,
   });
+});
+
+test("the filter count ignores the search and the sort", () => {
+  assert.equal(activeFilterCount(DEFAULT_FILTERS), 0);
+  assert.equal(
+    activeFilterCount({
+      ...DEFAULT_FILTERS,
+      query: "crimp",
+      sort: "title",
+      designMethod: "generated",
+      types: ["Crimp", "Jug"],
+      targetGrade: 5,
+    }),
+    4,
+  );
 });

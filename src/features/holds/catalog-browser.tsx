@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Search,
   SlidersHorizontal,
   X,
@@ -12,17 +15,21 @@ import {
   MoveUpRight,
   Plus,
 } from "lucide-react";
-import { filterHolds, activeFilterCount } from "./catalog";
+import { activeFilterCount } from "./catalog";
 import {
-  DEFAULT_FILTERS,
+  catalogHref,
+  DEFAULT_CATALOG_QUERY,
+  type CatalogQuery,
+} from "./catalog-query";
+import type { CatalogPage } from "./repository";
+import {
   HOLD_TYPES,
   HOLD_SIZES,
   MOUNT_TYPES,
   MATERIALS,
   SPECIAL_PROCESSES,
-  type Hold,
   type HoldFilters,
-  type Review,
+  type HoldType,
 } from "./types";
 import {
   GRADE_BOARD_ANGLE,
@@ -31,40 +38,55 @@ import {
 } from "./grades";
 import { HoldCard } from "./hold-card";
 
+// Typing pauses this long before the address changes and the server is
+// asked for the matching page.
+const SEARCH_DELAY_MS = 350;
+
+// The catalog's controls write to the address and the server renders the
+// page the address asks for (see catalog-query.ts), so this component holds
+// no list of designs beyond the page it was given.
 export function CatalogBrowser({
-  holds,
-  reviews,
+  page,
+  query,
+  typeCounts,
   savedIds,
   signedIn,
   savedOnly = false,
   beforeLibrary,
 }: {
-  holds: Hold[];
-  reviews: Review[];
+  page: CatalogPage;
+  query: CatalogQuery;
+  // Published designs per type, for the filter sidebar; absent on pages
+  // where the numbers would not mean much.
+  typeCounts?: Partial<Record<HoldType, number>>;
   savedIds: string[];
   signedIn: boolean;
   savedOnly?: boolean;
   // The Saved page's lab presets, shown between the hero and the designs.
   beforeLibrary?: React.ReactNode;
 }) {
-  const [filters, setFilters] = useState<HoldFilters>({ ...DEFAULT_FILTERS });
+  const router = useRouter();
+  const pathname = savedOnly ? "/saved" : "/";
+  const [pending, startTransition] = useTransition();
   const [mobileFilters, setMobileFilters] = useState(false);
-  const candidates = holds;
-  const filtered = useMemo(
-    () => filterHolds(candidates, filters),
-    [candidates, filters],
+  const navigate = (next: Partial<CatalogQuery>) =>
+    startTransition(() => {
+      router.replace(catalogHref({ ...query, page: 1, ...next }, pathname), {
+        scroll: false,
+      });
+    });
+  const [draft, setDraft] = useSearchDraft(query.query, (text) =>
+    navigate({ query: text }),
   );
-  const realCount = holds.length;
-  const count = activeFilterCount(filters);
+  const count = activeFilterCount(query);
   function toggle<
     K extends "types" | "sizes" | "mounts" | "materials" | "specialProcesses",
   >(key: K, value: HoldFilters[K][number]) {
-    setFilters((current) => ({
-      ...current,
-      [key]: current[key].includes(value as never)
-        ? current[key].filter((item) => item !== value)
-        : [...current[key], value],
-    }));
+    navigate({
+      [key]: query[key].includes(value as never)
+        ? query[key].filter((item) => item !== value)
+        : [...query[key], value],
+    });
   }
   const groups = [
     { label: "Hold type", key: "types" as const, values: HOLD_TYPES },
@@ -77,6 +99,8 @@ export function CatalogBrowser({
       values: SPECIAL_PROCESSES,
     },
   ];
+  const pageHref = (number: number) =>
+    catalogHref({ ...query, page: number }, pathname);
   return (
     <main className="main-container">
       <section className={`catalog-hero ${savedOnly ? "saved-hero" : ""}`}>
@@ -123,14 +147,14 @@ export function CatalogBrowser({
           <div>
             <h2>
               {savedOnly ? "Saved designs" : "the pile"}
-              <span className="result-count">{filtered.length}</span>
+              <span className="result-count">{page.total}</span>
             </h2>
             {savedOnly && <p>A good idea deserves a second look.</p>}
           </div>
           <span className="sample-note">
             {savedOnly
               ? "Saved to your account"
-              : `${realCount} ${realCount === 1 ? "design" : "designs"} · add yours to get started`}
+              : `${page.total} ${page.total === 1 ? "design" : "designs"} · add yours to get started`}
           </span>
         </div>
         <div className="catalog-layout">
@@ -147,11 +171,11 @@ export function CatalogBrowser({
                 <button
                   type="button"
                   onClick={() =>
-                    setFilters((current) => ({
-                      ...DEFAULT_FILTERS,
-                      query: current.query,
-                      sort: current.sort,
-                    }))
+                    navigate({
+                      ...DEFAULT_CATALOG_QUERY,
+                      query: query.query,
+                      sort: query.sort,
+                    })
                   }
                 >
                   Reset
@@ -162,13 +186,12 @@ export function CatalogBrowser({
               <legend>Design method</legend>
               <select
                 aria-label="Design method"
-                value={filters.designMethod}
+                value={query.designMethod}
                 onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
+                  navigate({
                     designMethod: event.target
                       .value as HoldFilters["designMethod"],
-                  }))
+                  })
                 }
               >
                 <option value="">All designs</option>
@@ -183,16 +206,13 @@ export function CatalogBrowser({
                   <label className="checkbox-row" key={value}>
                     <input
                       type="checkbox"
-                      checked={filters[group.key].includes(value as never)}
+                      checked={query[group.key].includes(value as never)}
                       onChange={() => toggle(group.key, value)}
                     />
                     <span>{value}</span>
-                    {group.key === "types" && (
+                    {group.key === "types" && typeCounts && (
                       <span className="facet-count">
-                        {
-                          candidates.filter((hold) => hold.type === value)
-                            .length
-                        }
+                        {typeCounts[value as HoldType] ?? 0}
                       </span>
                     )}
                   </label>
@@ -205,15 +225,14 @@ export function CatalogBrowser({
               </label>
               <select
                 id="target-grade"
-                value={filters.targetGrade ?? ""}
+                value={query.targetGrade ?? ""}
                 onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
+                  navigate({
                     targetGrade:
                       event.target.value === ""
                         ? null
                         : Number(event.target.value),
-                  }))
+                  })
                 }
               >
                 <option value="">Any grade</option>
@@ -234,28 +253,21 @@ export function CatalogBrowser({
               </Link>
             </div>
           </aside>
-          <div className="catalog-results">
+          <div className="catalog-results" aria-busy={pending}>
             <div className="catalog-toolbar">
               <div className="search-field">
                 <Search size={18} />
                 <input
                   aria-label="Search designs"
                   placeholder="Search holds, creators, materials…"
-                  value={filters.query}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      query: event.target.value,
-                    }))
-                  }
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
                 />
-                {filters.query && (
+                {draft && (
                   <button
                     type="button"
                     aria-label="Clear search"
-                    onClick={() =>
-                      setFilters((current) => ({ ...current, query: "" }))
-                    }
+                    onClick={() => setDraft("")}
                   >
                     <X size={15} />
                   </button>
@@ -273,12 +285,11 @@ export function CatalogBrowser({
                 <span>Sort:</span>
                 <select
                   aria-label="Sort designs"
-                  value={filters.sort}
+                  value={query.sort}
                   onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
+                    navigate({
                       sort: event.target.value as HoldFilters["sort"],
-                    }))
+                    })
                   }
                 >
                   <option value="featured">Featured</option>
@@ -290,7 +301,7 @@ export function CatalogBrowser({
             {count > 0 && (
               <div className="active-filters">
                 {groups.flatMap((group) =>
-                  filters[group.key].map((value) => (
+                  query[group.key].map((value) => (
                     <button
                       key={`${group.key}-${value}`}
                       onClick={() => toggle(group.key, value)}
@@ -301,16 +312,9 @@ export function CatalogBrowser({
                     </button>
                   )),
                 )}
-                {filters.targetGrade !== null && (
-                  <button
-                    onClick={() =>
-                      setFilters((current) => ({
-                        ...current,
-                        targetGrade: null,
-                      }))
-                    }
-                  >
-                    {formatProblemGrade(filters.targetGrade)} at{" "}
+                {query.targetGrade !== null && (
+                  <button onClick={() => navigate({ targetGrade: null })}>
+                    {formatProblemGrade(query.targetGrade)} at{" "}
                     {GRADE_BOARD_ANGLE}°
                     <X size={12} />
                     <span className="sr-only">Remove grade filter</span>
@@ -318,49 +322,93 @@ export function CatalogBrowser({
                 )}
               </div>
             )}
-            {filtered.length ? (
+            {page.holds.length ? (
               <div className="hold-grid">
-                {filtered.map((hold) => (
+                {page.holds.map((hold) => (
                   <HoldCard
                     hold={hold}
-                    reviews={reviews}
                     saved={savedIds.includes(hold.id)}
                     signedIn={signedIn}
                     key={hold.id}
                   />
                 ))}
               </div>
+            ) : page.total > 0 ? (
+              <div className="empty-state">
+                <Bookmark size={32} strokeWidth={1.3} />
+                <h3>Nothing on this page.</h3>
+                <p>
+                  This collection has {page.pageCount}{" "}
+                  {page.pageCount === 1 ? "page" : "pages"}.
+                </p>
+                <Link
+                  href={pageHref(page.pageCount)}
+                  className="button button-dark"
+                >
+                  Go to the last page
+                </Link>
+              </div>
             ) : (
               <div className="empty-state">
                 <Bookmark size={32} strokeWidth={1.3} />
                 <h3>
-                  {savedOnly && !candidates.length
+                  {savedOnly && !count && !query.query
                     ? "Your collection starts here."
                     : "No holds found."}
                 </h3>
                 <p>
-                  {savedOnly && !candidates.length
+                  {savedOnly && !count && !query.query
                     ? "Save a design with the bookmark button and it will appear here."
                     : "Try a different search or give your filters a little more room."}
                 </p>
-                {savedOnly && !candidates.length ? (
+                {savedOnly && !count && !query.query ? (
                   <Link href="/" className="button button-dark">
                     explore the pile <ArrowUpRight size={15} />
                   </Link>
                 ) : (
                   <button
                     className="button button-outline"
-                    onClick={() => setFilters({ ...DEFAULT_FILTERS })}
+                    onClick={() => {
+                      setDraft("");
+                      navigate(DEFAULT_CATALOG_QUERY);
+                    }}
                   >
                     Clear all filters
                   </button>
                 )}
               </div>
             )}
+            {page.pageCount > 1 && (
+              <nav className="pagination" aria-label="Pages of designs">
+                {page.page > 1 ? (
+                  <Link href={pageHref(page.page - 1)} rel="prev">
+                    <ChevronLeft size={15} /> Previous
+                  </Link>
+                ) : (
+                  <span aria-disabled="true">
+                    <ChevronLeft size={15} /> Previous
+                  </span>
+                )}
+                <span>
+                  Page {page.page} of {page.pageCount}
+                </span>
+                {page.page < page.pageCount ? (
+                  <Link href={pageHref(page.page + 1)} rel="next">
+                    Next <ChevronRight size={15} />
+                  </Link>
+                ) : (
+                  <span aria-disabled="true">
+                    Next <ChevronRight size={15} />
+                  </span>
+                )}
+              </nav>
+            )}
             <div className="catalog-end">
               <span>
-                {filtered.length
-                  ? "You’ve reached the end of this collection."
+                {page.holds.length
+                  ? page.page < page.pageCount
+                    ? "More designs on the next page."
+                    : "You’ve reached the end of this collection."
                   : "Have a design in mind?"}
               </span>
               <Link href="/upload">
@@ -372,4 +420,31 @@ export function CatalogBrowser({
       </section>
     </main>
   );
+}
+
+// The search box's text, sent to the address once typing pauses. The box
+// keeps what was typed while the server answers; only an address change
+// from elsewhere (the back button, a link) resets it.
+function useSearchDraft(
+  committed: string,
+  commit: (text: string) => void,
+): [string, (text: string) => void] {
+  const [draft, setDraft] = useState(committed);
+  const sent = useRef(committed);
+  useEffect(() => {
+    if (committed === sent.current) return;
+    sent.current = committed;
+    setDraft(committed);
+  }, [committed]);
+  useEffect(() => {
+    if (draft.trim() === sent.current.trim()) return;
+    const timer = setTimeout(() => {
+      sent.current = draft;
+      commit(draft);
+    }, SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+    // `commit` closes over the current query; the latest one is wanted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+  return [draft, setDraft];
 }
