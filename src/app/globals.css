@@ -2966,6 +2966,12 @@ svg {
   gap: 12px;
   min-width: 0;
 }
+.lab-stage-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
 /* Above every lab: the way back to the list, and the other labs one tap
    away. One row that scrolls sideways on a phone instead of wrapping. */
 .lab-nav {
@@ -3257,17 +3263,54 @@ svg {
     grid-template-columns: 1fr;
     grid-template-areas:
       "stage"
+      "status"
+      "board"
       "controls"
       "details";
     gap: 16px;
   }
   .lab-stage {
+    display: contents;
+  }
+  /* Only the model and view buttons stay pinned. Success text, export and
+     board settings scroll away, leaving room to work on the sliders. All
+     new rules are scoped to the four shared labs, not Custom Shape. */
+  .lab .lab-stage-preview {
+    --lab-preview-height: min(260px, 26svh);
+    grid-area: stage;
     position: sticky;
     top: 0;
     z-index: 2;
     gap: 8px;
     padding: 8px 0;
     background: var(--bg);
+  }
+  .lab .lab-stage-preview .lab-toolbar {
+    height: 32px;
+    padding-bottom: 0;
+    margin: 0;
+  }
+  .lab .lab-stage-preview .lab-viewer {
+    height: var(--lab-preview-height);
+  }
+  .lab .lab-stage-row {
+    grid-area: status;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 0;
+    background: var(--bg);
+  }
+  .lab .lab-stage-row .lab-status {
+    min-height: 0;
+    gap: 6px;
+  }
+  .lab .lab-stage-error {
+    position: sticky;
+    top: calc(min(260px, 26svh) + 56px);
+    z-index: 2;
+  }
+  .lab .lab-board-controls {
+    grid-area: board;
   }
   .lab-toolbar {
     flex-wrap: nowrap;

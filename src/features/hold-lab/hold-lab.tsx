@@ -844,17 +844,42 @@ export function HoldLab({
         </p>
       </aside>
       <section className="lab-stage" aria-label="Model preview">
-        <ViewToolbar
-          views={lab.views}
-          view={view}
-          viewer={viewer}
-          ready={Boolean(schema)}
-          onView={(name) => {
-            setView(name);
-            viewer.current?.setView(name);
-          }}
-          onReset={reset}
-        />
+        <div className="lab-stage-preview">
+          <ViewToolbar
+            views={lab.views}
+            view={view}
+            viewer={viewer}
+            ready={Boolean(schema)}
+            onView={(name) => {
+              setView(name);
+              viewer.current?.setView(name);
+            }}
+            onReset={reset}
+          />
+          <div
+            ref={box}
+            className="lab-viewer"
+            role="img"
+            aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view.`}
+          >
+            {viewerFailed ? (
+              <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
+            ) : (
+              !preview &&
+              !status.error && (
+                <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
+              )
+            )}
+          </div>
+          <p className="lab-caption">
+            <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
+            <span>
+              {view === "board"
+                ? `Mounted on a ${boardAngle}° board`
+                : "Flat back on the wall plane"}
+            </span>
+          </p>
+        </div>
         {view === "board" && (
           <BoardAngleControls
             kind={kind}
@@ -864,29 +889,8 @@ export function HoldLab({
           />
         )}
         <div
-          ref={box}
-          className="lab-viewer"
-          role="img"
-          aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view.`}
+          className={`lab-stage-row ${status.error ? "lab-stage-error" : ""}`}
         >
-          {viewerFailed ? (
-            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
-          ) : (
-            !preview &&
-            !status.error && (
-              <p className="lab-viewer-note">{LAB_COPY.firstPreview}</p>
-            )
-          )}
-        </div>
-        <p className="lab-caption">
-          <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
-          <span>
-            {view === "board"
-              ? `Mounted on a ${boardAngle}° board`
-              : "Flat back on the wall plane"}
-          </span>
-        </p>
-        <div className="lab-stage-row">
           <div className={`lab-status ${status.error ? "error" : ""}`}>
             <p role="status" aria-live="polite">
               {status.text}
