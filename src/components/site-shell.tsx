@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   Bookmark,
+  Check,
+  Copy,
   Mail,
   Mountain,
   Plus,
   FlaskConical,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
 import { AMAZON_DISCLOSURE, TIP_URL, amazonTag } from "@/features/gear/gear";
 import { trackEvent } from "@/features/analytics/events";
@@ -88,11 +90,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
       </div>
       <div className="footer-links">
         <FeedbackWidget signedIn={signedIn} />
-        {CONTACT_EMAIL && (
-          <a href={`mailto:${CONTACT_EMAIL}`}>
-            <Mail size={15} /> {CONTACT_EMAIL}
-          </a>
-        )}
+        {CONTACT_EMAIL && <ContactAddress email={CONTACT_EMAIL} />}
         <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
           <a
@@ -110,5 +108,47 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
       </div>
       {amazonTag() && <p className="footer-disclosure">{AMAZON_DISCLOSURE}</p>}
     </footer>
+  );
+}
+
+// The address as a mailto link for people whose mail app is set up, and a
+// copy button for everyone else: on many machines a mailto link opens
+// nothing, or asks which app to use and then does nothing with it.
+function ContactAddress({ email }: { email: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+    } catch {
+      // Clipboard access refused (an old browser or a plain http page):
+      // the address is right there to select by hand.
+      window
+        .getSelection()
+        ?.selectAllChildren(
+          document.querySelector(".contact-address a") as Element,
+        );
+    }
+  }
+  return (
+    <span className="contact-address">
+      <a href={`mailto:${email}`}>
+        <Mail size={15} /> {email}
+      </a>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? "Email address copied" : "Copy email address"}
+        title="Copy address"
+      >
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+        <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+      </button>
+    </span>
   );
 }

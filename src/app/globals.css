@@ -2678,6 +2678,28 @@ svg {
   gap: 18px;
   flex-wrap: wrap;
 }
+.contact-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.contact-address button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 10px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.contact-address button:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
 .feedback-trigger {
   background: transparent;
   border: 0;
