@@ -16,7 +16,6 @@ export default function HoldLabsPage() {
   return (
     <main className={`main-container lab-page ${styles.page}`}>
       <div className="page-intro">
-        <p className="eyebrow">make your next hold</p>
         <h1>Hold Labs</h1>
         <p>
           Choose a starting shape, make it your own, and export a printable STL.

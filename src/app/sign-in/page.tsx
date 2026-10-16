@@ -26,7 +26,6 @@ export default async function SignInPage({
         <ArrowLeft size={15} /> Back to the library
       </Link>
       <div className="page-intro">
-        <p className="eyebrow">YOUR ACCOUNT</p>
         <h1>Sign in to Garage Holds.</h1>
         <p>
           Browsing and downloads stay open to everyone. An account lets you

@@ -21,7 +21,6 @@ export default async function WelcomePage({
   return (
     <main className="main-container form-page account-page">
       <div className="page-intro">
-        <p className="eyebrow">WELCOME</p>
         <h1>Set up your profile.</h1>
         <p>
           Signed in as {user.email}. Pick the name other makers will see; you

@@ -31,7 +31,6 @@ export default async function HowToPrintHoldsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd()) }}
       />
       <div className="page-intro">
-        <p className="eyebrow">The guide</p>
         <h1>How to 3D print climbing holds</h1>
         <p>
           What you need to print climbing holds, the settings that keep one from

@@ -16,14 +16,14 @@ const app = path.join(root, "src", "app");
 const icon = await readFile(path.join(app, "icon.svg"));
 // The supplied black artwork stays unchanged; a light backing makes raster
 // icons and the mark on dark social cards readable on every surface.
-const MARK_BG = "#faf9f6";
+const MARK_BG = "#f4f3f8";
 
 // Dark theme tokens from globals.css; the dark card reads well on every
 // chat and social background.
 const BG = "#202027";
 const INK = "#efedf5";
 const MUTED = "#aaa6b8";
-const ACCENT = "#b5a3df";
+const ACCENT = "#a18bc9";
 
 const W = 1200;
 const H = 630;
@@ -107,7 +107,7 @@ async function card({ file, eyebrow, title, text, render }) {
       <rect width="${W}" height="${H}" fill="${BG}"/>
       <rect x="0" y="${H - 10}" width="${W}" height="10" fill="${ACCENT}"/>
       ${lines(eyebrow, 72, 118, 26, ACCENT, "Arial, sans-serif", "bold")}
-      ${lines(title, 72, 232, 64, INK, "Georgia, serif")}
+      ${lines(title, 72, 232, 64, INK, "Arial, sans-serif", "bold")}
       ${lines(text, 72, 440, 30, MUTED, "Arial, sans-serif")}
       <text x="160" y="562" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="${INK}">garage holds</text>
     </svg>`,

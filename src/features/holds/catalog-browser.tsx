@@ -104,20 +104,16 @@ export function CatalogBrowser({
   return (
     <main className="main-container">
       <section className={`catalog-hero ${savedOnly ? "saved-hero" : ""}`}>
-        <div>
-          <p className="eyebrow">
-            <span className="status-dot" />
-            {savedOnly ? "YOUR NEXT PROJECTS" : "MADE FOR YOUR BOARD"}
-          </p>
+        <div className="hero-copy">
           <h1>
             {savedOnly ? (
-              <>
-                A collection
-                <br />
-                with potential.
-              </>
+              <>Saved holds for your next print.</>
             ) : (
-              <>3d grips for your home wall</>
+              <>
+                Climbing holds.
+                <br />
+                <span>Made to print.</span>
+              </>
             )}
           </h1>
           {savedOnly && (
@@ -126,11 +122,43 @@ export function CatalogBrowser({
               your account to any device.
             </p>
           )}
-          <a href="#library" className="hero-text-link">
-            {savedOnly ? "Browse your saved designs" : "explore the pile"}
-            <ArrowDown size={15} />
-          </a>
+          {!savedOnly && (
+            <p className="hero-description">
+              Find holds for your home wall, with model files and print recipes.
+              Or shape your own in the labs and export an STL.
+            </p>
+          )}
+          <div className="hero-links">
+            <a href="#library" className="hero-text-link">
+              {savedOnly
+                ? "Browse your saved designs"
+                : "Browse the hold library"}
+              <ArrowDown size={15} />
+            </a>
+            {!savedOnly && (
+              <Link href="/make" className="button button-dark">
+                Open Hold Labs <ArrowUpRight size={15} />
+              </Link>
+            )}
+          </div>
         </div>
+        {!savedOnly && (
+          <figure className="hero-art">
+            <img
+              src="/images/hold-labs/crimp.webp"
+              alt="Rounded three-screw climbing crimp made in Crimp Lab"
+              width={1000}
+              height={625}
+              fetchPriority="high"
+            />
+            <figcaption>
+              <Link href="/make/crimp">
+                Crimp Lab <ArrowUpRight size={13} />
+              </Link>
+              <span>Adjust. Preview. Export STL.</span>
+            </figcaption>
+          </figure>
+        )}
         {savedOnly && (
           <div className="saved-hero-icon">
             <Bookmark size={66} strokeWidth={1} />
@@ -149,12 +177,12 @@ export function CatalogBrowser({
               {savedOnly ? "Saved designs" : "the pile"}
               <span className="result-count">{page.total}</span>
             </h2>
-            {savedOnly && <p>A good idea deserves a second look.</p>}
+            {savedOnly && <p>Designs you have bookmarked.</p>}
           </div>
           <span className="sample-note">
             {savedOnly
               ? "Saved to your account"
-              : `${page.total} ${page.total === 1 ? "design" : "designs"} · add yours to get started`}
+              : `${page.total} ${page.total === 1 ? "design" : "designs"} Â· add yours to get started`}
           </span>
         </div>
         <div className="catalog-layout">
@@ -182,72 +210,106 @@ export function CatalogBrowser({
                 </button>
               )}
             </div>
-            <fieldset className="filter-group">
-              <legend>Design method</legend>
-              <select
-                aria-label="Design method"
-                value={query.designMethod}
-                onChange={(event) =>
-                  navigate({
-                    designMethod: event.target
-                      .value as HoldFilters["designMethod"],
-                  })
-                }
-              >
-                <option value="">All designs</option>
-                <option value="human-shaped">Human-shaped (HS)</option>
-                <option value="generated">Generated</option>
-              </select>
-            </fieldset>
-            {groups.map((group) => (
-              <fieldset className="filter-group" key={group.key}>
-                <legend>{group.label}</legend>
-                {group.values.map((value) => (
-                  <label className="checkbox-row" key={value}>
-                    <input
-                      type="checkbox"
-                      checked={query[group.key].includes(value as never)}
-                      onChange={() => toggle(group.key, value)}
-                    />
-                    <span>{value}</span>
-                    {group.key === "types" && typeCounts && (
-                      <span className="facet-count">
-                        {typeCounts[value as HoldType] ?? 0}
-                      </span>
-                    )}
-                  </label>
-                ))}
+            <details
+              className="filter-section"
+              open={Boolean(query.designMethod)}
+            >
+              <summary>
+                <ChevronRight size={14} aria-hidden="true" /> Design method
+                {query.designMethod && <span className="filter-count">1</span>}
+              </summary>
+              <fieldset className="filter-group">
+                <legend className="sr-only">Design method</legend>
+                <select
+                  aria-label="Design method"
+                  value={query.designMethod}
+                  onChange={(event) =>
+                    navigate({
+                      designMethod: event.target
+                        .value as HoldFilters["designMethod"],
+                    })
+                  }
+                >
+                  <option value="">All designs</option>
+                  <option value="human-shaped">Human-shaped (HS)</option>
+                  <option value="generated">Generated</option>
+                </select>
               </fieldset>
-            ))}
-            <div className="filter-group angle-filter">
-              <label htmlFor="target-grade">
-                Suggested grade at {GRADE_BOARD_ANGLE}°
-              </label>
-              <select
-                id="target-grade"
-                value={query.targetGrade ?? ""}
-                onChange={(event) =>
-                  navigate({
-                    targetGrade:
-                      event.target.value === ""
-                        ? null
-                        : Number(event.target.value),
-                  })
-                }
+            </details>
+            {groups.map((group) => (
+              <details
+                className="filter-section"
+                key={group.key}
+                open={group.key === "types" || query[group.key].length > 0}
               >
-                <option value="">Any grade</option>
-                {PROBLEM_GRADES.map((grade) => (
-                  <option value={grade} key={grade}>
-                    {formatProblemGrade(grade)}
-                  </option>
-                ))}
-              </select>
-              <p>Creator suggestions for problems on a 40° board.</p>
-            </div>
+                <summary>
+                  <ChevronRight size={14} aria-hidden="true" /> {group.label}
+                  {query[group.key].length > 0 && (
+                    <span className="filter-count">
+                      {query[group.key].length}
+                    </span>
+                  )}
+                </summary>
+                <fieldset className="filter-group">
+                  <legend className="sr-only">{group.label}</legend>
+                  {group.values.map((value) => (
+                    <label className="checkbox-row" key={value}>
+                      <input
+                        type="checkbox"
+                        checked={query[group.key].includes(value as never)}
+                        onChange={() => toggle(group.key, value)}
+                      />
+                      <span>{value}</span>
+                      {group.key === "types" && typeCounts && (
+                        <span className="facet-count">
+                          {typeCounts[value as HoldType] ?? 0}
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </fieldset>
+              </details>
+            ))}
+            <details
+              className="filter-section"
+              open={query.targetGrade !== null}
+            >
+              <summary>
+                <ChevronRight size={14} aria-hidden="true" /> Suggested grade
+                {query.targetGrade !== null && (
+                  <span className="filter-count">1</span>
+                )}
+              </summary>
+              <div className="filter-group angle-filter">
+                <label htmlFor="target-grade">
+                  Suggested grade at {GRADE_BOARD_ANGLE}Â°
+                </label>
+                <select
+                  id="target-grade"
+                  value={query.targetGrade ?? ""}
+                  onChange={(event) =>
+                    navigate({
+                      targetGrade:
+                        event.target.value === ""
+                          ? null
+                          : Number(event.target.value),
+                    })
+                  }
+                >
+                  <option value="">Any grade</option>
+                  {PROBLEM_GRADES.map((grade) => (
+                    <option value={grade} key={grade}>
+                      {formatProblemGrade(grade)}
+                    </option>
+                  ))}
+                </select>
+                <p>Creator suggestions for problems on a 40Â° board.</p>
+              </div>
+            </details>
             <div className="sidebar-note">
               <MoveUpRight size={19} />
-              <strong>Made a hold you love?</strong>
-              <p>Your next design could be someone’s next project.</p>
+              <strong>Share a hold you made</strong>
+              <p>Add your model files and print settings.</p>
               <Link href="/upload">
                 Share your design <ArrowUpRight size={13} />
               </Link>
@@ -259,7 +321,7 @@ export function CatalogBrowser({
                 <Search size={18} />
                 <input
                   aria-label="Search designs"
-                  placeholder="Search holds, creators, materials…"
+                  placeholder="Search holds, creators, materialsâ€¦"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                 />
@@ -294,7 +356,7 @@ export function CatalogBrowser({
                 >
                   <option value="featured">Featured</option>
                   <option value="newest">Newest</option>
-                  <option value="title">Name A–Z</option>
+                  <option value="title">Name Aâ€“Z</option>
                 </select>
               </label>
             </div>
@@ -315,7 +377,7 @@ export function CatalogBrowser({
                 {query.targetGrade !== null && (
                   <button onClick={() => navigate({ targetGrade: null })}>
                     {formatProblemGrade(query.targetGrade)} at{" "}
-                    {GRADE_BOARD_ANGLE}°
+                    {GRADE_BOARD_ANGLE}Â°
                     <X size={12} />
                     <span className="sr-only">Remove grade filter</span>
                   </button>
@@ -359,7 +421,7 @@ export function CatalogBrowser({
                 <p>
                   {savedOnly && !count && !query.query
                     ? "Save a design with the bookmark button and it will appear here."
-                    : "Try a different search or give your filters a little more room."}
+                    : "Try another search or remove a filter."}
                 </p>
                 {savedOnly && !count && !query.query ? (
                   <Link href="/" className="button button-dark">
@@ -408,7 +470,7 @@ export function CatalogBrowser({
                 {page.holds.length
                   ? page.page < page.pageCount
                     ? "More designs on the next page."
-                    : "You’ve reached the end of this collection."
+                    : "Youâ€™ve reached the end of this collection."
                   : "Have a design in mind?"}
               </span>
               <Link href="/upload">

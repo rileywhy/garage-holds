@@ -211,11 +211,9 @@ function UploadDesignForm({
         <ArrowLeft size={15} /> Back to the library
       </Link>
       <div className="page-intro">
-        <p className="eyebrow">MAKE. PRINT. SHARE.</p>
-        <h1>A new grip starts here.</h1>
+        <h1>Upload a hold design</h1>
         <p>
-          Bring your design to the board. Give other makers the details they
-          need.
+          Add your model files and the details other makers need to print them.
         </p>
       </div>
       <div className="upload-layout">
@@ -287,11 +285,10 @@ function UploadDesignForm({
                 ref={photoReminderRegion}
                 tabIndex={-1}
               >
-                <strong>Got a photo? We’d love to see it.</strong>
+                <strong>Add a photo if you have one</strong>
                 <p>
-                  Please add a photo if you have one—we’d really appreciate it!
-                  It helps other makers see the grip and texture. No photo yet?
-                  You can still continue below.
+                  A photo helps other makers see the grip and texture. You can
+                  still continue below without one.
                 </p>
                 <a href="#hold-photos" onClick={() => setPhotoReminder(false)}>
                   Go back and add a photo

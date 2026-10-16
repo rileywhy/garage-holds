@@ -1,6 +1,7 @@
 "use client";
 
 import { cloneCut } from "./cut-profiles";
+import { useCanvasPalette } from "./canvas-palette";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
@@ -11,7 +12,6 @@ import {
 import { RotateCcw } from "lucide-react";
 import { decodePreview, previewMesh } from "./preview";
 import {
-  ARTWORK_COLORS,
   RESOLUTION,
   cloneDocument,
   emptyDocument,
@@ -124,6 +124,7 @@ export function CustomShapeLab() {
     materialHeight(initialDocument, 1),
   );
   const diameter = tool === "eraser" ? eraser : brush;
+  const colors = useCanvasPalette();
   function renderCanvas() {
     const ctx = canvas.current?.getContext("2d");
     if (!ctx) return;
@@ -139,7 +140,7 @@ export function CustomShapeLab() {
     if (materialDirty.current) {
       const target = bitmap.current.getContext("2d")!;
       target.setTransform(renderScale, 0, 0, renderScale, 0, 0);
-      target.fillStyle = ARTWORK_COLORS.background;
+      target.fillStyle = colors.background;
       target.fillRect(0, 0, doc.size, doc.size);
       target.beginPath();
       for (const ring of drawingContours(doc)) {
@@ -147,12 +148,12 @@ export function CustomShapeLab() {
         for (const [x, y] of ring.slice(1)) target.lineTo(x, y);
         target.closePath();
       }
-      target.fillStyle = ARTWORK_COLORS.material;
+      target.fillStyle = colors.material;
       target.fill("evenodd");
       materialDirty.current = false;
     }
     ctx.drawImage(bitmap.current, 0, 0, doc.size, doc.size);
-    ctx.strokeStyle = "#34405420";
+    ctx.strokeStyle = colors.grid;
     ctx.lineWidth = 0.35;
     const grid = (10 * doc.size) / parameters.scale;
     ctx.beginPath();
@@ -172,9 +173,9 @@ export function CustomShapeLab() {
         0,
         Math.PI * 2,
       );
-      ctx.fillStyle = ARTWORK_COLORS.hole;
+      ctx.fillStyle = colors.hole;
       ctx.fill();
-      ctx.strokeStyle = "white";
+      ctx.strokeStyle = colors.outline;
       ctx.stroke();
     }
     if (cursor.current) {
@@ -189,7 +190,7 @@ export function CustomShapeLab() {
         0,
         Math.PI * 2,
       );
-      ctx.strokeStyle = "#111";
+      ctx.strokeStyle = colors.ink;
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -221,6 +222,10 @@ export function CustomShapeLab() {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
   }, []);
+  useEffect(() => {
+    materialDirty.current = true;
+    viewer.current?.setBackgroundColor(colors.background);
+  }, [colors]);
   useEffect(() => {
     const controller = new AbortController();
     const generation = previewGeneration.current;
@@ -373,7 +378,7 @@ export function CustomShapeLab() {
         commit();
       } else
         setNotice(
-          "Place holes farther inside the blue material with enough room for the head recess.",
+          "Place holes farther inside the lavender material with enough room for the head recess.",
         );
     } else {
       checkpoint();
@@ -719,10 +724,10 @@ export function CustomShapeLab() {
           {tool === "hole"
             ? "Click to add a screw hole. Drag a red hole to reposition it."
             : tool === "smooth"
-              ? "Brush along the blue edge to soften bumps and fill small notches."
+              ? "Brush along the lavender edge to soften bumps and fill small notches."
               : tool === "eraser"
-                ? "Brush over blue material to remove it. Undo brings it back."
-                : "Paint blue to add material. Keep your shape connected."}
+                ? "Brush over lavender material to remove it. Undo brings it back."
+                : "Paint lavender to add material. Keep your shape connected."}
         </p>
         {tool === "smooth" && (
           <label className={styles.slider}>
@@ -757,9 +762,9 @@ export function CustomShapeLab() {
           }}
         />
         <p className={styles.hint}>
-          <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
-          <span className={styles.redKey}>Red: screw holes</span> · Canvas width{" "}
-          {parameters.scale} mm
+          <span className={styles.blueKey}>Lavender: your hold</span> ·{" "}
+          <span className={styles.redKey}>Gold: screw holes</span> · Canvas
+          width {parameters.scale} mm
         </p>
         <div className={styles.holes}>
           {editorState.holes.map((h, i) => (

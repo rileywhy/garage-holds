@@ -9,6 +9,7 @@ import { listSavedIds } from "@/features/holds/repository";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
+import "./workshop.css";
 
 const DESCRIPTION =
   "Discover and share 3D printable climbing holds for home walls and training boards. Browse STL files by hold type, size, mounting, material, and suggested grade at 40°.";

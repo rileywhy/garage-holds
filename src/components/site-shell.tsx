@@ -41,7 +41,7 @@ export function SiteHeader({
             href="/"
             className={`nav-link ${pathname === "/" ? "active" : ""}`}
           >
-            explore the pile
+            Hold library
           </Link>
           <Link
             href="/saved"
@@ -100,7 +100,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
           </a>
         )}
         <Link href="/upload">
-          Made something good? Share it <ArrowUpRight size={15} />
+          Share a design <ArrowUpRight size={15} />
         </Link>
       </div>
       {amazonTag() && <p className="footer-disclosure">{AMAZON_DISCLOSURE}</p>}

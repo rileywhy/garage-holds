@@ -279,6 +279,11 @@ export class Viewer {
     this.render();
   }
 
+  setBackgroundColor(color: string) {
+    this.renderer.setClearColor(color);
+    this.render();
+  }
+
   private render() {
     this.renderer.render(this.scene, this.camera);
   }
