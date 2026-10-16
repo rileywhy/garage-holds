@@ -353,10 +353,15 @@ one from the next sweep (04:00 UTC), or at once from
 `next.config.ts` adds the baseline security headers to every route
 (`src/lib/security-headers.ts`): `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY`, a referrer policy, a permissions policy, and a
-Content-Security-Policy limited to `frame-ancestors`, `base-uri` and
-`object-src`. Vercel adds `Strict-Transport-Security` at the edge. A
-`script-src` policy is still to do: it needs a per-request nonce for the
-theme script and Next's inline scripts, and the R2 and Supabase hosts.
+Content-Security-Policy for static assets. `src/proxy.ts` adds a fresh nonce
+to each page request and response; Next's inline scripts, the theme initializer,
+and the guide's structured data carry it. Production scripts allow the site's
+own bundles, that nonce, the fixed theme hash (also used by the error page), and
+Vercel Analytics. Inline script execution without a nonce or the theme hash is
+blocked. Development additionally allows eval for Next's debugger. Images and
+connections allow HTTPS for signed R2 URLs and Supabase; styles allow inline
+declarations used by the viewers. Vercel adds HSTS at the edge. Reading the nonce
+in the layout makes page rendering dynamic even when accounts are unconfigured.
 
 ## Search engines and link previews
 

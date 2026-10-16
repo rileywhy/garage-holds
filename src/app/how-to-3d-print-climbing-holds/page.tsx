@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { GearLink } from "@/features/gear/gear-link";
 import { AMAZON_DISCLOSURE, GEAR, amazonTag } from "@/features/gear/gear";
 import { GUIDE, articleJsonLd, updatedLabel } from "@/features/guide/guide";
@@ -20,10 +21,12 @@ export const metadata = pageMetadata({
 // The guide behind every "can I print this" question. One page, in the
 // order a first-timer meets the questions, written to be found by search and
 // kept to one pick per item so it stays readable.
-export default function HowToPrintHoldsPage() {
+export default async function HowToPrintHoldsPage() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <main className="main-container gear-page">
       <script
+        nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd()) }}
       />
