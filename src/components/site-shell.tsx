@@ -33,15 +33,7 @@ export function SiteHeader({
     <>
       <header className="site-header">
         <Link href="/" className="brand" aria-label="Garage Holds home">
-          <span className="brand-icon">
-            <img
-              src="/icon.svg"
-              alt=""
-              width={35}
-              height={35}
-              style={{ width: "100%", height: "100%" }}
-            />
-          </span>
+          <span className="brand-icon" aria-hidden="true" />
           <span>garage holds</span>
         </Link>
         <nav aria-label="Main navigation">
