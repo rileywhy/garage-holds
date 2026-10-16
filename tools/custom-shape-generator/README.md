@@ -57,6 +57,89 @@ and browser rendering work; STL exports retain the full profile resolution.
 The editor caches smoothed, antialiased contours for display without changing
 the binary material mask or semantic mounting holes.
 
+## Profile cuts and local smoothing
+
+The editor has Shape, Cut Profiles, and Preview modes. The Shape Smooth brush
+and every cut tool have a brush-size slider with an editable millimeter value.
+Painting tools stay beside the canvas; cut names and placement live in Cut
+settings. The camera selector, Fit and Reset controls sit above the live preview.
+Cut settings include a vertical offset and automatic or manual edge smoothing
+in millimeters. Cuts run across the whole side with no partial-width or blend-radius
+controls. Existing partial or blended cuts are normalized to through cuts with
+blending disabled for editing, preview, history, and export. Height and outline
+smoothing adjustments preserve the painted mask and can be reset together.
+STL download stays below the preview, with Size & shape, Grip & rounding and
+Screw holes available as expandable settings. The Shape Smooth brush
+updates the binary mask locally, with adjustable diameter and strength. Its
+brush-sized Gaussian filter softens bumps and fills small notches; larger
+diameters and higher strength produce broader smoothing. The Cut Profiles
+Smooth brush uses the same local filter in millimeters on the red removal mask;
+it only changes the area brushed and updates the 3D preview automatically.
+Smoothing preserves painted area within each brush footprint so narrow cuts do
+not erode away. While a stroke is active, the last cut stays visible in 3D;
+the updated cut is requested immediately after release. Superseded
+responses cannot mark an older cut as ready to apply.
+In both modes,
+mounting holes remain a separate semantic layer and every gesture is undoable.
+
+Profile cuts are stored in `MaskDocument.cuts`, separate from the painted base.
+Choose a top, right, bottom, or left view; the 3D preview faces that side and
+the section's horizontal direction matches it. New cuts affect the whole side.
+Both canvas axes share the same millimeter scale, keeping the brush circular.
+High-DPI canvas rendering and joined outline paths avoid scan-line artifacts.
+Dashed projections show every screw's shank and fitted countersink in each view,
+including holes behind the section plane. Cut previews use the same thirty-three
+segments for rounded body arcs as STL export; uncut previews remain lighter.
+Angle-weighted preview normals keep uneven triangulation from looking patchy,
+while preserving genuinely sharp corners such as the flat mounting face.
+Cuts run across the whole side; partial widths and 3D blend radii are disabled.
+Older cuts are normalized to the same whole-side, unblended behavior for
+preview, history, and export. The editor fits
+the complete section outline in millimeters, including the far edge. Paint or
+erase bounded removal areas with a circular brush, adjust its diameter, smooth
+the mask, then apply. The 3D cut preview updates automatically after release.
+The unchanged undrilled body and mounting checks are cached across cut edits;
+changing the drawing, shape settings, holes, or output resolution invalidates
+that cache. Final conversion preserves Manifold's double-precision vertices
+and explicit topology instead of merging nearby vertices, which can break
+thin triangles where a cut meets the rounded lip.
+The painting workspace extends past the part on every side, including
+below the mounting plane and above the top; strokes can start outside the part.
+Only a successful preview enables Apply; export requires applied edits.
+Cuts can be reopened, reset, disabled, deleted, and restored through history.
+
+Each cut stores its edge orientation, whole-side selection, normalized canvas
+anchor, normalized width, millimeter depth, and 33 editable depth samples.
+New cuts store a separate 256 by 256 binary paint mask and its millimeter bounds.
+Boundaries are resampled at equal physical distances and smoothed in millimeters
+before extrusion, including in the STL, to remove pixel shelves on wide sections.
+Paint masks store their vertical bounds; old masks retain the 0-to-depth range.
+Older 128 pixel
+masks remain supported and upgrade on their next brush edit.
+Only painted areas are subtracted, including separated strokes and negative
+space between them. Older depth curves remain supported and convert to a brush
+mask when edited. There is no fixed maximum cut depth. Material and mounting checks determine whether
+the requested geometry can be applied. The existing Manifold
+engine subtracts a whole-side extrusion of that profile before drilling holes.
+STL exports contain these exact subtractions. Painted cuts may intersect Z=0;
+the remaining mounting face stays flat. Older curve cuts retain their 4 mm
+base and 2 mm top bands. Painted-cut section checks reject persistent walls
+thinner than 3 mm across sampled width positions, and the
+existing hole-clearance utility verifies at least 3 mm around mounting recesses.
+Detached offcuts are discarded automatically. The retained piece has the largest
+mounting contact area among pieces preserving every screw's clearance; cuts
+removing the entire mounting body or cutting into a mounting hole are rejected.
+Non-intersecting cuts are rejected. Cut anchors tolerate
+small outline changes; larger moves report a warning requiring repositioning or
+disabling the cut. Scale and grip changes regenerate the cut from its stored data.
+
+Current limits: twelve cuts, four side orientations, 256 pixel painted sections,
+and whole-side extrusions. This supports bounded side grooves and concave
+faces rather than direct vertex sculpting.
+Thickness checks sample cross-sections; they are geometry checks, not a load or
+print-strength certification. Section and preview requests have no added debounce
+delay; 3D previews keep the existing single-flight, packed-binary pipeline.
+
 ## Checks
 
 ```powershell

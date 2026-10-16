@@ -18,13 +18,18 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             length=int(self.headers.get('Content-Length','0'))
-            if not 0<length<=450000:
+            if not 0<length<=4000000:
                 raise ValueError('Drawing exceeds the supported size.')
             if self.headers.get('Content-Type','').split(';')[0]!='application/json':
                 raise ValueError('Send a JSON drawing.')
             request=json.loads(self.rfile.read(length))
-            if not isinstance(request,dict) or request.get('action') not in ('preview','stl'):
+            if not isinstance(request,dict) or request.get('action') not in ('preview','stl','section'):
                 raise ValueError('Unknown drawing action.')
+            if request['action']=='section':
+                request={**request,'action':'preview','document':{**request.get('document',{}),'cuts':[]}}
+                mesh=engine.build(request)
+                self.respond(200,json.dumps(mesh.metadata['section'],allow_nan=False).encode(),'application/json')
+                return
             mesh=engine.build(request)
             if request['action']=='stl':
                 body=mesh.export(file_type='stl'); content='model/stl'

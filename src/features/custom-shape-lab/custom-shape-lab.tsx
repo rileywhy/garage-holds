@@ -1,4 +1,6 @@
 "use client";
+
+import { cloneCut } from "./cut-profiles";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
@@ -28,7 +30,11 @@ import {
   normalizeParameters,
 } from "./controls";
 import styles from "./custom-shape-lab.module.css";
+import { BrushSizeControl } from "./brush-size-control";
 import { drawingContours } from "./drawing-preview";
+import { smoothStroke } from "./smoothing";
+import { CutProfileEditor } from "./cut-profile-editor";
+import type { CutProfile, CutEdge } from "./cut-profiles";
 
 const defaults = DEFAULT_PARAMETERS;
 const initialDocument = exampleDocument();
@@ -43,16 +49,42 @@ const endpoint =
   process.env.NODE_ENV === "development"
     ? "/api/custom-shape"
     : "/api/custom_shape";
-type Tool = "brush" | "eraser" | "hole";
+type Tool = "brush" | "eraser" | "smooth" | "hole";
 const VIEWS: [ViewName, string][] = [
-  ["three-quarter", "3d"],
-  ["board", "board preview"],
-  ["side", "side"],
-  ["angled-side", "angled side"],
-  ["top", "above"],
-  ["front", "front"],
+  ["three-quarter", "3D overview"],
+  ["board", "On a board"],
+  ["side", "Side"],
+  ["angled-side", "Angled side"],
+  ["top", "Above"],
+  ["front", "Front"],
 ];
 export function CustomShapeLab() {
+  const [mode, setMode] = useState<"shape" | "cuts" | "preview">("shape");
+  const [documentSnapshot, setDocumentSnapshot] = useState(() =>
+    serializeDocument(initialDocument),
+  );
+  const [draftCut, setDraftCut] = useState<CutProfile | null>(null);
+  const cutRotation = useRef(0);
+  const lastMesh = useRef<ReturnType<typeof decodePreview> | null>(null);
+  const previewGeneration = useRef(0);
+  function orientCutView(edge: CutEdge, viewBased: boolean) {
+    const angles = viewBased
+      ? { right: 0, left: Math.PI, top: -Math.PI / 2, bottom: Math.PI / 2 }
+      : { top: Math.PI, bottom: 0, left: Math.PI / 2, right: -Math.PI / 2 };
+    cutRotation.current = angles[edge];
+    if (lastMesh.current)
+      viewer.current?.setGeometry(
+        previewMesh(lastMesh.current).rotateZ(cutRotation.current),
+      );
+    setView("side");
+    viewer.current?.setView("side");
+  }
+  function clearCutView() {
+    cutRotation.current = 0;
+    if (lastMesh.current)
+      viewer.current?.setGeometry(previewMesh(lastMesh.current));
+  }
+  const [smoothStrength, setSmoothStrength] = useState(0.8);
   const canvas = useRef<HTMLCanvasElement>(null),
     container = useRef<HTMLDivElement>(null),
     viewer = useRef<Viewer | null>(null);
@@ -191,6 +223,7 @@ export function CustomShapeLab() {
   }, []);
   useEffect(() => {
     const controller = new AbortController();
+    const generation = previewGeneration.current;
     const timer = setTimeout(async () => {
       await previewFlight.current;
       if (controller.signal.aborted) return;
@@ -203,7 +236,17 @@ export function CustomShapeLab() {
             body: JSON.stringify({
               action: "preview",
               previewEncoding: "binary",
-              document: serializeDocument(drawing.current),
+              document: {
+                ...serializeDocument(drawing.current),
+                cuts: draftCut
+                  ? [
+                      ...drawing.current.cuts
+                        .filter((c) => c.id !== draftCut.id)
+                        .map(cloneCut),
+                      cloneCut(draftCut),
+                    ]
+                  : drawing.current.cuts.map(cloneCut),
+              },
               parameters,
             }),
           });
@@ -212,15 +255,27 @@ export function CustomShapeLab() {
             throw new Error(error.error ?? "Could not generate the hold.");
           }
           const data = decodePreview(await response.arrayBuffer());
-          if (controller.signal.aborted || active.current?.changed) return;
-          viewer.current?.setGeometry(previewMesh(data), revision === 0);
+          if (
+            controller.signal.aborted ||
+            generation !== previewGeneration.current ||
+            active.current?.changed
+          )
+            return;
+          lastMesh.current = data;
+          viewer.current?.setGeometry(
+            previewMesh(data).rotateZ(cutRotation.current),
+            revision === 0,
+          );
           setReady(true);
           setFittedSeat(data.seatDepth);
           setMessage(
             `Preview is current · ${data.volume_cm3} cm³ · grid 10 mm`,
           );
         } catch (error) {
-          if (!controller.signal.aborted) {
+          if (
+            !controller.signal.aborted &&
+            generation === previewGeneration.current
+          ) {
             setReady(false);
             setMessage(
               error instanceof Error
@@ -239,7 +294,7 @@ export function CustomShapeLab() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [revision, parameters]);
+  }, [revision, parameters, draftCut]);
   function checkpoint() {
     undo.current.push(cloneDocument(drawing.current));
     if (undo.current.length > 30) undo.current.shift();
@@ -248,6 +303,7 @@ export function CustomShapeLab() {
   function commit() {
     materialDirty.current = true;
     setDrawingHeight(materialHeight(drawing.current, 1));
+    setDocumentSnapshot(serializeDocument(drawing.current));
     setParameters((p) => {
       const next = normalizeParameters(
         p,
@@ -321,7 +377,9 @@ export function CustomShapeLab() {
         );
     } else {
       checkpoint();
-      stroke(drawing.current, p, p, diameter, tool === "eraser");
+      if (tool === "smooth")
+        smoothStroke(drawing.current, p, p, diameter, smoothStrength);
+      else stroke(drawing.current, p, p, diameter, tool === "eraser");
       materialDirty.current = true;
       active.current = { point: p, changed: true };
       setReady(false);
@@ -350,7 +408,22 @@ export function CustomShapeLab() {
           setReady(false);
         }
       } else {
-        stroke(drawing.current, gesture.point, p, diameter, tool === "eraser");
+        if (tool === "smooth")
+          smoothStroke(
+            drawing.current,
+            gesture.point,
+            p,
+            diameter,
+            smoothStrength,
+          );
+        else
+          stroke(
+            drawing.current,
+            gesture.point,
+            p,
+            diameter,
+            tool === "eraser",
+          );
         materialDirty.current = true;
         gesture.point = p;
         gesture.changed = true;
@@ -373,6 +446,7 @@ export function CustomShapeLab() {
     }
   }
   const onHistoryShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (mode === "cuts") return;
     if (
       event.defaultPrevented ||
       event.isComposing ||
@@ -485,11 +559,95 @@ export function CustomShapeLab() {
     setBoardAngle(angle);
     viewer.current?.setBoardAngle(angle);
   }
+  const previewHasError =
+    !ready &&
+    !["Updating", "Preview is current", "Preparing"].some((prefix) =>
+      message.startsWith(prefix),
+    );
   return (
-    <div className={styles.layout}>
-      <section className={styles.panel} aria-label="Paint editor">
-        <div className={styles.toolbar}>
-          {(["brush", "eraser", "hole"] as const).map((t) => (
+    <div
+      className={`${styles.layout} ${mode === "preview" ? styles.previewOnly : ""}`}
+    >
+      <div className={styles.modes} role="group" aria-label="Editing mode">
+        {(
+          [
+            ["shape", "Shape"],
+            ["cuts", "Cut Profiles"],
+            ["preview", "Preview"],
+          ] as const
+        ).map(([value, label], index) => (
+          <button
+            key={value}
+            aria-pressed={mode === value}
+            onClick={() => {
+              finish();
+              clearCutView();
+              setDraftCut(null);
+              setReady(false);
+              setRevision((r) => r + 1);
+              setMode(value);
+            }}
+          >
+            <span className={styles.stepNumber} aria-hidden="true">
+              {index + 1}
+            </span>
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === "cuts" && (
+        <CutProfileEditor
+          onPreviewPending={() => {
+            previewGeneration.current++;
+            setReady(false);
+          }}
+          onView={orientCutView}
+          document={documentSnapshot}
+          parameters={parameters}
+          endpoint={endpoint}
+          onPreview={(cut) => {
+            if (cut === draftCut) return;
+            setDraftCut(cut);
+            setReady(false);
+          }}
+          onApply={(cuts) => {
+            checkpoint();
+            drawing.current.cuts = cuts;
+            setDraftCut(null);
+            commit();
+          }}
+          onHistory={history}
+          undoCount={editorState.undo}
+          redoCount={editorState.redo}
+          previewReadyId={ready && draftCut ? draftCut.id : null}
+          previewError={
+            draftCut &&
+            !ready &&
+            !message.startsWith("Preview is current") &&
+            !message.startsWith("Updating")
+              ? message
+              : ""
+          }
+        />
+      )}
+      <section
+        hidden={mode !== "shape"}
+        className={styles.panel}
+        aria-label="Paint editor"
+      >
+        <div className={styles.panelHeading}>
+          <div>
+            <h2>Paint your shape</h2>
+            <p>Draw the outline of your hold, then add mounting holes.</p>
+          </div>
+          <span className={styles.badge}>Top view</span>
+        </div>
+        <div
+          className={styles.toolbar}
+          role="group"
+          aria-label="Painting tools"
+        >
+          {(["brush", "eraser", "smooth", "hole"] as const).map((t) => (
             <button
               key={t}
               aria-pressed={tool === t}
@@ -499,9 +657,13 @@ export function CustomShapeLab() {
                 ? "Mounting hole"
                 : t === "brush"
                   ? "Brush"
-                  : "Eraser"}
+                  : t === "smooth"
+                    ? "Smooth"
+                    : "Eraser"}
             </button>
           ))}
+        </div>
+        <div className={styles.historyBar}>
           <button
             disabled={!editorState.undo}
             onClick={() => history("undo")}
@@ -518,42 +680,61 @@ export function CustomShapeLab() {
           >
             Redo
           </button>
-          <button
-            onClick={() => {
-              checkpoint();
-              drawing.current = emptyDocument();
-              commit();
-            }}
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              checkpoint();
-              drawing.current = exampleDocument();
-              commit();
-            }}
-          >
-            Example shape
-          </button>
+          <details className={styles.moreActions}>
+            <summary>Canvas options</summary>
+            <button
+              onClick={() => {
+                checkpoint();
+                drawing.current = emptyDocument();
+                commit();
+              }}
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => {
+                checkpoint();
+                drawing.current = exampleDocument();
+                commit();
+              }}
+            >
+              Example shape
+            </button>
+          </details>
         </div>
         {tool !== "hole" && (
+          <BrushSizeControl
+            label={`${tool} size`}
+            value={(diameter * parameters.scale) / RESOLUTION}
+            min={(2 * parameters.scale) / RESOLUTION}
+            max={(100 * parameters.scale) / RESOLUTION}
+            onChange={(mm) =>
+              tool === "eraser"
+                ? setEraser((mm * RESOLUTION) / parameters.scale)
+                : setBrush((mm * RESOLUTION) / parameters.scale)
+            }
+          />
+        )}
+        <p className={styles.toolHint}>
+          {tool === "hole"
+            ? "Click to add a screw hole. Drag a red hole to reposition it."
+            : tool === "smooth"
+              ? "Brush along the blue edge to soften bumps and fill small notches."
+              : tool === "eraser"
+                ? "Brush over blue material to remove it. Undo brings it back."
+                : "Paint blue to add material. Keep your shape connected."}
+        </p>
+        {tool === "smooth" && (
           <label className={styles.slider}>
-            {tool === "brush" ? "Brush" : "Eraser"} diameter{" "}
-            <span>
-              {Math.round((diameter * parameters.scale) / RESOLUTION)} mm
-            </span>
+            Smooth strength <span>{Math.round(smoothStrength * 100)}%</span>
             <input
-              aria-label={`${tool} size`}
+              aria-label="Smooth strength"
               type="range"
-              min={2}
-              max={100}
-              value={diameter}
-              onChange={(e) =>
-                tool === "brush"
-                  ? setBrush(+e.target.value)
-                  : setEraser(+e.target.value)
-              }
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={smoothStrength}
+              onChange={(e) => setSmoothStrength(+e.target.value)}
             />
           </label>
         )}
@@ -576,8 +757,9 @@ export function CustomShapeLab() {
           }}
         />
         <p className={styles.hint}>
-          Blue: material · red: screw recess · white: empty. Drag red holes to
-          move them. Scale is the width of the full canvas.
+          <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
+          <span className={styles.redKey}>Red: screw holes</span> · Canvas width{" "}
+          {parameters.scale} mm
         </p>
         <div className={styles.holes}>
           {editorState.holes.map((h, i) => (
@@ -601,30 +783,54 @@ export function CustomShapeLab() {
         className={`${styles.stage} ${styles.panel}`}
         aria-label="Generated hold"
       >
-        <div className="lab-toolbar" role="group" aria-label="Preview angle">
-          {VIEWS.map(([name, label]) => (
-            <button
-              type="button"
-              key={name}
-              aria-pressed={view === name}
-              onClick={() => {
-                setView(name);
-                viewer.current?.setView(name);
+        <div className={styles.panelHeading}>
+          <div>
+            <h2>{mode === "preview" ? "Review your hold" : "Live preview"}</h2>
+            <p>
+              {mode === "cuts"
+                ? "Your painted cut appears here automatically."
+                : "Check the shape from any angle."}
+            </p>
+          </div>
+          <span className={styles.badge}>
+            {ready
+              ? "Up to date"
+              : previewHasError
+                ? "Check settings"
+                : "Updating…"}
+          </span>
+        </div>
+        <div
+          className={`${styles.toolbar} ${styles.viewToolbar}`}
+          role="group"
+          aria-label="Preview angle"
+        >
+          <label className={styles.viewSelect}>
+            View
+            <select
+              aria-label="Camera view"
+              value={view}
+              onChange={(e) => {
+                const next = e.target.value as ViewName;
+                clearCutView();
+                setView(next);
+                viewer.current?.setView(next);
               }}
             >
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="lab-toolbar-end"
-            onClick={() => viewer.current?.fit()}
-          >
-            fit view
+              {VIEWS.map(([name, label]) => (
+                <option key={name} value={name}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={() => viewer.current?.fit()}>
+            Fit
           </button>
           <button
             type="button"
             onClick={() => {
+              clearCutView();
               setView("three-quarter");
               changeBoardAngle(DEFAULT_BOARD_ANGLE);
               viewer.current?.setView("three-quarter");
@@ -632,7 +838,7 @@ export function CustomShapeLab() {
             }}
           >
             <RotateCcw size={13} />
-            reset view
+            Reset view
           </button>
         </div>
         {view === "board" && (
@@ -672,7 +878,7 @@ export function CustomShapeLab() {
         )}
         <div
           ref={container}
-          className="lab-viewer"
+          className={`lab-viewer ${styles.viewer}`}
           role="img"
           aria-label="Interactive 3D hold preview"
         >
@@ -691,6 +897,30 @@ export function CustomShapeLab() {
               : "flat back on the wall plane"}
           </span>
         </p>
+        <div className={styles.exportBar}>
+          <p className={styles.status} role="status">
+            {previewHasError
+              ? message
+              : draftCut
+                ? ready
+                  ? "Cut ready. Apply it to include it in your STL."
+                  : "Updating your cut…"
+                : !ready && message.startsWith("Preview is current")
+                  ? "Updating preview…"
+                  : message}
+          </p>
+          <button
+            className="button button-dark"
+            disabled={!ready || exporting || !!draftCut}
+            onClick={download}
+          >
+            {exporting ? "Exporting…" : "Download STL"}
+          </button>
+        </div>
+        <div className={styles.settingsHeading}>
+          <h3>Hold settings</h3>
+          <span>Size, grip & mounting</span>
+        </div>
         <div className={styles.controlScroll}>
           {(
             [
@@ -756,8 +986,18 @@ export function CustomShapeLab() {
               },
             ] as const
           ).map((group) => (
-            <div className={styles.controls} key={group.title}>
-              <h3>{group.title}</h3>
+            <details
+              className={styles.controls}
+              key={group.title}
+              open={group.title === "Shape"}
+            >
+              <summary>
+                {group.title === "Shape"
+                  ? "Size & shape"
+                  : group.title === "Grip"
+                    ? "Grip & rounding"
+                    : "Screw holes"}
+              </summary>
               {group.title === "Grip" && (
                 <label className="lab-toggle">
                   <input
@@ -862,20 +1102,8 @@ export function CustomShapeLab() {
                     ? "Body taper makes the bottom thinner while keeping the top grabbing edge at full depth."
                     : "Seat height changes countersink depth. Manual adjustment turns auto off. Recess diameter changes the cut, never the hole centers or body dimensions."}
               </p>
-            </div>
+            </details>
           ))}
-          <p className={styles.status} role="status">
-            {!ready && message.startsWith("Preview is current")
-              ? "Updating preview…"
-              : message}
-          </p>
-          <button
-            className="button button-dark"
-            disabled={!ready || exporting}
-            onClick={download}
-          >
-            {exporting ? "Exporting…" : "Download STL"}
-          </button>
         </div>
       </section>
     </div>

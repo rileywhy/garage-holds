@@ -39,6 +39,7 @@ class GeometryTests(unittest.TestCase):
                 self.assertAlmostEqual(preview.metadata['seatDepth'],full.metadata['seatDepth'])
 
     def test_drawing_cache_reuses_outline_for_parameter_and_hole_edits(self):
+        engine.prepared_body.cache_clear()
         engine.prepare_mask.cache_clear()
         r=request()
         engine.build(r)

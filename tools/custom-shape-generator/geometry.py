@@ -1,10 +1,12 @@
 """Isolated material-mask pipeline shared by manual painting and future importers."""
 import math
+import json
 from functools import lru_cache
 import numpy as np
 import manifold3d as m
 import trimesh
 from tools.hold_mounting import Hole, drill, _inside, _room
+from .profiles import apply_cuts, reference
 
 
 def contours(mask):
@@ -86,7 +88,16 @@ def side_faces(lengths, rings):
     return np.concatenate(result).astype(np.uint32)
 
 
-def build(request):
+@lru_cache(maxsize=8)
+def prepared_body(pixels,settings,preview,has_cuts):
+    """Cut edits reuse the immutable, undrilled body and mounting checks."""
+    settings=json.loads(settings)
+    return _build_body(dict(action='preview' if preview else 'stl',
+                            document=dict(version=1,size=256,material=list(pixels),holes=settings['holes']),
+                            parameters=settings['parameters']),has_cuts)
+
+
+def _build_body(request,has_cuts):
     doc = request.get('document', {})
     size = doc.get('size')
     if doc.get('version') != 1 or size != 256:
@@ -134,7 +145,7 @@ def build(request):
     # not translate. A rounded pocket can then form a jug-like return lip.
     preview=request.get('action')=='preview'
     straight_segments=3 if preview else 13
-    arc_segments=8 if preview else 33
+    arc_segments=33 if not preview or has_cuts else 20
     side_end=2+straight_segments
     rings=side_end+arc_segments
     upper = max(np.max(np.concatenate(polygons)[:,1]),1.)
@@ -267,11 +278,33 @@ def build(request):
                 break
         else:
             raise ValueError('Move mounting holes farther from the edge or pocket, or reduce the recess diameter.')
+    return solid,polygons,center,scale,depth,positions,shank,head,seat
+
+
+def build(request):
+    doc=request.get('document',{})
+    if doc.get('version')!=1 or doc.get('size')!=256:
+        raise ValueError('Expected a version 1, 256 pixel material mask.')
+    pixels=doc.get('material')
+    if not isinstance(pixels,list) or len(pixels)!=256**2 or any(type(v) is not int or v not in (0,1) for v in pixels):
+        raise ValueError('Material mask must contain only binary pixels.')
+    has_cuts=isinstance(doc.get('cuts'),list) and any(isinstance(cut,dict) and cut.get('enabled') for cut in doc['cuts'])
+    settings=json.dumps(dict(parameters=request.get('parameters',{}),holes=doc.get('holes',[])),sort_keys=True)
+    solid,polygons,center,scale,depth,positions,shank,head,seat=prepared_body(bytes(pixels),settings,request.get('action')=='preview',has_cuts)
+    solid=apply_cuts(solid,doc.get('cuts',[]),polygons,center,scale,depth,positions,shank,head,seat)
     mounted=[Hole(x,y,shank,head,seat,False) for x,y in positions]
     solid = drill(solid,mounted,depth)
-    mesh_data=solid.to_mesh()
-    mesh=trimesh.Trimesh(vertices=mesh_data.vert_properties[:,:3],faces=mesh_data.tri_verts,process=True)
+    # Preserve Manifold's topology and precision. Proximity-based cleanup can
+    # collapse the thin triangles created where a rounded cut meets the lip.
+    mesh_data=solid.to_mesh64()
+    merged=np.arange(len(mesh_data.vert_properties),dtype=np.uint64)
+    merged[np.asarray(mesh_data.merge_from_vert,dtype=int)]=np.asarray(mesh_data.merge_to_vert,dtype=np.uint64)
+    while not np.array_equal(merged,merged[merged]):merged=merged[merged]
+    used,inverse=np.unique(merged[mesh_data.tri_verts],return_inverse=True)
+    mesh=trimesh.Trimesh(vertices=mesh_data.vert_properties[used,:3],faces=inverse.reshape((-1,3)),process=False)
     if not mesh.is_watertight or mesh.volume <= 0:
         raise ValueError('Unable to create a watertight hold from this drawing.')
     mesh.metadata["seatDepth"]=float(seat)
+    if request.get('sectionCut') is not None:
+        mesh.metadata['section']=reference(mesh,request['sectionCut'],polygons,center,scale,positions,shank,head,seat)
     return mesh
