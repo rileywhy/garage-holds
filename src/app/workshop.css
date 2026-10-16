@@ -540,10 +540,96 @@ input[type="radio"] {
   line-height: 1.8;
 }
 .site-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   max-width: 1344px;
   margin-top: 48px;
-  padding-block: 24px;
-  border-top: 2px solid var(--ink);
+  padding-block: 28px;
+  gap: 20px 32px;
+  border-top: 1px solid var(--line);
+}
+.site-footer > .footer-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.site-footer .footer-brand > span:last-child {
+  font-size: 12px;
+}
+.site-footer .contact-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  min-width: 0;
+}
+.contact-address > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  min-height: 32px;
+}
+.contact-address > a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.site-footer .contact-address button {
+  width: 28px;
+  height: 32px;
+  min-width: 28px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--muted);
+  justify-content: center;
+}
+.site-footer .contact-address button:hover {
+  background: var(--pale);
+  color: var(--ink);
+}
+.site-footer .contact-address button[data-copied="true"] {
+  color: var(--accent);
+}
+.site-footer .footer-links .contact-address {
+  margin-left: auto;
+  font-size: 12px;
+}
+.site-footer .footer-links {
+  grid-column: 1/-1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  align-items: center;
+}
+.site-footer .footer-links > a,
+.site-footer .footer-links > .feedback-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.site-footer .footer-links > a {
+  color: var(--muted);
+}
+.site-footer .footer-links > a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.site-footer .footer-disclosure {
+  grid-column: 1/-1;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  margin: 0;
+  font-size: 11px;
 }
 .footer-wordmark {
   font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
@@ -1221,5 +1307,89 @@ input[type="radio"] {
   .lab-carousel-heading p {
     order: 3;
     flex-basis: 100%;
+  }
+}
+
+/* Keep one visible toggle for the whole filter sidebar at every width. */
+.filters .filter-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.filter-sidebar-toggle[aria-expanded="true"] > svg:last-child {
+  transform: rotate(90deg);
+}
+.filter-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.filter-sidebar-content[hidden] {
+  display: none;
+}
+.design-method-filter legend {
+  padding: 0 0 10px;
+}
+.design-method-filter select {
+  width: 100%;
+}
+.catalog-filters-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.catalog-filters-collapsed > .filters {
+  padding: 0;
+  border: 0;
+  margin: 0;
+  background: none;
+}
+.catalog-filters-collapsed .filter-heading {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .filters {
+    display: block;
+  }
+  .filter-sidebar-content:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+  }
+  .design-method-filter {
+    grid-column: 1/-1;
+  }
+  .filter-sidebar-content .filter-section {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-footer {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .site-footer .footer-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 20px;
+  }
+  .site-footer .footer-links > a,
+  .site-footer .footer-links > .feedback-trigger {
+    min-height: 44px;
+    text-align: left;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-footer .footer-links .contact-address {
+    grid-column: 1/-1;
+    justify-self: end;
   }
 }

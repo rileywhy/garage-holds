@@ -12,7 +12,6 @@ import {
   SlidersHorizontal,
   X,
   Bookmark,
-  MoveUpRight,
   Plus,
 } from "lucide-react";
 import { activeFilterCount } from "./catalog";
@@ -69,7 +68,8 @@ export function CatalogBrowser({
   const router = useRouter();
   const pathname = savedOnly ? "/saved" : "/";
   const [pending, startTransition] = useTransition();
-  const [mobileFilters, setMobileFilters] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const filtersId = savedOnly ? "saved-catalog-filters" : "catalog-filters";
   const navigate = (next: Partial<CatalogQuery>) =>
     startTransition(() => {
       router.replace(catalogHref({ ...query, page: 1, ...next }, pathname), {
@@ -157,17 +157,25 @@ export function CatalogBrowser({
               : "Community designs / Model files + print recipes"}
           </span>
         </div>
-        <div className="catalog-layout">
-          <aside
-            className={`filters ${mobileFilters ? "filters-open" : ""}`}
-            aria-label="Filter holds"
-          >
+        <div
+          className={`catalog-layout ${filtersOpen ? "" : "catalog-filters-collapsed"}`}
+        >
+          <aside className="filters" aria-label="Filter holds">
             <div className="filter-heading">
               <h3>
-                <SlidersHorizontal size={15} /> Filters{" "}
-                {count > 0 && <span className="filter-count">{count}</span>}
+                <button
+                  type="button"
+                  className="filter-sidebar-toggle"
+                  aria-expanded={filtersOpen}
+                  aria-controls={filtersId}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                >
+                  <SlidersHorizontal size={15} aria-hidden="true" /> Filters
+                  {count > 0 && <span className="filter-count">{count}</span>}
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
               </h3>
-              {count > 0 && (
+              {filtersOpen && count > 0 && (
                 <button
                   type="button"
                   onClick={() =>
@@ -182,16 +190,13 @@ export function CatalogBrowser({
                 </button>
               )}
             </div>
-            <details
-              className="filter-section"
-              open={Boolean(query.designMethod)}
+            <div
+              id={filtersId}
+              className="filter-sidebar-content"
+              hidden={!filtersOpen}
             >
-              <summary>
-                <ChevronRight size={14} aria-hidden="true" /> Design method
-                {query.designMethod && <span className="filter-count">1</span>}
-              </summary>
-              <fieldset className="filter-group">
-                <legend className="sr-only">Design method</legend>
+              <fieldset className="filter-group design-method-filter">
+                <legend>Design method</legend>
                 <select
                   aria-label="Design method"
                   value={query.designMethod}
@@ -207,84 +212,82 @@ export function CatalogBrowser({
                   <option value="generated">Generated</option>
                 </select>
               </fieldset>
-            </details>
-            {groups.map((group) => (
+              {groups.map((group) => (
+                <details
+                  className="filter-section"
+                  key={group.key}
+                  open={group.key === "types" || query[group.key].length > 0}
+                >
+                  <summary>
+                    <ChevronRight size={14} aria-hidden="true" /> {group.label}
+                    {query[group.key].length > 0 && (
+                      <span className="filter-count">
+                        {query[group.key].length}
+                      </span>
+                    )}
+                  </summary>
+                  <fieldset className="filter-group">
+                    <legend className="sr-only">{group.label}</legend>
+                    {group.values.map((value) => (
+                      <label className="checkbox-row" key={value}>
+                        <input
+                          type="checkbox"
+                          checked={query[group.key].includes(value as never)}
+                          onChange={() => toggle(group.key, value)}
+                        />
+                        <span>{value}</span>
+                        {group.key === "types" && typeCounts && (
+                          <span className="facet-count">
+                            {typeCounts[value as HoldType] ?? 0}
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </fieldset>
+                </details>
+              ))}
               <details
                 className="filter-section"
-                key={group.key}
-                open={group.key === "types" || query[group.key].length > 0}
+                open={query.targetGrade !== null}
               >
                 <summary>
-                  <ChevronRight size={14} aria-hidden="true" /> {group.label}
-                  {query[group.key].length > 0 && (
-                    <span className="filter-count">
-                      {query[group.key].length}
-                    </span>
+                  <ChevronRight size={14} aria-hidden="true" /> Suggested grade
+                  {query.targetGrade !== null && (
+                    <span className="filter-count">1</span>
                   )}
                 </summary>
-                <fieldset className="filter-group">
-                  <legend className="sr-only">{group.label}</legend>
-                  {group.values.map((value) => (
-                    <label className="checkbox-row" key={value}>
-                      <input
-                        type="checkbox"
-                        checked={query[group.key].includes(value as never)}
-                        onChange={() => toggle(group.key, value)}
-                      />
-                      <span>{value}</span>
-                      {group.key === "types" && typeCounts && (
-                        <span className="facet-count">
-                          {typeCounts[value as HoldType] ?? 0}
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                </fieldset>
+                <div className="filter-group angle-filter">
+                  <label htmlFor="target-grade">
+                    Suggested grade at {GRADE_BOARD_ANGLE}°
+                  </label>
+                  <select
+                    id="target-grade"
+                    value={query.targetGrade ?? ""}
+                    onChange={(event) =>
+                      navigate({
+                        targetGrade:
+                          event.target.value === ""
+                            ? null
+                            : Number(event.target.value),
+                      })
+                    }
+                  >
+                    <option value="">Any grade</option>
+                    {PROBLEM_GRADES.map((grade) => (
+                      <option value={grade} key={grade}>
+                        {formatProblemGrade(grade)}
+                      </option>
+                    ))}
+                  </select>
+                  <p>Creator suggestions for problems on a 40° board.</p>
+                </div>
               </details>
-            ))}
-            <details
-              className="filter-section"
-              open={query.targetGrade !== null}
-            >
-              <summary>
-                <ChevronRight size={14} aria-hidden="true" /> Suggested grade
-                {query.targetGrade !== null && (
-                  <span className="filter-count">1</span>
-                )}
-              </summary>
-              <div className="filter-group angle-filter">
-                <label htmlFor="target-grade">
-                  Suggested grade at {GRADE_BOARD_ANGLE}°
-                </label>
-                <select
-                  id="target-grade"
-                  value={query.targetGrade ?? ""}
-                  onChange={(event) =>
-                    navigate({
-                      targetGrade:
-                        event.target.value === ""
-                          ? null
-                          : Number(event.target.value),
-                    })
-                  }
-                >
-                  <option value="">Any grade</option>
-                  {PROBLEM_GRADES.map((grade) => (
-                    <option value={grade} key={grade}>
-                      {formatProblemGrade(grade)}
-                    </option>
-                  ))}
-                </select>
-                <p>Creator suggestions for problems on a 40° board.</p>
+              <div className="sidebar-note">
+                <Link href="/upload">
+                  Share your design <ArrowUpRight size={13} />
+                </Link>
+                <p>Add your model files and print settings.</p>
               </div>
-            </details>
-            <div className="sidebar-note">
-              <MoveUpRight size={19} />
-              <strong>Share a hold you made</strong>
-              <p>Add your model files and print settings.</p>
-              <Link href="/upload">
-                Share your design <ArrowUpRight size={13} />
-              </Link>
             </div>
           </aside>
           <div className="catalog-results" aria-busy={pending}>
@@ -307,14 +310,6 @@ export function CatalogBrowser({
                   </button>
                 )}
               </div>
-              <button
-                className="mobile-filter-button button button-outline"
-                aria-expanded={mobileFilters}
-                onClick={() => setMobileFilters((current) => !current)}
-              >
-                <SlidersHorizontal size={15} /> Filters
-                {count > 0 && ` (${count})`}
-              </button>
               <label className="sort-control">
                 <span>Sort:</span>
                 <select

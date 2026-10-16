@@ -81,13 +81,12 @@ export function SiteHeader({
 export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="site-footer">
-      <div>
+      <div className="footer-brand">
         <span className="footer-wordmark">Garage Holds</span>
         <span>grips for your board.</span>
       </div>
-      <div className="footer-links">
+      <nav className="footer-links" aria-label="Footer">
         <FeedbackWidget signedIn={signedIn} />
-        {CONTACT_EMAIL && <ContactAddress email={CONTACT_EMAIL} />}
         <Link href="/how-to-3d-print-climbing-holds">How to print holds</Link>
         {TIP_URL && (
           <a
@@ -100,9 +99,10 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
           </a>
         )}
         <Link href="/upload">
-          Share a design <ArrowUpRight size={15} />
+          Share your design <ArrowUpRight size={15} />
         </Link>
-      </div>
+        {CONTACT_EMAIL && <ContactAddress email={CONTACT_EMAIL} />}
+      </nav>
       {amazonTag() && <p className="footer-disclosure">{AMAZON_DISCLOSURE}</p>}
     </footer>
   );
@@ -141,10 +141,17 @@ function ContactAddress({ email }: { email: string }) {
         type="button"
         onClick={copy}
         aria-label={copied ? "Email address copied" : "Copy email address"}
-        title="Copy address"
+        title={copied ? "Email address copied" : "Copy email address"}
+        data-copied={copied}
       >
-        {copied ? <Check size={13} /> : <Copy size={13} />}
-        <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+        {copied ? (
+          <Check size={14} aria-hidden="true" />
+        ) : (
+          <Copy size={14} aria-hidden="true" />
+        )}
+        <span className="sr-only" aria-live="polite">
+          {copied ? "Copied" : "Copy email"}
+        </span>
       </button>
     </span>
   );
