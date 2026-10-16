@@ -19,9 +19,12 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run test:smoke
 ```
 
-GitHub Actions runs the same five commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the crimp generator's Python tests and the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
+`npm run test:smoke` starts the build with `next start` and requests every page, failing on any server error; most pages render per request, so `next build` alone never runs them. Without a `.env.local` it checks the "not configured" paths, as CI does; `SMOKE_URL=<address>` points it at a running site instead.
+
+GitHub Actions runs the same six commands on every pull request and on pushes to `main` (`.github/workflows/ci.yml`), plus the crimp generator's Python tests and the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](docs/local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
 With the five lab generators running (see [docs/sandbox.md](docs/sandbox.md)), `npm run test:e2e` checks each parametric lab's default output end to end: the first preview, the settings the sliders hold, the link and the exported STL, against `tests/fixtures/lab-defaults.json`.
 

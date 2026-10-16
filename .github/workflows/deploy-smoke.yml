@@ -1,0 +1,85 @@
+name: Deploy smoke
+
+# After every successful Vercel deployment, request every page of the deployed
+# site and each lab generator's schema (tests/smoke/routes.test.ts with
+# SMOKE_URL). CI smokes the build without any environment variables; this
+# runs the real configuration, and the Python generators, which only Vercel
+# runs. On 2026-10-16 a merge to main crashed the home page for nine minutes
+# and nothing noticed.
+#
+# A preview fails this check on any server error. Production checks
+# garageholds.com itself, retries once, and posts a failure to Discord naming
+# the commit, because by then the change is live.
+on: deployment_status
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment_url != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Vercel's deployment ref is the commit sha, so a preview's check is
+    # replaced only by a redeploy of the same commit. Production checks share
+    # one group: garageholds.com serves only the newest deployment, so its
+    # check replaces an older one's instead of alerting twice. Set on the job,
+    # so the pending and inactive events (skipped above) never cancel a check.
+    concurrency:
+      group: deploy-smoke-${{ startsWith(github.event.deployment.environment, 'Production') && 'production' || github.event.deployment.ref }}
+      cancel-in-progress: true
+    env:
+      # Vercel names the environments "Production" and "Preview".
+      PRODUCTION: ${{ startsWith(github.event.deployment.environment, 'Production') }}
+      # Previews are behind Vercel Authentication; production ignores the
+      # header.
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      # The deployment's own commit, so the test matches the routes it serves.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Smoke the preview
+        if: env.PRODUCTION != 'true'
+        env:
+          SMOKE_URL: ${{ github.event.deployment_status.environment_url }}
+        run: npm run test:smoke
+
+      # Production checks the domain people use. The alias moves to the new
+      # deployment around the time this event arrives, so wait a minute first,
+      # and retry once so one cold start or slow answer is not an outage.
+      - name: Smoke garageholds.com
+        id: production
+        if: env.PRODUCTION == 'true'
+        env:
+          SMOKE_URL: https://garageholds.com
+        run: |
+          sleep 60
+          npm run test:smoke 2>&1 | tee smoke.log && exit 0
+          echo "::warning::Smoke test failed; retrying in 30 s"
+          sleep 30
+          npm run test:smoke 2>&1 | tee smoke.log
+
+      - name: Post the failure to Discord
+        if: failure() && steps.production.outcome == 'failure'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+          SHA: ${{ github.event.deployment.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          subject=$(git log -1 --format=%s "$SHA")
+          # The first few failing tests name the broken routes: "not ok" lines
+          # from the TAP reporter Node 22 uses when piped, ✖ lines from spec.
+          failures=$(grep -E '^not ok|✖' smoke.log | grep -v 'failing tests' | head -5 | sed 's/^ *//')
+          content=$(printf '🔴 garageholds.com failed its smoke test after deploying %s "%s"\n%s\n%s' \
+            "${SHA:0:7}" "$subject" "$failures" "$RUN_URL" | head -c 1900)
+          echo "$content"
+          [ -z "$WEBHOOK" ] || curl -sS -o /dev/null --max-time 20 \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg content "$content" '{content: $content}')" "$WEBHOOK"

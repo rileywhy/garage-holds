@@ -51,6 +51,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # Requests every route of the build with no environment variables set;
+      # pages that render per request only ever run here.
+      - run: npm run test:smoke
 
   ownership:
     name: Ownership tests on a local Supabase stack

@@ -12,6 +12,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:integration": "tsx --test tests/integration/*.test.ts",
     "test:e2e": "tsx --test tests/e2e/*.test.ts",
+    "test:smoke": "tsx --test tests/smoke/*.test.ts",
     "format": "prettier --write src tests eslint.config.mjs next.config.ts tsconfig.json package.json README.md tools/crimp-generator/web tools/crimp-generator/README.md tools/sloper-generator/web tools/sloper-generator/README.md tools/jug-generator/web tools/jug-generator/README.md",
     "format:check": "prettier --check src tests eslint.config.mjs next.config.ts tsconfig.json package.json README.md tools/crimp-generator/web tools/crimp-generator/README.md tools/sloper-generator/web tools/sloper-generator/README.md tools/jug-generator/web tools/jug-generator/README.md",
     "db:start": "supabase start",

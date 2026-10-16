@@ -291,8 +291,8 @@ file's row and that object answers a HEAD in R2, and 503 when either fails;
 a page render alone cannot tell, because signing happens locally and the
 catalog degrades quietly. The response is never cached.
 
-`.github/workflows/uptime.yml` fetches the home page and `/api/health` on a
-schedule (and on demand from the Actions tab), passing on HTTP 200 within
+`.github/workflows/uptime.yml` fetches the home page, `/make`, the Crimp
+Lab and `/api/health` on a schedule (and on demand from the Actions tab), passing on HTTP 200 within
 20 seconds with one retry after 10 seconds. When a URL goes down it posts
 one line to a Discord webhook naming the URL and the status code or
 timeout, and one line when it is back; it remembers the previous state in
@@ -307,6 +307,36 @@ a repository with no commits for 60 days. Treat the workflow as a backstop
 and point an outside monitor (UptimeRobot or Better Stack, free tiers check
 every 5 minutes and can post to the same Discord webhook) at
 `https://garageholds.com/api/health`.
+
+## Smoke test after each deploy
+
+`.github/workflows/deploy-smoke.yml` runs `npm run test:smoke` against
+every deployment Vercel reports as ready (GitHub's `deployment_status`
+event), with `SMOKE_URL` set to the deployed site. It requests every page,
+fails on any 5xx, and also fetches each generator's schema from
+`/api/crimp`, `/api/sloper`, `/api/jug`, `/api/foot` and `/api/pocket`,
+which only a deployment can serve because the Python functions run on Vercel alone.
+
+- **Preview deployments** are checked at their own URL. A server error
+  fails the check, which shows on the pull request beside CI, so look at it
+  before merging.
+- **Production** is checked at `https://garageholds.com` a minute after
+  the deployment is ready, so the domain has moved to it, with one retry
+  30 seconds later. A failure posts one line to `DISCORD_ALERT_WEBHOOK`
+  naming the commit, its first failing routes and the run. The fix is a
+  rollback in Vercel (Deployments → the previous production deployment →
+  Instant Rollback) while the commit is reverted.
+
+Repository secrets it reads (Settings → Secrets and variables → Actions):
+
+| Secret                            | Needed for                                     | Where to find it                                                                                                                                                                                                                                                                                                           |
+| --------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_ALERT_WEBHOOK`           | Production failure alerts (shared with uptime) | Already set for the uptime check; the same URL as `ALERT_WEBHOOK_URL` works. Without it the line is only logged                                                                                                                                                                                                            |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Previews behind Vercel's deployment protection | Vercel → Project → Settings → Deployment Protection → Protection Bypass for Automation → generate. The test sends it as the `x-vercel-protection-bypass` header. Previews use Vercel Authentication (every request redirects to Vercel's login), so without it every preview check fails with a message naming this secret |
+
+Locally, the same check runs against any deployment:
+`SMOKE_URL=https://<deployment>.vercel.app npm run test:smoke`, adding
+`VERCEL_AUTOMATION_BYPASS_SECRET=…` for a protected preview.
 
 ## Crimp Lab's Python function
 
