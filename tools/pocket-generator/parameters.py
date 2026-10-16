@@ -16,8 +16,8 @@ class Parameters:
     through: bool = False
     # The body, before overall scale.
     size: float = 100
-    width: float = 92
-    height: float = 92
+    width: float = 94
+    height: float = 94
     depth: float = 50
     roundness: float = 100
     edge_rounding: float = 10
@@ -274,8 +274,8 @@ PRESETS = {
         opening_height=26,
         pocket_depth=36,
         floor_angle=15,
-        width=76,
-        height=76,
+        width=80,
+        height=80,
         depth=46,
     ),
     "Three-finger pocket": replace(
@@ -295,7 +295,7 @@ PRESETS = {
         opening_height=30,
         pocket_depth=26,
         floor_angle=-12,
-        lip_radius=13,
+        lip_radius=10,
         crown=25,
         width=100,
         height=100,
@@ -305,10 +305,10 @@ PRESETS = {
         BASE,
         roundness=25,
         width=124,
-        height=74,
+        height=80,
         depth=42,
         opening_height=26,
-        pocket_depth=30,
+        pocket_depth=32,
         floor_angle=15,
     ),
 }

@@ -1,3 +1,4 @@
+import math
 import random
 import sys
 import unittest
@@ -8,7 +9,7 @@ import manifold3d as manifold
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import FLOOR, MARGIN, build, pocket
+from geometry import FLOOR, MARGIN, build, largest, lip_limit, lip_reach, pocket, slot
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
 from tools.hold_mounting import _inside
@@ -74,8 +75,9 @@ class PocketTests(unittest.TestCase):
             replace(
                 PRESETS["Two-finger pocket"],
                 pocket_depth=50,
-                floor_angle=35,
-                size=50,
+                floor_angle=25,
+                lip_radius=6,
+                size=60,
                 screws=False,
             )
         )
@@ -126,13 +128,130 @@ class PocketTests(unittest.TestCase):
                         f"hole at {hole.x:.1f}, {hole.y:.1f} meets the pocket",
                     )
 
+    def test_cavity_deepest_point_lies_on_the_floor(self):
+        # Riley's drawing: the pocket's section is a C whose deepest point is
+        # at the floor, at the back, with the roof sweeping down to meet it;
+        # the floor runs straight from the lower lip to that point.
+        for name in ("Two-finger pocket", "Three-finger pocket", "Mono"):
+            p = PRESETS[name]
+            with self.subTest(name=name):
+                depth = p.depth * p.size / 100
+                angle = math.radians(p.floor_angle)
+                cut = slot(p, depth, "export")
+                vertices = cut.to_mesh().vert_properties[:, :3]
+                deepest = vertices[np.argmin(vertices[:, 2])]
+                self.assertAlmostEqual(
+                    deepest[1],
+                    -p.opening_height / 2 + p.pocket_depth * math.sin(angle),
+                    delta=1.5,
+                )
+                self.assertAlmostEqual(
+                    deepest[2], depth - p.pocket_depth * math.cos(angle), delta=1.5
+                )
+                for fraction in (0.25, 0.5, 0.75):
+                    z = depth - fraction * p.pocket_depth * math.cos(angle)
+                    section = largest(cut.slice(z))
+                    floor = -p.opening_height / 2 + (depth - z) * math.tan(angle)
+                    self.assertAlmostEqual(section[:, 1].min(), floor, delta=1.0)
+                    height = section[:, 1].max() - section[:, 1].min()
+                    full = p.opening_height * math.sqrt(1 - fraction**2)
+                    self.assertLess(height, full / math.cos(angle) + 1.5)
+                    self.assertGreater(height, full * 0.8)
+
+    def test_lip_has_no_creases(self):
+        # A rounded lip: along section curves through the roof, floor and
+        # side lips, no bend sharper than the facets themselves, whatever
+        # the floor angle, the body's crown and taper, or a seeded wobble;
+        # an open pocket too. The curves are read off the finished solid.
+        cases = [
+            PRESETS["Two-finger pocket"],
+            PRESETS["Three-finger pocket"],
+            replace(PRESETS["Mono"], floor_angle=30, lip_radius=18),
+            replace(PRESETS["Slopey pocket"], floor_angle=-20),
+            replace(PRESETS["Two-finger pocket"], through=True, floor_angle=35),
+            replace(
+                PRESETS["Two-finger pocket"], crown=50, taper=40, character=0.8, seed=7
+            ),
+        ]
+        for p in cases:
+            with self.subTest(values=asdict(p)):
+                model = build(replace(p, screws=False), "export")
+                b = model.parameters
+                depth = b.depth * b.size / 100
+                lip = min(b.lip_radius, lip_limit(b))
+                reach = lip_reach(b)
+                half_h = b.opening_height / 2 / math.cos(math.radians(b.floor_angle))
+                solid = manifold.Manifold(
+                    manifold.Mesh(
+                        np.asarray(model.mesh.vertices, dtype=np.float32),
+                        np.asarray(model.mesh.faces, dtype=np.uint32),
+                    )
+                )
+                floor = depth - 2 * lip - 2
+                worst, examined = 0.0, 0
+                # Planes x = x0 give (z, y) and cut the roof and floor lips
+                # squarely; the plane y = 0 gives (x, -z) through the side
+                # lips; planes at 45 degrees through each corner's arc centre
+                # cut the corner lips. Planes grazing the tilted floor or
+                # roof would turn sharply where they leave the cavity, so
+                # none are used.
+                run = max(b.opening_width - b.opening_height, 0) / 2
+                planes = (
+                    [
+                        (solid.rotate((0, 90, 0)), -x0, lambda c: (c[1], c[0]), half_h)
+                        for x0 in (0.0, run + 2, -(run + 2))
+                    ]
+                    + [
+                        (
+                            solid.rotate((90, 0, 0)),
+                            0.0,
+                            lambda c: (c[0], -c[1]),
+                            b.opening_width / 2,
+                        )
+                    ]
+                    + [
+                        (
+                            solid.rotate((0, 0, -sign * 45)).rotate((0, 90, 0)),
+                            -sign * run * math.cos(math.radians(45)),
+                            lambda c: (c[1], c[0]),
+                            max(b.opening_width, b.opening_height) / 2,
+                        )
+                        for sign in (1, -1)
+                    ]
+                )
+                for turned, offset, axes, half in planes:
+                    for polygon in turned.slice(offset).simplify(0.2).to_polygons():
+                        points = np.asarray(polygon)
+                        before, after = (
+                            np.roll(points, 1, axis=0),
+                            np.roll(points, -1, axis=0),
+                        )
+                        v1, v2 = points - before, after - points
+                        cross = v1[:, 0] * v2[:, 1] - v1[:, 1] * v2[:, 0]
+                        dot = (v1 * v2).sum(axis=1)
+                        turning = np.degrees(np.abs(np.arctan2(cross, dot)))
+                        along, out = axes(points.T)
+                        band = (np.abs(along) <= half + reach + 3) & (out >= floor)
+                        if band.any():
+                            worst = max(worst, float(turning[band].max()))
+                            examined += int(band.sum())
+                self.assertGreater(examined, 40)
+                self.assertLess(worst, 35, f"a {worst:.0f} degree bend in the lip band")
+
     def test_mono_opening_is_round(self):
+        # Equal width and height give a round hole at the face; the lip's
+        # reach around it varies a little with the wall it leaves and the
+        # face it meets, so the shadow is only roughly opening plus two lips.
         p = replace(PRESETS["Mono"], floor_angle=0, screws=False)
+        depth = p.depth * p.size / 100
         _, cut, _, _, _ = pocket(p, "preview")
+        lo, hi = np.array(slot(p, depth, "preview").slice(depth).bounds()).reshape(2, 2)
+        mouth = hi - lo
+        self.assertAlmostEqual(mouth[0], mouth[1], delta=0.3)
+        self.assertAlmostEqual(mouth[0], p.opening_width, delta=0.5)
         lo, hi = np.array(cut.project().bounds()).reshape(2, 2)
-        size = hi - lo
-        self.assertAlmostEqual(size[0], size[1], delta=0.3)
-        self.assertAlmostEqual(size[0], p.opening_width + 2 * p.lip_radius, delta=0.5)
+        for size in hi - lo:
+            self.assertAlmostEqual(size, p.opening_width + 2 * p.lip_radius, delta=6)
 
     def test_scale_applies_to_the_body_only(self):
         p = replace(PRESETS["Two-finger pocket"], screws=False)
