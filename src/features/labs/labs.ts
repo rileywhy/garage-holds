@@ -1,7 +1,11 @@
-// The one list of labs. The hub draws its cards from it and every lab page
-// draws its navigation from it, so adding a lab here adds it everywhere.
+// Every lab's slug. A new lab is added here and to LABS below; a table keyed
+// by LabSlug, like the carousel's artwork framing, then needs its entry
+// before the type checker is satisfied.
+export type LabSlug =
+  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "custom-shape";
+
 export interface LabInfo {
-  slug: string;
+  slug: LabSlug;
   name: string;
   // The short word used in the switcher row on a lab page.
   short: string;
@@ -11,6 +15,8 @@ export interface LabInfo {
   experimental?: boolean;
 }
 
+// The one list of labs. The hub draws its cards from it and every lab page
+// draws its navigation from it, so adding a lab here adds it everywhere.
 export const LABS: LabInfo[] = [
   {
     slug: "crimp",

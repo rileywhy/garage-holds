@@ -1,6 +1,11 @@
-// Align visible silhouettes to the Crimp artwork, allowing for transparent padding.
+import type { LabSlug } from "./labs";
+
+// Where each lab's artwork sits in the carousel's frame, as a percentage of
+// the frame: the silhouette centred, its top edge level with the Crimp's,
+// and the later labs scaled so their silhouettes stand about as tall. The
+// table is keyed by LabSlug so a new lab cannot be left out of it.
 export const ARTWORK_FRAMING: Record<
-  string,
+  LabSlug,
   { width: number; left: number; top: number }
 > = {
   crimp: {
@@ -22,6 +27,11 @@ export const ARTWORK_FRAMING: Record<
     width: 80.5940594059406,
     left: 9.702970297029703,
     top: 7.4629702970297025,
+  },
+  pocket: {
+    width: 92.94,
+    left: 3.53,
+    top: -5.18,
   },
   "custom-shape": {
     width: 91.05145413870245,
