@@ -18,11 +18,14 @@ check are the shared ones in `tools/hold_mounting.py`.
 The body is a puck: the hull of spheres along the inset footprint at the
 wall and along a smaller ring at the rim, with rings rising to a crown. The
 footprint is a superellipse (a circle or oval at full roundness, squarer
-below) with a seeded wobble. The pocket is a stadium slot pushed in along an
-axis tilted by the floor angle, with a rounded bottom, or a straight prism
-through the back when it opens to the wall. The lip rounding is part of the
-cutter: rings grown from the mouth along a quarter circle, draped onto the
-face by ray cast, so the body keeps a genuinely rounded edge.
+below) with a seeded wobble. The pocket is a rounded scoop pushed in along
+an axis tilted by the floor angle: a stadium mouth whose section is a half
+ellipse, narrowing to a line at full depth so the roof sweeps into the floor
+in one curve, or a straight stadium prism through the back when it opens to
+the wall. The lip rounding is part of the cutter: rings grown from the mouth
+along a quarter circle, each point moved to where the tilted wall really is
+at its own height and draped onto the face by ray cast, so the body keeps a
+genuinely rounded edge that leaves the cavity tangentially.
 
 The body grows before anything is built: deeper for a 6 mm floor behind a
 closed pocket, wider or taller for 6 mm of face around the mouth and its lip,

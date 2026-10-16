@@ -35,9 +35,11 @@ from tools.hold_mounting import (
 # strength ratings.
 FLOOR = 6.0
 MARGIN = 6.0
+# Odd arc counts put a vertex on each axis, so a mouth measures exactly
+# what was asked for across and up.
 QUALITY = {
-    "preview": dict(sphere=16, ring=72, arc=12, slabs=8),
-    "export": dict(sphere=32, ring=144, arc=24, slabs=12),
+    "preview": dict(sphere=16, ring=72, arc=13, slabs=8, scoop=10),
+    "export": dict(sphere=32, ring=144, arc=25, slabs=12, scoop=20),
 }
 LIMITS = {control["key"]: (control["min"], control["max"]) for control in CONTROLS}
 
@@ -158,10 +160,22 @@ def body(p, quality):
     return solid, s
 
 
+def scoop_inset(p, drop):
+    """How far the scoop's wall has moved in from the mouth outline at a
+    depth below the face: nothing for a pocket open to the wall, else the
+    half-ellipse that takes the stadium down to a line at full depth."""
+    if p.through or drop <= 0:
+        return 0.0
+    rr = min(p.opening_width, p.opening_height) / 2
+    return rr * (1 - math.sqrt(max(0.0, 1 - (drop / p.pocket_depth) ** 2)))
+
+
 def slot(p, depth, quality):
     """The pocket cavity, tilted by the floor angle about the mouth's centre
-    on the face plane: a stadium prism with a rounded bottom, or one that
-    runs on through the back when the pocket opens to the wall."""
+    on the face plane: a rounded scoop whose section is a half ellipse, the
+    stadium mouth narrowing to a line at full depth so the roof sweeps into
+    the floor in one curve, or a straight stadium prism on through the back
+    when the pocket opens to the wall."""
     q = QUALITY[quality]
     width, height = p.opening_width, p.opening_height
     rr = min(width, height) / 2
@@ -171,14 +185,13 @@ def slot(p, depth, quality):
         far = np.column_stack((outline, np.full(len(outline), -depth - 80)))
         cut = manifold.Manifold.hull_points(np.vstack((mouth, far)))
     else:
-        sphere = sphere_points(rr, q["sphere"])
-        ends = (
-            [(sx * (width / 2 - rr), 0) for sx in (-1, 1)]
-            if width >= height
-            else [(0, sy * (height / 2 - rr)) for sy in (-1, 1)]
-        )
-        deep = [sphere + (x, y, depth - p.pocket_depth + rr) for x, y in ends]
-        cut = manifold.Manifold.hull_points(np.vstack(deep + [mouth]))
+        rings = [mouth, np.column_stack((outline, np.full(len(outline), depth)))]
+        for psi in np.linspace(0, math.pi / 2, q["scoop"] + 1)[1:]:
+            inset = min(rr - 0.05, rr * (1 - math.cos(psi)))
+            ring = stadium(width - 2 * inset, height - 2 * inset, q["arc"])
+            z = depth - p.pocket_depth * math.sin(psi)
+            rings.append(np.column_stack((ring, np.full(len(ring), z))))
+        cut = manifold.Manifold.hull_points(np.vstack(rings))
     return (
         cut.translate((0, 0, -depth))
         .rotate((p.floor_angle, 0, 0))
@@ -203,22 +216,44 @@ def trumpet(p, solid, cut, depth, quality):
     convex, and their union leaves a rounded edge on the body."""
     q = QUALITY[quality]
     lip = min(p.lip_radius, lip_limit(p))
-    # Each ring starts from the tilted slot's own section at its height, so
-    # the fillet leaves the cavity wall tangentially wherever the floor
-    # angle has moved that wall; stacking one mouth outline straight down
-    # left a ridge where the two crossed.
+    rise = math.tan(math.radians(p.floor_angle))
+    # Every ring grows from the one mouth outline, where the tilted cavity
+    # meets the face plane. Below the face the wall is not where the mouth
+    # is: the floor angle moves it up the wall in proportion to the depth,
+    # and the scoop draws it in a little. Each ring point gets both
+    # corrections at its own height, read off the real surface, so the
+    # fillet leaves the wall tangentially all round and no ridge forms
+    # where a straight stack would have crossed the tilted wall.
     face = float(surface_height(solid, np.array([[0.0, 0.0]]), depth)[0])
+    mouth = largest(cut.slice(face))
+    # Each ring is the mouth polygon pushed along its own vertex normals, so
+    # every ring point keeps the mouth point it grew from. The outward
+    # normal is to the right of an anticlockwise outline; flip for the
+    # other winding.
+    edges = np.roll(mouth, -1, axis=0) - mouth
+    edge_normals = np.column_stack((edges[:, 1], -edges[:, 0]))
+    edge_normals /= np.linalg.norm(edge_normals, axis=1)[:, None]
+    normals = edge_normals + np.roll(edge_normals, 1, axis=0)
+    normals /= np.linalg.norm(normals, axis=1)[:, None]
+    if (
+        np.sum(
+            mouth[:, 0] * np.roll(mouth[:, 1], -1)
+            - np.roll(mouth[:, 0], -1) * mouth[:, 1]
+        )
+        < 0
+    ):
+        normals = -normals
+    # How far the face has fallen below the apex plane at each mouth point:
+    # the wall meets the surface that much lower there, so it has moved
+    # that much further up the wall by the time it reaches the face.
+    deficit = face - surface_height(solid, mouth, depth)
     rings = []
     for i in range(q["slabs"] + 1):
         a = math.pi / 2 * i / q["slabs"]
         grow, drop = lip * (1 - math.cos(a)), lip * (1 - math.sin(a))
-        section = cut.slice(face - drop)
-        outline = largest(
-            section.offset(grow, manifold.JoinType.Round, 2.0, 32) if grow else section
-        )
-        rings.append(
-            np.column_stack((outline, surface_height(solid, outline, depth) - drop))
-        )
+        xy = mouth + normals * (grow - scoop_inset(p, drop))
+        xy[:, 1] += (deficit + drop) * rise
+        rings.append(np.column_stack((xy, surface_height(solid, xy, depth) - drop)))
     pieces = [
         manifold.Manifold.hull_points(np.vstack((rings[i], rings[i + 1])))
         for i in range(q["slabs"])
@@ -262,8 +297,6 @@ def fit_pocket(requested):
     Growth stops at the sliders' maximums; past that the opening shrinks."""
     p = requested
     scale = p.size / 100
-    angle = math.radians(p.floor_angle)
-    rr = min(p.opening_width, p.opening_height) / 2
     if not p.through:
         # How far below the face plane the tilted cutter reaches, measured
         # on the cutter itself: a tall opening dips further than a wide one.
@@ -281,34 +314,19 @@ def fit_pocket(requested):
         p = replace(p, depth=float(depth))
     for _ in range(400):
         s = shell(p, 72)
-        rise = math.tan(angle)
-        mouth = manifold.CrossSection(
-            [stadium(p.opening_width, p.opening_height / math.cos(angle), 12).tolist()]
-        )
+        # The cutter itself, with the face plane at z=0 and only the part
+        # inside the body kept: its section at the face is the mouth, its
+        # shadow is everything the cavity needs below the face.
+        cut = slot(p, 0.0, "preview").trim_by_plane((0, 0, 1), -s["depth"])
+        mouth = cut.slice(0.0)
+        lip = min(p.lip_radius, lip_limit(p))
         checks = [
+            (mouth.offset(lip + MARGIN, manifold.JoinType.Round, 2.0, 16), s["front"]),
             (
-                mouth.offset(p.lip_radius + MARGIN, manifold.JoinType.Round, 2.0, 16),
-                s["front"],
-            )
+                cut.project().offset(MARGIN, manifold.JoinType.Round, 2.0, 16),
+                s["back"] if p.through else s["front"],
+            ),
         ]
-        if p.through:
-            exit_ = mouth.translate((0, s["depth"] * rise))
-            checks.append(
-                (exit_.offset(MARGIN, manifold.JoinType.Round, 2.0, 16), s["back"])
-            )
-        else:
-            # The rounded bottom's shadow: its end spheres project at full
-            # size wherever the axis points, only shifted up or down the
-            # wall; a tall opening's straight run foreshortens between them.
-            width, height = p.opening_width, p.opening_height
-            if height > width:
-                height = width + (height - width) * math.cos(angle)
-            deep = manifold.CrossSection(
-                [stadium(width, height, 12).tolist()]
-            ).translate((0, (p.pocket_depth - rr) * math.sin(angle)))
-            checks.append(
-                (deep.offset(MARGIN, manifold.JoinType.Round, 2.0, 16), s["front"])
-            )
         worst = None
         for region, within in checks:
             points = largest(region)

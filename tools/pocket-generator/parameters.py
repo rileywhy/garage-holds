@@ -12,12 +12,12 @@ class Parameters:
     opening_height: float = 28
     pocket_depth: float = 40
     floor_angle: float = 10
-    lip_radius: float = 8
+    lip_radius: float = 12
     through: bool = False
     # The body, before overall scale.
     size: float = 100
-    width: float = 85
-    height: float = 85
+    width: float = 92
+    height: float = 92
     depth: float = 50
     roundness: float = 100
     edge_rounding: float = 10
@@ -98,7 +98,7 @@ CONTROLS = [
         "Lip rounding",
         "Grip",
         2,
-        15,
+        20,
         0.5,
         "mm",
         "Rounds the mouth where your fingers rest. A bigger radius is kinder on the skin and needs more body around the opening.",
@@ -274,8 +274,8 @@ PRESETS = {
         opening_height=26,
         pocket_depth=36,
         floor_angle=15,
-        width=70,
-        height=70,
+        width=76,
+        height=76,
         depth=46,
     ),
     "Three-finger pocket": replace(
@@ -284,9 +284,10 @@ PRESETS = {
         opening_height=30,
         pocket_depth=40,
         floor_angle=8,
-        width=110,
-        height=85,
+        width=120,
+        height=92,
         depth=50,
+        screw_count=3,
     ),
     "Deep two-finger": replace(BASE, pocket_depth=52, floor_angle=12, depth=62),
     "Slopey pocket": replace(
@@ -294,17 +295,17 @@ PRESETS = {
         opening_height=30,
         pocket_depth=26,
         floor_angle=-12,
-        lip_radius=10,
+        lip_radius=13,
         crown=25,
-        width=88,
-        height=88,
+        width=100,
+        height=100,
         depth=42,
     ),
     "Pocket rail": replace(
         BASE,
         roundness=25,
-        width=120,
-        height=70,
+        width=124,
+        height=74,
         depth=42,
         opening_height=26,
         pocket_depth=30,
