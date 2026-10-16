@@ -5,7 +5,7 @@ import { Box } from "lucide-react";
 import { previewModel } from "@/components/hold-art";
 import { PhotoImage } from "@/components/photo-image";
 import { StlViewer } from "./stl-viewer";
-import type { Hold } from "./types";
+import { previewSource, type Hold } from "./types";
 
 // The design page's photos and 3D preview: one large view, with thumbnails
 // for every photo and a tile for the model that swap it in. The large photo
@@ -37,7 +37,11 @@ export function PhotoGallery({ hold }: { hold: Hold }) {
           </a>
         ) : (
           model && (
-            <StlViewer file={model} title={hold.title} color={hold.color} />
+            <StlViewer
+              file={{ ...model, url: previewSource(model) }}
+              title={hold.title}
+              color={hold.color}
+            />
           )
         )}
       </div>

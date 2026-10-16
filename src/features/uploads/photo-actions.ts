@@ -12,6 +12,7 @@ import {
   getObject,
   headObject,
   isR2Configured,
+  MODEL_CONTENT_TYPE,
   putObject,
   signUpload,
 } from "@/lib/r2";
@@ -24,7 +25,11 @@ import {
 import { MAX_PHOTOS, validatePhotos } from "@/features/holds/validation";
 import type { PendingUpload, UploadFileDescriptor } from "./actions";
 import { normalizeCrop, type CropRect } from "./crop";
-import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
+import {
+  createPhotoSizes,
+  deletePhotoObjects,
+  UnreadablePhotoError,
+} from "./photo-sizes";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -113,11 +118,18 @@ export async function startPhotoUpload(
     return { errors: ["Your photos could not be registered. Try again."] };
   }
   const uploads = await Promise.all(
-    rows.map(async (row) => ({
-      fileId: row.id,
-      name: row.name,
-      url: await signUpload(row.object_key),
-    })),
+    rows.map(async (row) => {
+      const contentType = photoContentType(row.extension) ?? MODEL_CONTENT_TYPE;
+      return {
+        fileId: row.id,
+        name: row.name,
+        url: await signUpload(row.object_key, {
+          bytes: row.bytes,
+          contentType,
+        }),
+        contentType,
+      };
+    }),
   );
   return { uploads };
 }
@@ -169,6 +181,23 @@ export async function finishPhotoUpload(
       await deleteObject(file.object_key);
       continue;
     }
+    // The sizes come first: making them reads the bytes, so a file that
+    // is not an image is dropped here instead of becoming a ready row with
+    // a broken card and a sweep that fails on it every night.
+    try {
+      await createPhotoSizes(file.object_key, file.extension);
+    } catch (error) {
+      errors.push(
+        error instanceof UnreadablePhotoError
+          ? `${file.name} is not a readable image.`
+          : `${file.name} could not be prepared. Try again.`,
+      );
+      if (!(error instanceof UnreadablePhotoError))
+        console.error("photo sizes failed", { designId, file, error });
+      await admin.from("design_files").delete().eq("id", file.id);
+      await deletePhotoObjects(file.object_key);
+      continue;
+    }
     const { error } = await admin
       .from("design_files")
       .update({ status: "ready" })
@@ -178,7 +207,6 @@ export async function finishPhotoUpload(
       errors.push(`${file.name} could not be saved. Try again.`);
       continue;
     }
-    await createPhotoSizes(file.object_key, file.extension);
     added += 1;
   }
   if (added) {

@@ -1,5 +1,6 @@
 import io
 import math
+import random
 import sys
 import unittest
 from dataclasses import asdict, replace
@@ -9,14 +10,39 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import _inside_contours, _solid, build, cross_section, estimate_material
+from geometry import (
+    _inside_contours,
+    _inside_mask,
+    _solid,
+    build,
+    cross_section,
+    estimate_material,
+)
 from parameters import (
+    CONTROLS,
     PRESETS,
     Parameters,
     design_document,
     parse_parameters,
     seat_height,
 )
+
+
+def random_settings(rng, controls):
+    """One setting per control, on its step, anywhere in its range."""
+    values = {}
+    for control in controls:
+        steps = int(round((control["max"] - control["min"]) / control["step"]))
+        value = control["min"] + rng.randint(0, steps) * control["step"]
+        values[control["key"]] = int(value) if control["key"] == "screw_count" else round(value, 4)
+    values.update(
+        screws=rng.random() < 0.85,
+        bolt_mount=rng.random() < 0.3,
+        auto_spacing=rng.random() < 0.6,
+        auto_seat=rng.random() < 0.6,
+        seed=rng.randint(0, 999999),
+    )
+    return values
 
 
 class GeometryTests(unittest.TestCase):
@@ -268,6 +294,185 @@ class GeometryTests(unittest.TestCase):
         self.assertLess(preview.screws[-1][0] - preview.screws[0][0], p.width * 0.6)
         self.assert_solid(exported)
 
+    def test_random_settings_export_closed_solids(self):
+        # A seeded sweep across the control ranges. The schema may reject a
+        # setting and the mounting solver may find no room, both in words
+        # for the person; anything else must export. The final closed-solid
+        # check used to refuse 1-4% of valid shapes after a vertex merge
+        # opened pinholes in them.
+        rng = random.Random(2026)
+        exported = 0
+        for _ in range(30):
+            values = random_settings(rng, CONTROLS)
+            try:
+                p = parse_parameters(values)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                try:
+                    model = build(p, "export")
+                except ValueError as error:
+                    self.assertNotIn("closed-solid", str(error))
+                    continue
+                self.assert_solid(model)
+                exported += 1
+        self.assertGreater(exported, 10)
+
+    def test_designs_reopen_and_rebuild_the_same_hold(self):
+        # The exported design carries the settings actually built. Parsing
+        # it back and building again must give the same mesh, screws and
+        # seat: links, presets and settings files depend on it. A bolt
+        # mount with a manual span used to write span 0, a manual span the
+        # fit narrowed used to reopen at a different seat, and a manual
+        # seat below the automatic one used to be refused (RIL-70).
+        cases = [
+            {"bolt_mount": True, "auto_spacing": False},
+            {"bolt_mount": True, "auto_seat": False, "seat_depth": 30},
+            {"width": 100, "screw_spacing": 85, "end_rounding": 20, "screw_count": 2, "auto_spacing": False},
+            {"edge_depth": 7.5, "lip_radius": 14.75, "width": 78, "taper": -46, "auto_seat": False, "seat_depth": 2},
+        ]
+        rng = random.Random(70)
+        while len(cases) < 40:
+            cases.append(random_settings(rng, CONTROLS))
+        rebuilt = 0
+        for values in cases:
+            try:
+                p = parse_parameters(values)
+                model = build(p)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                design = design_document(model.parameters)["parameters"]
+                again = build(parse_parameters(design))
+                self.assertEqual(again.screws, model.screws)
+                self.assertEqual(again.bolts, model.bolts)
+                self.assertAlmostEqual(again.seat_depth, model.seat_depth)
+                self.assertEqual(again.parameters, model.parameters)
+                self.assertEqual(again.mesh.vertices.shape, model.mesh.vertices.shape)
+                self.assertTrue(np.allclose(again.mesh.vertices, model.mesh.vertices))
+                rebuilt += 1
+        self.assertGreater(rebuilt, 20)
+
+    def test_bolt_mount_keeps_a_manual_span_and_reports_its_seat(self):
+        model = build(Parameters(bolt_mount=True, auto_spacing=False, screw_spacing=60))
+        self.assertEqual(model.parameters.screw_spacing, 60)
+        self.assertIsNone(model.preview()["screw_spacing"])
+        high = build(Parameters(bolt_mount=True, auto_seat=False, seat_depth=30))
+        self.assertAlmostEqual(high.parameters.seat_depth, high.seat_depth)
+        self.assertLess(high.seat_depth, 30)
+        self.assertIn("seat_depth", high.adjusted)
+
+    def test_a_narrowed_manual_span_is_reported_as_adjusted(self):
+        model = build(
+            Parameters(width=100, screw_spacing=85, end_rounding=20, screw_count=2, auto_spacing=False)
+        )
+        self.assertLess(model.parameters.screw_spacing, 85)
+        self.assertEqual(model.adjusted, {"screw_spacing": model.parameters.screw_spacing})
+        self.assertAlmostEqual(
+            model.screws[-1][0] - model.screws[0][0], model.parameters.screw_spacing
+        )
+
+    def test_a_manual_seat_below_the_automatic_one_is_drilled_where_asked(self):
+        shape = dict(edge_depth=7.5, lip_radius=14.75, width=78, taper=-46)
+        automatic = build(Parameters(**shape))
+        low = build(Parameters(**shape, auto_seat=False, seat_depth=2))
+        self.assertEqual(low.seat_depth, 2)
+        self.assertEqual(low.parameters.body_height, automatic.parameters.body_height)
+        self.assertEqual(low.adjusted, {})
+
+    def test_preview_reports_the_outer_span(self):
+        model = build(Parameters())
+        self.assertEqual(len(model.screws), 3)
+        self.assertEqual(
+            model.preview()["screw_spacing"], round(model.screws[-1][0] - model.screws[0][0], 2)
+        )
+        self.assertEqual(model.preview()["screw_spacing"], model.parameters.screw_spacing)
+
+    def test_point_containment_matches_the_edge_by_edge_test(self):
+        # The vectorised even/odd test must agree with the plain one on a
+        # concave contour with a hole, including points on the bounding
+        # box and far outside it.
+        outer = [(-10, -10), (10, -10), (10, 10), (0, 2), (-10, 10)]
+        hole = [(-3, -6), (3, -6), (3, -2), (-3, -2)]
+        rng = np.random.default_rng(71)
+        points = np.vstack(
+            [rng.uniform(-14, 14, (400, 2)), [[-10, 0], [10, 0], [0, -10], [0, 9]]]
+        )
+
+        def plain(x, y):
+            inside = False
+            for contour in (outer, hole):
+                for (ax, ay), (bx, by) in zip(contour, contour[-1:] + contour[:-1]):
+                    if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / (by - ay) + ax:
+                        inside = not inside
+            return inside
+
+        expected = np.array([plain(x, y) for x, y in points])
+        self.assertTrue((_inside_mask(points, [outer, hole]) == expected).all())
+        self.assertTrue(expected.any() and not expected.all())
+
+    def test_wide_six_screw_rows_fit_inside_the_budget(self):
+        # This preview took 33 s locally and timed out on Vercel; the
+        # vectorised containment test brings it to a few seconds. A
+        # budget of 12 s turns a regression into a failure here.
+        p = parse_parameters(
+            dict(
+                width=260, edge_depth=60, incut=0, lip_radius=20, body_height=20,
+                body_rounding=30, end_rounding=60, bow=-60, screw_count=6,
+                head_diameter=15, shank_diameter=4,
+            )
+        )
+        model = build(p, budget_s=12)
+        self.assertEqual(len(model.screws), 6)
+        with self.assertRaisesRegex(ValueError, "too long"):
+            build(p, budget_s=0)
+
+    def test_manual_seat_recess_stays_inside_the_body(self):
+        # The row is fitted at the automatic seat, then drilled at the seat
+        # the person asked for. On a steep rail a high manual seat used to put
+        # the countersink rim outside the body (measured 7 mm outside on this
+        # preset). Now the seat comes down to the highest height at which every
+        # recess is enclosed, the screws stay where the automatic fit put
+        # them, and the change is reported.
+        from geometry import _loft, _screw_room
+
+        rail = replace(PRESETS["Sloping rail"], auto_seat=False, seat_depth=30)
+        automatic = build(replace(rail, auto_seat=True))
+        model = build(rail)
+        self.assertLess(model.seat_depth, 30)
+        self.assertEqual(model.screws, automatic.screws)
+        self.assertAlmostEqual(model.adjusted["seat_depth"], model.seat_depth)
+        self.assertAlmostEqual(model.parameters.seat_depth, model.seat_depth)
+        p = model.parameters
+        undrilled = _solid(_loft(p, "preview")[0])
+        room = _screw_room(p, undrilled, model.seat_depth)
+        for x, y in model.screws:
+            self.assertTrue(_inside_contours(x, y, room))
+        # Half a millimetre higher no longer fits: the seat is the highest safe one.
+        higher = _screw_room(p, undrilled, model.seat_depth + 0.5)
+        self.assertFalse(all(_inside_contours(x, y, higher) for x, y in model.screws))
+        # A manual seat that does fit is used exactly, with nothing reported.
+        low = build(replace(rail, seat_depth=6))
+        self.assertEqual(low.seat_depth, 6)
+        self.assertNotIn("seat_depth", low.adjusted)
+        # The bolt-and-screw mount follows the same rule.
+        bolted = build(replace(rail, bolt_mount=True))
+        self.assertLess(bolted.seat_depth, 30)
+        self.assertTrue(bolted.mesh.is_watertight)
+        self.assertEqual(len(bolted.bolts), 1)
+
+    def test_manual_seat_survives_turning_screws_off(self):
+        # The seat slider turns auto_seat off; the mounting checkbox then only
+        # flips screws. Both qualities must build with no seat limit to clamp
+        # to (this used to be a TypeError shown to the person as-is).
+        for quality in ("preview", "export"):
+            model = build(
+                Parameters(screws=False, auto_seat=False, seat_depth=12), quality
+            )
+            self.assert_solid(model)
+            self.assertEqual(model.screws, [])
+            self.assertIsNone(model.preview()["seat_depth_limit"])
+
     def test_manual_mounting_is_respected_or_rejected(self):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)
@@ -472,6 +677,14 @@ class ParameterTests(unittest.TestCase):
         self.assertEqual(p.screw_count, 3)
         self.assertIsInstance(parse_parameters({"screw_count": 3.0}).screw_count, int)
         self.assertEqual(parse_parameters(design_document(p)["parameters"]), p)
+
+    def test_huge_numbers_are_refused_in_words(self):
+        # 400 digits overflow a float; math.isfinite raised and the hosted
+        # handlers answered 500 instead of 400.
+        with self.assertRaisesRegex(ValueError, "finite number"):
+            parse_parameters({"width": 10**400})
+        with self.assertRaises(ValueError):
+            parse_parameters({"seed": 10**400})
 
     def test_invalid_values(self):
         cases = [

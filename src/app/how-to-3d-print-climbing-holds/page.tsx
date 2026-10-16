@@ -1,37 +1,42 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { GearLink } from "@/features/gear/gear-link";
 import { AMAZON_DISCLOSURE, GEAR, amazonTag } from "@/features/gear/gear";
+import { GUIDE, articleJsonLd, updatedLabel } from "@/features/guide/guide";
+import { SITE_IMAGE, pageMetadata } from "@/lib/page-metadata";
 
-const TITLE = "How to 3D print climbing holds (and what you need)";
-const DESCRIPTION =
-  "A practical guide to printing climbing holds for a home wall: which printer and filament, the slicer settings that keep a hold from breaking, and whether printed holds hold up.";
-
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: { canonical: "/how-to-3d-print-climbing-holds" },
-  openGraph: {
-    type: "article",
-    title: TITLE,
-    description: DESCRIPTION,
-    url: "/how-to-3d-print-climbing-holds",
+// The guide shows the site image on link cards until it has a photo of
+// its own (RIL-18).
+export const metadata = pageMetadata({
+  ...GUIDE,
+  type: "article",
+  image: SITE_IMAGE,
+  article: {
+    authors: [GUIDE.author],
+    publishedTime: GUIDE.published,
+    modifiedTime: GUIDE.updated,
   },
-};
+});
 
 // The guide behind every "can I print this" question. One page, in the
 // order a first-timer meets the questions, written to be found by search and
 // kept to one pick per item so it stays readable.
-export default function HowToPrintHoldsPage() {
+export default async function HowToPrintHoldsPage() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <main className="main-container gear-page">
+      <script
+        nonce={nonce}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd()) }}
+      />
       <div className="page-intro">
         <p className="eyebrow">The guide</p>
         <h1>How to 3D print climbing holds</h1>
         <p>
           What you need to print climbing holds, the settings that keep one from
           breaking, and what to expect. Opinionated on purpose, one pick per
-          item. Updated October 2026 · by Riley Young.
+          item. Updated {updatedLabel(GUIDE.updated)} · by {GUIDE.author}.
           {amazonTag() && (
             <> Some links earn us a small commission, at no cost to you.</>
           )}
@@ -130,10 +135,13 @@ export default function HowToPrintHoldsPage() {
           </p>
           <p>
             Or shape your own. The <Link href="/make/crimp">crimp lab</Link>,{" "}
-            <Link href="/make/sloper">sloper lab</Link>, and{" "}
-            <Link href="/make/jug">jug lab</Link> build a hold from a few
+            <Link href="/make/sloper">sloper lab</Link>,{" "}
+            <Link href="/make/jug">jug lab</Link> and{" "}
+            <Link href="/make/foot">foot lab</Link> build a hold from a few
             sliders, show it on a 40° board, estimate the filament, and export
-            an STL with the screw holes already in it. No modelling needed.
+            an STL with the screw holes already in it, and the{" "}
+            <Link href="/make/custom-shape">custom shape lab</Link> turns a
+            drawing into one. No modelling needed.
           </p>
         </section>
 
@@ -142,7 +150,11 @@ export default function HowToPrintHoldsPage() {
           <ul>
             <li>
               <strong>Walls: 8.</strong> Walls carry the load; infill mostly
-              holds the walls apart. We run eight. Six is the floor.
+              holds the walls apart. We run eight. Six is the floor. Leave
+              &ldquo;ensure vertical shell thickness&rdquo; on (it is by default
+              in PrusaSlicer, Bambu Studio and Orca): it is what makes those
+              walls carry load on sloped surfaces, where the slicer would
+              otherwise fill the slope with infill.
             </li>
             <li>
               <strong>Infill: 25 to 40%,</strong> gyroid or cubic. Go to the top

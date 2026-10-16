@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, Pencil, Plus } from "lucide-react";
 import { HoldCard } from "@/features/holds/hold-card";
-import { listOwnHolds, listReviews } from "@/features/holds/repository";
+import { listOwnHolds } from "@/features/holds/repository";
 import { getCurrentUser } from "@/features/auth/current-user";
 import { signInPath } from "@/features/auth/redirects";
 import { formatGigabytes } from "@/features/uploads/allowance";
@@ -18,9 +18,8 @@ export const metadata: Metadata = {
 export default async function MyDesignsPage() {
   const user = await getCurrentUser();
   if (!user) redirect(signInPath("/designs"));
-  const [holds, reviews, { usage, limits }] = await Promise.all([
+  const [holds, { usage, limits }] = await Promise.all([
     listOwnHolds(user.id),
-    listReviews(),
     loadAllowance(await createSupabaseServerClient(), user.id),
   ]);
   const drafts = holds.filter((hold) => hold.status === "draft").length;
@@ -49,7 +48,6 @@ export default async function MyDesignsPage() {
             {holds.map((hold) => (
               <HoldCard
                 hold={hold}
-                reviews={reviews}
                 saved={false}
                 signedIn
                 key={hold.id}

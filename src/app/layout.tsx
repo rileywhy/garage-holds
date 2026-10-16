@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { AccountMenu } from "@/features/auth/account-menu";
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: "/",
   },
-  twitter: { card: "summary" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default async function RootLayout({
@@ -36,12 +37,14 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const user = await getCurrentUser();
   const savedCount = user ? (await listSavedIds()).length : 0;
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: THEME_INITIALIZATION_SCRIPT }}
         />
       </head>

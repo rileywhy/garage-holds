@@ -1,22 +1,30 @@
-import type { Metadata } from "next";
+import { getCurrentUser } from "@/features/auth/current-user";
 import { HoldLab } from "@/features/hold-lab/hold-lab";
-export const metadata: Metadata = {
+import { LabNav } from "@/features/labs/lab-nav";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata = pageMetadata({
   title: "Jug Lab",
   description:
     "Design a printable climbing jug with a rounded incut grip, curved arch and screw holes. Preview it on a 40° board and export an STL.",
-};
-export default function JugLabPage() {
+  path: "/make/jug",
+});
+
+export default async function JugLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
+      <LabNav current="jug" />
       <div className="page-intro">
-        <p className="eyebrow">a proper handful</p>
-        <h1>jug lab</h1>
+        <p className="eyebrow">A PROPER HANDFUL</p>
+        <h1>Jug Lab</h1>
         <p>
           Shape a board jug, a deep jug, or a two-handed jug. Find the bite,
           then export an STL.
         </p>
       </div>
-      <HoldLab kind="jug" />
+      <HoldLab kind="jug" account={Boolean(user)} />
     </main>
   );
 }

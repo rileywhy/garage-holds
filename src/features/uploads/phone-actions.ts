@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -10,6 +11,7 @@ import {
   deleteObject,
   headObject,
   isR2Configured,
+  MODEL_CONTENT_TYPE,
   signImage,
   signUpload,
 } from "@/lib/r2";
@@ -20,12 +22,13 @@ import {
   inboxObjectKey,
   photoContentType,
 } from "@/features/holds/rows";
-import { MAX_PHOTO_BYTES } from "@/features/holds/validation";
+import { MAX_PHOTO_BYTES, MAX_PHOTOS } from "@/features/holds/validation";
 import {
   attachInboxPhotos,
   MAX_SESSION_PHOTOS,
   ownInboxPhotos,
 } from "./phone-photos";
+import { UnreadablePhotoError, verifyPhoto } from "./photo-sizes";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -74,6 +77,7 @@ export async function startPhoneSession(
 export async function listPhonePhotos(
   sessionId: string,
 ): Promise<PhonePhoto[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("phone_photos")
@@ -95,7 +99,7 @@ export async function listPhonePhotos(
 }
 
 export type SignPhotoResult =
-  { photoId: string; url: string } | { error: string };
+  { photoId: string; url: string; contentType: string } | { error: string };
 
 // Phone side, step 1: reserve a slot and sign one PUT URL.
 export async function signPhonePhoto(
@@ -136,7 +140,12 @@ export async function signPhonePhoto(
     console.error("phone photo insert failed", { sessionId, error });
     return { error: "Could not prepare the upload. Try again." };
   }
-  return { photoId, url: await signUpload(key) };
+  const contentType = photoContentType(extension) ?? MODEL_CONTENT_TYPE;
+  return {
+    photoId,
+    url: await signUpload(key, { bytes: file.bytes, contentType }),
+    contentType,
+  };
 }
 
 // Phone side, step 2: confirm the object landed with the declared size.
@@ -147,6 +156,10 @@ export async function confirmPhonePhoto(
   if (!isR2Configured() || !isSupabaseAdminConfigured())
     return { error: "Uploads aren't configured in this environment yet." };
   const admin = createSupabaseAdminClient();
+  // Every phone step checks the session, as the phone page promises: the
+  // PUT URL is the real window, but an expired code confirms nothing.
+  if (!(await openSession(admin, sessionId)))
+    return { error: "This code has expired. Scan a new one." };
   const { data: photo } = await admin
     .from("phone_photos")
     .select("id, object_key, bytes, name")
@@ -161,6 +174,17 @@ export async function confirmPhonePhoto(
     await deleteObject(photo.object_key);
     await admin.from("phone_photos").delete().eq("id", photo.id);
     return { error: `${photo.name} arrived with an unexpected size.` };
+  }
+  try {
+    await verifyPhoto(photo.object_key);
+  } catch (error) {
+    await deleteObject(photo.object_key);
+    await admin.from("phone_photos").delete().eq("id", photo.id);
+    if (!(error instanceof UnreadablePhotoError)) {
+      console.error("phone photo check failed", { photoId, error });
+      return { error: `${photo.name} could not be checked. Try again.` };
+    }
+    return { error: `${photo.name} is not a readable image.` };
   }
   await admin
     .from("phone_photos")
@@ -191,10 +215,10 @@ export async function attachPhonePhotos(
   const photos = await ownInboxPhotos(supabase, photoIds);
   if (!photos.length) return { errors: ["Choose at least one photo."] };
   const existing = design.design_files.filter((file) => file.kind === "photo");
-  if (existing.length + photos.length > 6)
+  if (existing.length + photos.length > MAX_PHOTOS)
     return {
       errors: [
-        `A design can have up to 6 photos; this one has ${existing.length}.`,
+        `A design can have up to ${MAX_PHOTOS} photos; this one has ${existing.length}.`,
       ],
     };
   const { usage, limits } = await loadAllowance(supabase, userId);
@@ -209,8 +233,9 @@ export async function attachPhonePhotos(
       (max, file) => Math.max(max, file.position),
       -1,
     ) + 1;
+  let added = 0;
   try {
-    await attachInboxPhotos(
+    added = await attachInboxPhotos(
       createSupabaseAdminClient(),
       designId,
       photos,
@@ -220,10 +245,18 @@ export async function attachPhonePhotos(
     console.error("attach phone photos failed", { designId, error });
     return { errors: ["Your photos could not be added. Try again."] };
   }
+  if (added < photos.length)
+    return {
+      errors: [
+        added
+          ? `${photos.length - added} of your photos could not be read and were skipped.`
+          : "Your photos could not be read. Take them again.",
+      ],
+    };
   revalidatePath("/");
   revalidatePath(`/holds/${designId}`);
   revalidatePath(`/holds/${designId}/edit`);
-  return { added: photos.length };
+  return { added };
 }
 
 async function openSession(

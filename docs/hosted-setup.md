@@ -17,6 +17,7 @@ each value goes. Nothing here is secret except where marked.
 | `CRON_SECRET`                          | Server only      | **Yes** | Any long random string; Vercel sends it with the nightly storage sweep (below)                                                                |
 | `ALERT_WEBHOOK_URL`                    | Server only      | **Yes** | A Discord or Slack incoming webhook; receives feedback, design reports, and allowance notices                                                 |
 | `NEXT_PUBLIC_CONTACT_EMAIL`            | Browser + server | No      | Shown to people who reach their upload allowance so they can ask for more                                                                     |
+| `PREVIEW_SECRET`                       | Server only      | No      | Shared with the preview_mesh function; without it big models get no simplified preview copy (see below)                                       |
 | `NEXT_PUBLIC_SITE_URL`                 | Browser + server | No      | The public origin for the sitemap and link previews: `https://garageholds.com` in Production. Vercel's own URL is used where it is unset      |
 | `NEXT_PUBLIC_AMAZON_TAG`               | Browser + server | No      | The Amazon Associates tracking id (`garageholds-20`). Shopping links in the guide and the labs carry it; unset, they point at Amazon untagged |
 | `NEXT_PUBLIC_TIP_URL`                  | Browser + server | No      | The tip jar page, a Ko-fi URL. The footer links to it when set                                                                                |
@@ -91,15 +92,22 @@ Dashboard → Authentication.
      and **Confirm sign up** so the body contains `{{ .Token }}`, for example:
 
      ```
-     Your Garage Holds sign-in code is {{ .Token }}. It expires in one hour.
+     Your Garage Holds sign-in code is {{ .Token }}. It expires in 10 minutes.
      If you didn't request this, you can ignore this email.
      ```
 
    - Set **Email OTP Expiration** to `600` seconds (10 minutes). The default
      6-digit length is fine.
-   - The built-in mailer allows only a few emails per hour, enough for a
-     two-account test. Before sharing more widely, add custom SMTP under
-     **Emails → SMTP Settings** (Resend's free tier works).
+   - Codes are sent through **Brevo** (custom SMTP under **Emails → SMTP
+     Settings**: host `smtp-relay.brevo.com`, port 587, the Brevo login as
+     user and an SMTP key as password; sender `sign-in@garageholds.com`,
+     name "Garage Holds"). `garageholds.com` is authenticated in Brevo
+     (Senders & Domains → Domains) through four records in Vercel DNS: a
+     `brevo-code:` TXT on the root, CNAMEs `brevo1._domainkey` and
+     `brevo2._domainkey` to Brevo's DKIM hosts, and a `_dmarc` TXT with
+     `p=none` reporting to Brevo. No mailbox exists at the sender address.
+     Supabase's own limit on emails per hour (**Rate Limits**) is set to
+     100; Brevo's free plan sends 300 a day.
 3. **Sign In / Providers → Google**
    - Enable, then paste the Client ID and Client Secret from the Google step
      below. Leave "Skip nonce check" off.
@@ -121,6 +129,12 @@ Google Cloud console, in the project you intend to use.
    - Authorized redirect URIs: the Supabase callback URL from above
      (`https://<project-ref>.supabase.co/auth/v1/callback`). Not the app's own
      `/auth/callback`; Supabase talks to Google, then redirects to the app.
+   - The app's `/auth/callback` builds its final redirect from the request's
+     `Origin`, `x-forwarded-host` and `Host` headers (`src/lib/request-origin.ts`).
+     Vercel sets those from the real request, so they are safe here; on a host
+     that passes client headers through unchecked they would become a
+     header-controlled redirect target, and the origin should come from
+     `NEXT_PUBLIC_SITE_URL` instead.
    - Copy the Client ID and Client Secret into the Supabase Google provider.
 
 ## Migrations and the Supabase CLI
@@ -229,6 +243,71 @@ submissions. To read everything ever sent:
 select created_at, contact, page, body from public.feedback order by created_at desc;
 ```
 
+## Lab presets
+
+"Save as preset" in any lab keeps the shape on screen. Signed in, it goes to
+the `lab_presets` table (`supabase/migrations/20261020000000_lab_presets.sql`)
+as the lab's shareable link query under a generated name, and shows in that
+lab's starting-point menu and under Saved; signed out, it stays in the
+browser's localStorage. Row-level security keeps every row to its owner, 30
+per lab per account.
+
+## Error alerts
+
+Unhandled errors reach the same webhook, so you hear about a broken page
+before anyone reports it. Two sources feed it:
+
+- **Server.** `src/instrumentation.ts` exports Next.js's `onRequestError`
+  hook, which runs for every uncaught error in a Server Component, route
+  handler, server function, or the proxy. The line names the context and
+  method, the route template (`/holds/[id]`, never the real id or the query
+  string, so a phone-session id in the address cannot leak), and the error's
+  name, message, and digest.
+- **Browser.** `src/app/error.tsx` and `src/app/global-error.tsx` call
+  `reportClientError` once when they appear. The line names the page's
+  route template (again `/holds/[id]`, never the real id) and the message
+  the browser saw, flattened to one line with no markdown; for a
+  server-side failure that is a generic message plus the same digest as the
+  server's line, so the two can be matched. The server validates and clips
+  the report and stores nothing. Because anyone can call the action, each
+  address gets five reports a quarter hour and the site thirty, like the
+  feedback form; the rest are dropped.
+
+Nothing else is sent: no headers, cookies, request bodies, or stack traces.
+The line is clipped to 500 characters. A storm of the same error on the
+same route sends one line a minute per server instance
+(`src/lib/error-reports.ts`); Vercel's own Observability tab keeps the full
+count and stack for each error group.
+
+Without `ALERT_WEBHOOK_URL` the lines go to the runtime log, which Vercel
+keeps for an hour. In development that log is the terminal running
+`next dev`, which is how to see what a line would say.
+
+## Outage alerts
+
+Outages cannot report themselves. `/api/health` (`src/app/api/health/route.ts`)
+answers 200 when the public Supabase client can read a published model
+file's row and that object answers a HEAD in R2, and 503 when either fails;
+a page render alone cannot tell, because signing happens locally and the
+catalog degrades quietly. The response is never cached.
+
+`.github/workflows/uptime.yml` fetches the home page and `/api/health` on a
+schedule (and on demand from the Actions tab), passing on HTTP 200 within
+20 seconds with one retry after 10 seconds. When a URL goes down it posts
+one line to a Discord webhook naming the URL and the status code or
+timeout, and one line when it is back; it remembers the previous state in
+the Actions cache, so nothing repeats while the site stays down. The
+webhook is the repository secret `DISCORD_ALERT_WEBHOOK`, set under the
+repo's Settings → Secrets and variables → Actions (the same URL as
+`ALERT_WEBHOOK_URL` works).
+
+GitHub runs schedules on a best-effort basis: the 5-minute schedule ran
+once in 6.5 hours on 15 Oct 2026, and GitHub pauses scheduled workflows in
+a repository with no commits for 60 days. Treat the workflow as a backstop
+and point an outside monitor (UptimeRobot or Better Stack, free tiers check
+every 5 minutes and can post to the same Discord webhook) at
+`https://garageholds.com/api/health`.
+
 ## Crimp Lab's Python function
 
 `/api/crimp` is `api/crimp.py`, a Vercel Python function built from the
@@ -237,22 +316,84 @@ under a second; `vercel.json` allows it 30 seconds and 1 GB. If the function
 ever exceeds Vercel's bundle size limit, add an `excludeFiles` entry for it
 in `vercel.json` rather than trimming the Python.
 
+## Preview copies of big models
+
+The browser's 3D preview refuses an STL over 25 MB or 500,000 triangles
+(`src/features/holds/stl-limits.ts`): every visitor scrolling past a card
+would otherwise download and parse it. A model over either limit gets a
+simplified copy, made once and stored beside the original as
+`<key>-preview.stl`; `design_files.preview_object_key` names it. The viewer
+and the card thumbnail load the copy, the download always serves the
+original bytes, and a delete removes both.
+
+The copy is made by `api/preview_mesh.py`, a Vercel Python function using
+`fast-simplification` (quadric edge collapse; the triangle target is
+150,000). `finalizeDesign` calls it after the publish response has gone
+out (`after()` from `next/server`), so it never slows or fails a publish;
+the nightly sweep makes any copy that is still missing. Vercel caps
+function bodies at 4.5 MB, so the bytes never pass through the call: the
+app sends a signed GET URL for the original and a signed PUT URL for the
+copy, and the function downloads, simplifies and uploads.
+
+`PREVIEW_SECRET` is a long random string the app sends as a bearer token
+and the function checks, so nobody else can point it at a URL. Set it in
+the Vercel project's environment variables (Production and Preview); both
+sides read the same variable. Without it the step is skipped with a log
+line and big models show the placeholder as before. `vercel.json` gives
+the function 60 seconds and 1 GB. Locally, `python
+tools/mesh-preview/serve_api.py` serves it on port 8790 with
+`PREVIEW_API_URL=http://127.0.0.1:8790` in `.env.local`.
+
+After a deploy, a design that was published before copies existed gets
+one from the next sweep (04:00 UTC), or at once from
+`curl -H "Authorization: Bearer $CRON_SECRET" https://garageholds.com/api/sweep`.
+
+## Response headers
+
+`next.config.ts` adds the baseline security headers to every route
+(`src/lib/security-headers.ts`): `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, a referrer policy, a permissions policy, and a
+Content-Security-Policy for static assets. `src/proxy.ts` adds a fresh nonce
+to each page request and response; Next's inline scripts, the theme initializer,
+and the guide's structured data carry it. Production scripts allow the site's
+own bundles, that nonce, the fixed theme hash (also used by the error page), and
+Vercel Analytics. Inline script execution without a nonce or the theme hash is
+blocked. Development additionally allows eval for Next's debugger. Images and
+connections allow HTTPS for signed R2 URLs and Supabase; styles allow inline
+declarations used by the viewers. Vercel adds HSTS at the edge. Reading the nonce
+in the layout makes page rendering dynamic even when accounts are unconfigured.
+
 ## Search engines and link previews
 
 `/robots.txt` and `/sitemap.xml` are generated by `src/app/robots.ts` and
-`src/app/sitemap.ts`; the sitemap lists the home page and every published
-design and refreshes hourly. Every page carries Open Graph tags, and design
-pages use their first photo, so a pasted link shows a card in chats and on
-social sites.
+`src/app/sitemap.ts`; the sitemap lists the home page, the labs, the guide,
+and every published design, and refreshes hourly. Every page carries Open
+Graph tags with its own title and canonical address, so a pasted link shows
+a card in chats and on social sites. The card image is the nearest
+`opengraph-image.png` (site-wide, the Hold Labs hub, and one per lab,
+generated by `node scripts/make-brand-images.mjs` along with the icons in
+`src/app/`). A page that sets its own `openGraph` replaces the layout's
+whole block, site name and root image included, so `pageMetadata`
+(`src/lib/page-metadata.ts`) sets the site name again on every page, and
+a page with no image file of its own (the guide) passes the site image
+explicitly; a page with one beside it must not, because an image set in
+metadata replaces the file's. Design pages use their first
+photo through `/holds/<id>/og`, which serves the card copy from this
+origin with a stable address; a signed R2 URL would expire after an hour
+and scrapers re-fetch previews later than that. A design without a photo
+shows the site image.
 
 The site is verified in Google Search Console
 (https://search.google.com/search-console) as a Domain property through a
 TXT record on `garageholds.com` in Vercel DNS, with the sitemap submitted.
 Page views are recorded by Vercel Web Analytics, enabled on the project
-and mounted in `src/app/layout.tsx`; no cookies, so no banner. A few clicks
-are counted as custom events, listed in `src/features/analytics/events.ts`:
-STL exports per lab, gear link clicks per product, the tip link, and file
-downloads from design pages. They appear under Events in the Analytics tab.
+and mounted in `src/app/layout.tsx`; no cookies, so no banner. The clicks
+that matter are counted as custom events, listed with their properties in
+`src/features/analytics/events.ts`: STL exports, generator errors, and
+settings saved or loaded per lab; designs published, saved, and reviewed;
+file downloads; sign-in starts by method; feedback and reports sent; gear
+link clicks per product; and the tip link. They appear under Events in the
+Analytics tab.
 
 ## What the app does with all this
 
@@ -284,7 +425,9 @@ downloads from design pages. They appear under Events in the Analytics tab.
   phone page needs no sign-in; the unguessable session id is the credential,
   it expires after 15 minutes, and the server checks it on every upload.
 - `src/features/uploads/actions.ts` is the upload pipeline: create the draft
-  and sign one PUT URL per file, the browser uploads directly to R2, then the
+  and sign one PUT URL per file, bound to the declared size and content type
+  (R2 refuses a PUT that sends anything else, so a signed URL cannot be
+  reused for a larger object), the browser uploads directly to R2, then the
   server confirms each object's existence and size, marks it ready, and
   publishes. A failure after the draft exists abandons it again.
 - `src/features/uploads/lifecycle.ts` is the nightly reconciliation

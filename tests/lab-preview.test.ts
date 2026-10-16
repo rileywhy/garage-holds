@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { previewGeometry } from "../src/features/crimp-lab/preview-geometry";
+import { previewGeometry } from "../src/features/labs/preview-geometry";
 
 test("a rounded return keeps its back face out of the curved surface normals", () => {
   // The return meets the back at 45°, inside the usual 60° smoothing threshold.

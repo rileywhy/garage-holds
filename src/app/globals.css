@@ -816,6 +816,31 @@ svg {
   padding: 4px 7px;
   font-size: 10px;
 }
+.catalog-results[aria-busy="true"] .hold-grid {
+  opacity: 0.55;
+  transition: opacity 0.2s ease 0.15s;
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 22px;
+  margin-top: 34px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.pagination a,
+.pagination span[aria-disabled] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.pagination span[aria-disabled] {
+  color: var(--muted);
+  opacity: 0.5;
+}
 .catalog-end {
   border-top: 1px solid var(--line);
   padding-top: 20px;
@@ -873,6 +898,51 @@ svg {
   border-radius: 50%;
   color: var(--accent);
   margin-right: 90px;
+}
+/* Lab presets on the Saved page, kept apart from the bookmarked designs. */
+.preset-section {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.preset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.preset-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+.preset-item .tag {
+  align-self: flex-start;
+}
+.preset-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+.preset-item-date {
+  font-size: 11px;
+  color: var(--muted);
+}
+.preset-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+.preset-section .error-text {
+  color: var(--error-ink);
 }
 .site-footer {
   max-width: 1288px;
@@ -2608,6 +2678,28 @@ svg {
   gap: 18px;
   flex-wrap: wrap;
 }
+.contact-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.contact-address button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 10px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.contact-address button:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
 .feedback-trigger {
   background: transparent;
   border: 0;
@@ -2840,11 +2932,100 @@ svg {
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
+/* The Custom Shape Lab's preset menu, in its actions row. */
+.lab-preset-select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  max-width: 220px;
+}
+/* Naming a preset: one text field and two buttons under the settings row. */
+.lab-preset-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lab-preset-form input[type="text"] {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid var(--input-line);
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: var(--subtle-bg);
+  color: var(--ink);
+  font-size: 12px;
+}
 .lab-stage {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+}
+.lab-stage-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+/* Above every lab: the way back to the list, and the other labs one tap
+   away. One row that scrolls sideways on a phone instead of wrapping. */
+.lab-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.lab-nav::-webkit-scrollbar {
+  display: none;
+}
+.lab-nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  text-decoration: none;
+  flex: none;
+}
+.lab-nav-back:hover {
+  color: var(--ink);
+}
+.lab-nav ul {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-nav li a {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  text-decoration: none;
+}
+.lab-nav li a:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.lab-nav li a[aria-current="page"] {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--subtle-bg);
+}
+.lab-viewer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .lab-toolbar {
   display: flex;
@@ -2983,30 +3164,153 @@ svg {
   margin: 0;
   text-align: right;
 }
+/* Status and export sit under the viewer, so a failure is read next to the
+   model on every screen instead of two scrolls down on a phone. */
+.lab-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lab-stage-row > .button {
+  flex: 0 0 auto;
+}
 .lab-status {
-  font-size: 11px;
-  color: var(--muted);
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   min-height: 2.6em;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lab-status p {
+  margin: 0;
+  flex: 1 1 200px;
 }
 .lab-status.error {
+  padding: 8px 12px;
+  border: 1px solid var(--error-ink);
+  border-radius: 8px;
+  background: var(--paper);
   color: var(--error-ink);
+}
+.lab-status button {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+/* While the generator wakes up, or when it cannot draw: a note in the box. */
+.lab-viewer {
+  position: relative;
+}
+.lab-viewer-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.lab-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 6px 0;
+}
+.lab-skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--subtle-bg) 25%,
+    var(--line) 50%,
+    var(--subtle-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: lab-shimmer 1.4s linear infinite;
+}
+.lab-skeleton span:nth-child(2n) {
+  width: 70%;
+}
+.lab-skeleton span:nth-child(3n) {
+  height: 28px;
+}
+@keyframes lab-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-skeleton span {
+    animation: none;
+  }
 }
 @media (max-width: 900px) {
   .lab {
     grid-template-columns: 1fr;
     grid-template-areas:
       "stage"
+      "status"
+      "board"
       "controls"
       "details";
     gap: 16px;
   }
   .lab-stage {
+    display: contents;
+  }
+  /* Only the model and view buttons stay pinned. Success text, export and
+     board settings scroll away, leaving room to work on the sliders. All
+     new rules are scoped to the four shared labs, not Custom Shape. */
+  .lab .lab-stage-preview {
+    --lab-preview-height: min(260px, 26svh);
+    grid-area: stage;
     position: sticky;
     top: 0;
     z-index: 2;
     gap: 8px;
     padding: 8px 0;
     background: var(--bg);
+  }
+  .lab .lab-stage-preview .lab-toolbar {
+    height: 32px;
+    padding-bottom: 0;
+    margin: 0;
+  }
+  .lab .lab-stage-preview .lab-viewer {
+    height: var(--lab-preview-height);
+  }
+  .lab .lab-stage-row {
+    grid-area: status;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 0;
+    background: var(--bg);
+  }
+  .lab .lab-stage-row .lab-status {
+    min-height: 0;
+    gap: 6px;
+  }
+  .lab .lab-stage-error {
+    position: sticky;
+    top: calc(min(260px, 26svh) + 56px);
+    z-index: 2;
+  }
+  .lab .lab-board-controls {
+    grid-area: board;
   }
   .lab-toolbar {
     flex-wrap: nowrap;

@@ -57,3 +57,26 @@ test("every slider uses its current geometry limit when one is available", () =>
   assert.equal(limitControl(control, preview).max, 80);
   assert.equal(limitControl({ ...control, key: "width" }, preview).max, 360);
 });
+
+test("geometry help rounds for reading without changing the actual bounds", () => {
+  const control: Control = {
+    key: "seat_depth",
+    label: "Screw seat",
+    group: "Mounting",
+    min: 0.5,
+    max: 100,
+    step: 0.5,
+    unit: "mm",
+    help: "Seat above the wall.",
+  };
+  const max = 21.687747728209295;
+  const result = limitControl(control, {
+    control_ranges: { seat_depth: { min: 0.5, max } },
+  } as unknown as Parameters<typeof limitControl>[1]);
+  assert.equal(result.min, 0.5);
+  assert.equal(result.max, max);
+  assert.equal(
+    result.help,
+    "Seat above the wall. Current geometry allows 0.5–21.69 mm.",
+  );
+});

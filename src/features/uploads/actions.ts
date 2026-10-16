@@ -2,11 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { deleteObject, headObject, isR2Configured, signUpload } from "@/lib/r2";
+import {
+  deleteObject,
+  headObject,
+  isR2Configured,
+  MODEL_CONTENT_TYPE,
+  signUpload,
+} from "@/lib/r2";
 import { getUserId } from "@/features/holds/repository";
 import {
   fileExtension,
@@ -24,10 +31,16 @@ import {
   attachInboxPhotos,
   ownInboxPhotos,
 } from "./phone-photos";
-import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
+import {
+  createPhotoSizes,
+  deletePhotoObjects,
+  UnreadablePhotoError,
+} from "./photo-sizes";
 import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 import { notifyOwner } from "@/lib/alerts";
+import { after } from "next/server";
+import { makeModelPreview } from "./model-previews";
 
 export interface UploadFileDescriptor {
   kind: "model" | "photo";
@@ -42,6 +55,8 @@ export interface PendingUpload {
   fileId: string;
   name: string;
   url: string;
+  // The Content-Type the PUT must carry; the signed URL accepts no other.
+  contentType: string;
 }
 
 export type CreateDraftResult =
@@ -159,11 +174,21 @@ export async function createDraft(
     return { errors: ["Your files could not be registered. Try again."] };
   }
   const uploads = await Promise.all(
-    rows.map(async (row) => ({
-      fileId: row.id,
-      name: row.name,
-      url: await signUpload(row.object_key),
-    })),
+    rows.map(async (row) => {
+      const contentType =
+        row.kind === "photo"
+          ? (photoContentType(row.extension) ?? MODEL_CONTENT_TYPE)
+          : MODEL_CONTENT_TYPE;
+      return {
+        fileId: row.id,
+        name: row.name,
+        url: await signUpload(row.object_key, {
+          bytes: row.bytes,
+          contentType,
+        }),
+        contentType,
+      };
+    }),
   );
   return { designId: design.id, uploads };
 }
@@ -176,6 +201,8 @@ export async function finalizeDesign(
   designId: string,
   phonePhotoIds: string[] = [],
 ): Promise<FinalizeResult> {
+  if (!isR2Configured() || !isSupabaseAdminConfigured())
+    return { errors: ["Uploads aren't configured in this environment yet."] };
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return { errors: ["Sign in to publish a design."] };
@@ -214,12 +241,27 @@ export async function finalizeDesign(
       await admin.from("design_files").delete().eq("id", file.id);
       continue;
     }
+    // A photo's sizes come first: making them reads the bytes, so a file
+    // that is not an image is refused here instead of becoming a ready row.
+    if (file.kind === "photo")
+      try {
+        await createPhotoSizes(file.object_key, fileExtension(file.name));
+      } catch (error) {
+        errors.push(
+          error instanceof UnreadablePhotoError
+            ? `${file.name} is not a readable image.`
+            : `${file.name} could not be prepared. Try again.`,
+        );
+        if (!(error instanceof UnreadablePhotoError))
+          console.error("photo sizes failed", { designId, file, error });
+        await deletePhotoObjects(file.object_key);
+        await admin.from("design_files").delete().eq("id", file.id);
+        continue;
+      }
     await admin
       .from("design_files")
       .update({ status: "ready" })
       .eq("id", file.id);
-    if (file.kind === "photo")
-      await createPhotoSizes(file.object_key, fileExtension(file.name));
   }
   if (errors.length) return { errors };
 
@@ -235,6 +277,26 @@ export async function finalizeDesign(
     return { errors: ["Your phone photos could not be attached. Try again."] };
   }
 
+  // Big STLs get a simplified copy for the 3D preview, after the response:
+  // the function downloads and decimates the model, which must not hold up
+  // or fail the publish. A copy that fails here is tried again by the sweep.
+  after(async () => {
+    for (const file of files)
+      if (file.kind === "model")
+        try {
+          const previewKey = await makeModelPreview({
+            ...file,
+            extension: fileExtension(file.name),
+          });
+          if (previewKey)
+            await admin
+              .from("design_files")
+              .update({ preview_object_key: previewKey })
+              .eq("id", file.id);
+        } catch (error) {
+          console.error("model preview failed", { designId, file, error });
+        }
+  });
   const { error } = await supabase
     .from("designs")
     .update({ status: "published" })
@@ -281,6 +343,7 @@ async function warnWhenNearLimit(
 // a failed attempt leaves nothing behind. Only the owner's own draft can go;
 // published designs are never touched here.
 export async function abandonDraft(designId: string): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   const supabase = await createSupabaseServerClient();
   const userId = await getUserId(supabase);
   if (!userId) return;

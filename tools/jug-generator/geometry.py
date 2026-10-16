@@ -64,11 +64,18 @@ class Model:
                 else requested.screw_spacing
             ),
         )
-        # Scaling up and back down leaves float noise that is not a change.
+        # Scaling up and back down leaves float noise that is not a change,
+        # and an automatic span or seat landing somewhere is the feature,
+        # not an adjustment.
+        automatic = set()
+        if requested.auto_spacing:
+            automatic.add("screw_spacing")
+        if requested.auto_seat:
+            automatic.add("seat_depth")
         self.adjusted = {
             key: value
             for key, value in asdict(self.parameters).items()
-            if not _same(value, asdict(requested)[key])
+            if key not in automatic and not _same(value, asdict(requested)[key])
         }
         self._model = model
 

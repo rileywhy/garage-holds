@@ -1,6 +1,7 @@
 """Regression checks for Jug Lab's shared crimp geometry."""
 
 import io
+import random
 import sys
 import unittest
 from dataclasses import replace
@@ -12,7 +13,47 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
-from parameters import PRESETS, Parameters, design_document, parse_parameters
+from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+
+# Sampled settings whose export used to fail the closed-solid check even
+# though the solid was fine: the finer export loft made a pair of sliver
+# triangles that a vertex merge turned into pinholes. One has screws, one
+# does not, so the screw bore was never the cause.
+PINHOLE_JUGS = [
+    dict(
+        width=61, edge_depth=84.5, incut=58.4444, lip_radius=4.5, body_height=175,
+        body_rounding=7.5, end_rounding=30.0, bow=-3.5, taper=-57, character=0.6,
+        seed=636817, screws=True, bolt_mount=False, bolt_diameter=8.4,
+        bolt_head_diameter=28.5, screw_count=2, auto_spacing=True, screw_spacing=231,
+        shank_diameter=2.6, head_diameter=5.5, auto_seat=True, seat_depth=121.0,
+        end_wrap=12, arc_rise=2.5, size=120, grip_quality=145, screw_arc=4.5,
+    ),
+    dict(
+        width=68, edge_depth=46.0, incut=56.8444, lip_radius=9.5, body_height=190,
+        body_rounding=7.5, end_rounding=33.5, bow=-52.0, taper=13, character=3,
+        seed=2340, screws=False, bolt_mount=False, bolt_diameter=8.2,
+        bolt_head_diameter=30, screw_count=6, auto_spacing=True, screw_spacing=345,
+        shank_diameter=9.4, head_diameter=24.5, auto_seat=True, seat_depth=80.0,
+        end_wrap=145, arc_rise=22.0, size=86, grip_quality=109, screw_arc=11.0,
+    ),
+]
+
+
+def random_settings(rng, controls):
+    """One setting per control, on its step, anywhere in its range."""
+    values = {}
+    for control in controls:
+        steps = int(round((control["max"] - control["min"]) / control["step"]))
+        value = control["min"] + rng.randint(0, steps) * control["step"]
+        values[control["key"]] = int(value) if control["key"] == "screw_count" else round(value, 4)
+    values.update(
+        screws=rng.random() < 0.85,
+        bolt_mount=rng.random() < 0.3,
+        auto_spacing=rng.random() < 0.6,
+        auto_seat=rng.random() < 0.6,
+        seed=rng.randint(0, 999999),
+    )
+    return values
 
 
 class GeometryTests(unittest.TestCase):
@@ -31,6 +72,45 @@ class GeometryTests(unittest.TestCase):
         np.testing.assert_allclose(
             build(model.parameters).mesh.vertices, model.mesh.vertices
         )
+
+    def test_random_settings_export_closed_solids(self):
+        # A seeded sweep across the control ranges, plus the two settings
+        # that used to be refused at export. The mounting solver may say
+        # there is no room, in words; anything else must export closed.
+        rng = random.Random(2026)
+        exported = 0
+        for _ in range(20):
+            values = random_settings(rng, CONTROLS)
+            try:
+                p = parse_parameters(values)
+            except ValueError:
+                continue
+            with self.subTest(values=values):
+                try:
+                    model = build(p, "export")
+                except ValueError as error:
+                    self.assertNotIn("closed-solid", str(error))
+                    continue
+                self.assertTrue(model.mesh.is_watertight)
+                self.assertTrue(model.mesh.is_winding_consistent)
+                self.assertGreater(model.mesh.volume, 0)
+                exported += 1
+        self.assertGreater(exported, 6)
+        for values in PINHOLE_JUGS:
+            with self.subTest(values=values):
+                model = build(Parameters(**values), "export")
+                self.assertTrue(model.mesh.is_watertight)
+                self.assertGreater(model.mesh.volume, 0)
+
+    def test_manual_seat_survives_turning_screws_off(self):
+        # Dragging the seat slider sets auto_seat off; turning the mounting
+        # holes off afterwards must still build a closed body.
+        for quality in ("preview", "export"):
+            model = build(
+                Parameters(screws=False, auto_seat=False, seat_depth=12), quality
+            )
+            self.assertTrue(model.mesh.is_watertight)
+            self.assertEqual(model.screws, [])
 
     def test_calibrated_controls_change_the_intended_geometry(self):
         p = Parameters()
@@ -54,7 +134,7 @@ class GeometryTests(unittest.TestCase):
             np.testing.assert_allclose(model.mesh.vertices, again.mesh.vertices)
 
     def test_one_handed_mounting_is_spread_and_staggered(self):
-        for name in ("board jug", "deep jug"):
+        for name in ("Board jug", "Deep jug"):
             p = PRESETS[name]
             model = build(p)
             left, middle, right = model.screws
@@ -173,7 +253,7 @@ class GeometryTests(unittest.TestCase):
         model = build(Parameters())
         self.assertLessEqual(model.mesh.extents[2], 66.01)
         self.assertEqual(model.parameters.edge_depth, 57.5)
-        self.assertEqual(Parameters().body_height, 100)
+        self.assertEqual(Parameters().body_height, 125)
         self.assertGreaterEqual(model.parameters.body_height, 100)
         self.assertLessEqual(model.parameters.body_height, 130)
         self.assertEqual(model.parameters.grip_quality, 90)
@@ -184,13 +264,13 @@ class GeometryTests(unittest.TestCase):
 
     def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
         widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
-        for name in ("board jug", "deep jug"):
-            self.assertGreater(widths["two-handed jug"], 1.9 * widths[name])
-        self.assertLessEqual(widths["two-handed jug"], 256 * 0.95)
-        model = build(PRESETS["two-handed jug"])
+        for name in ("Board jug", "Deep jug"):
+            self.assertGreater(widths["Two-handed jug"], 1.9 * widths[name])
+        self.assertLessEqual(widths["Two-handed jug"], 256 * 0.95)
+        model = build(PRESETS["Two-handed jug"])
         self.assertEqual(len(model.screws), 4)
         xs = sorted(x for x, _ in model.screws)
-        self.assertGreater(xs[-1] - xs[0], widths["two-handed jug"] * 0.35)
+        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.35)
 
     def test_body_height_changes_geometry_and_manual_span_is_exact(self):
         low = build(Parameters(body_height=130))
@@ -230,7 +310,7 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_screw_arc_control_and_saved_settings(self):
-        self.assertEqual(parse_parameters({}).screw_arc, 6)
+        self.assertEqual(parse_parameters({}).screw_arc, 3)
         self.assertEqual(parse_parameters({"screw_arc": 30}).screw_arc, 20)
         for invalid in (True, "6", float("nan")):
             with self.assertRaises(ValueError):

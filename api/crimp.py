@@ -9,6 +9,7 @@ saved from one loads in the other.
 import json
 import sys
 from dataclasses import asdict
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
@@ -18,6 +19,13 @@ from geometry import build  # noqa: E402
 from parameters import design_document, parse_parameters, schema  # noqa: E402
 
 MAX_BODY = 16384
+
+
+# Parameters are a frozen dataclass, so equal settings share one build; the
+# preview that is on screen and the export that follows it hit the cache.
+@lru_cache(maxsize=8)
+def cached_model(parameters, quality):
+    return build(parameters, quality)
 
 
 class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
@@ -55,7 +63,7 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
             if action == "validate":
                 self.send(200, dict(parameters=asdict(p)))
             elif action == "stl":
-                mesh = build(p, "export").mesh
+                mesh = cached_model(p, "export").mesh
                 self.send(
                     200,
                     mesh.export(file_type="stl"),
@@ -63,11 +71,11 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
                     f"crimp-{p.edge_depth:g}mm-{p.incut:g}deg.stl",
                 )
             else:
-                model = build(p, "preview")
+                model = cached_model(p, "preview")
                 self.send(
                     200, model.preview() | dict(design=design_document(model.parameters))
                 )
-        except (ValueError, TypeError, json.JSONDecodeError) as error:
+        except (ValueError, TypeError, OverflowError, json.JSONDecodeError) as error:
             self.send(400, dict(error=str(error)))
         except Exception:
             import traceback

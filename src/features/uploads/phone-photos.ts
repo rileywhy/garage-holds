@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { copyObject, deleteObject } from "@/lib/r2";
 import { objectKey, photoContentType } from "@/features/holds/rows";
-import { createPhotoSizes } from "./photo-sizes";
+import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
 
 // Photos handed over from a phone (see phone-actions.ts). A session is a
 // short-lived, unguessable id the phone uploads into; the photos stay in the
@@ -57,11 +57,24 @@ export async function attachInboxPhotos(
   designId: string,
   photos: InboxPhoto[],
   firstPosition: number,
-) {
+): Promise<number> {
+  let attached = 0;
   for (const [index, photo] of photos.entries()) {
     const fileId = crypto.randomUUID();
     const key = objectKey(designId, fileId, photo.extension);
     await copyObject(photo.object_key, key);
+    // The phone checked the bytes when it confirmed the photo, so the
+    // sizes are expected to succeed; if they do not, the photo is dropped
+    // with a log line rather than left as a ready row with a broken card.
+    try {
+      await createPhotoSizes(key, photo.extension);
+    } catch (error) {
+      console.error("phone photo sizes failed", { designId, photo, error });
+      await deleteObject(key);
+      await admin.from("phone_photos").delete().eq("id", photo.id);
+      await deleteObject(photo.object_key);
+      continue;
+    }
     const { error } = await admin.from("design_files").insert({
       id: fileId,
       design_id: designId,
@@ -74,11 +87,12 @@ export async function attachInboxPhotos(
       status: "ready",
     });
     if (error) {
-      await deleteObject(key);
+      await deletePhotoObjects(key);
       throw new Error(`Could not attach ${photo.name}: ${error.message}`);
     }
-    await createPhotoSizes(key, photo.extension);
+    attached += 1;
     await admin.from("phone_photos").delete().eq("id", photo.id);
     await deleteObject(photo.object_key);
   }
+  return attached;
 }

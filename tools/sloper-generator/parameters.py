@@ -49,7 +49,7 @@ def control(key, label, group, minimum, maximum, step, unit, help_text):
 CONTROLS = [
     control(
         "incut",
-        "incut lift",
+        "Incut lift",
         "Grip",
         0,
         45,
@@ -59,7 +59,7 @@ CONTROLS = [
     ),
     control(
         "arc_wrap",
-        "arc wrap",
+        "Arc wrap",
         "Grip",
         0,
         60,
@@ -69,7 +69,7 @@ CONTROLS = [
     ),
     control(
         "projection",
-        "depth from the wall",
+        "Depth from the wall",
         "Grip",
         12,
         MAX_PROJECTION,
@@ -79,7 +79,7 @@ CONTROLS = [
     ),
     control(
         "palm_curve",
-        "surface curve",
+        "Surface curve",
         "Grip",
         0,
         100,
@@ -89,7 +89,7 @@ CONTROLS = [
     ),
     control(
         "slope",
-        "surface slope",
+        "Surface slope",
         "Grip",
         -45,
         45,
@@ -99,7 +99,7 @@ CONTROLS = [
     ),
     control(
         "width",
-        "width",
+        "Width",
         "Shape",
         40,
         MAX_WIDTH,
@@ -109,7 +109,7 @@ CONTROLS = [
     ),
     control(
         "height",
-        "height",
+        "Height",
         "Shape",
         40,
         MAX_HEIGHT,
@@ -119,7 +119,7 @@ CONTROLS = [
     ),
     control(
         "taper",
-        "left / right taper",
+        "Left / right taper",
         "Shape",
         -65,
         65,
@@ -129,7 +129,7 @@ CONTROLS = [
     ),
     control(
         "character",
-        "surface character",
+        "Surface character",
         "Shape",
         0,
         1.5,
@@ -139,7 +139,7 @@ CONTROLS = [
     ),
     control(
         "screw_count",
-        "number of screws",
+        "Number of screws",
         "Mounting",
         2,
         6,
@@ -147,10 +147,10 @@ CONTROLS = [
         "",
         "Two to six holes spread around the body. Turn mounting holes off for none.",
     ),
-    control("screw_spacing", "manual screw span", "Mounting", 6, MAX_WIDTH, 0.25, "mm", "Distance between the outer screw centres."),
+    control("screw_spacing", "Manual screw span", "Mounting", 6, MAX_WIDTH, 0.25, "mm", "Distance between the outer screw centres."),
     control(
         "shank_diameter",
-        "screw hole diameter",
+        "Screw hole diameter",
         "Mounting",
         1,
         12,
@@ -160,7 +160,7 @@ CONTROLS = [
     ),
     control(
         "head_diameter",
-        "head recess diameter",
+        "Head recess diameter",
         "Mounting",
         3,
         25,
@@ -170,7 +170,7 @@ CONTROLS = [
     ),
     control(
         "seat_depth",
-        "seat above the wall",
+        "Seat above the wall",
         "Mounting",
         0.5,
         30,
@@ -184,7 +184,7 @@ CONTROLS.extend(
     [
         dict(
             key="bolt_diameter",
-            label="bolt hole diameter",
+            label="Bolt hole diameter",
             group="Mounting",
             min=8,
             max=14,
@@ -194,7 +194,7 @@ CONTROLS.extend(
         ),
         dict(
             key="bolt_head_diameter",
-            label="bolt head recess diameter",
+            label="Bolt head recess diameter",
             group="Mounting",
             min=16,
             max=30,
@@ -206,8 +206,8 @@ CONTROLS.extend(
 )
 
 PRESETS = {
-    "rounded board sloper": Parameters(),
-    "round ball": Parameters(
+    "Rounded board sloper": Parameters(),
+    "Round ball": Parameters(
         width=120,
         height=120,
         projection=98.5,
@@ -216,13 +216,24 @@ PRESETS = {
         incut=18.6,
         arc_wrap=40,
     ),
-    "broad sloper": Parameters(
+    "Broad sloper": Parameters(
         width=217.5, height=150, projection=63, palm_curve=75, slope=18, incut=41.85
     ),
-    "sloping rail": Parameters(
+    "Sloping rail": Parameters(
         width=315, height=97.5, projection=57, palm_curve=55, slope=22, incut=37.2
     ),
 }
+
+
+def finite_number(value) -> bool:
+    """An int or float that fits a finite float; a bool is not a number,
+    and an integer too large for a float would make isfinite raise."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def parse_parameters(values: dict) -> Parameters:
@@ -233,11 +244,7 @@ def parse_parameters(values: dict) -> Parameters:
     parsed = asdict(Parameters()) | values
     for item in CONTROLS:
         value = parsed[item["key"]]
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
-        ):
+        if not finite_number(value):
             raise ValueError(f"{item['label']} must be a finite number.")
         # Typed values outside the sliders snap to the supported range.
         parsed[item["key"]] = min(item["max"], max(item["min"], value))

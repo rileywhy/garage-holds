@@ -15,7 +15,7 @@ class Parameters(crimp.Parameters):
     edge_depth: float = 57.5
     incut: float = 56
     lip_radius: float = 10.5
-    body_height: float = 100
+    body_height: float = 125
     body_rounding: float = 25
     end_rounding: float = 19
     bow: float = 10.5
@@ -23,14 +23,14 @@ class Parameters(crimp.Parameters):
     arc_rise: float = 5
     size: float = 100
     grip_quality: float = 90
-    screw_arc: float = 6
+    screw_arc: float = 3
     seat_depth: float = 6
 
 
 CONTROLS = [
     dict(
         item,
-        label=item["label"].lower(),
+        label=item["label"],
         max=crimp.JUG_MAXIMA.get(item["key"], item["max"]),
     )
     for item in crimp.CONTROLS
@@ -39,7 +39,7 @@ CONTROLS = [
 CONTROLS[:0] = [
     dict(
         key="size",
-        label="overall size",
+        label="Overall size",
         group="Grip",
         min=75,
         max=140,
@@ -49,7 +49,7 @@ CONTROLS[:0] = [
     ),
     dict(
         key="grip_quality",
-        label="more / less bite",
+        label="More / less bite",
         group="Grip",
         min=0,
         max=180,
@@ -59,7 +59,7 @@ CONTROLS[:0] = [
     ),
     dict(
         key="edge_depth",
-        label="grip reach",
+        label="Grip reach",
         group="Grip",
         min=15,
         max=100,
@@ -69,7 +69,7 @@ CONTROLS[:0] = [
     ),
     dict(
         key="arc_rise",
-        label="arc rise",
+        label="Arc rise",
         group="Grip",
         min=0,
         max=25,
@@ -79,7 +79,7 @@ CONTROLS[:0] = [
     ),
     dict(
         key="lip_radius",
-        label="lip comfort",
+        label="Lip comfort",
         group="Grip",
         min=4,
         max=18,
@@ -91,7 +91,7 @@ CONTROLS[:0] = [
 CONTROLS.append(
     dict(
         key="end_wrap",
-        label="ends toward the wall",
+        label="Ends toward the wall",
         group="Shape",
         min=0,
         max=180,
@@ -102,14 +102,14 @@ CONTROLS.append(
 )
 CONTROLS.append(
     dict(
-        key="screw_arc", label="screw arc", group="Mounting",
+        key="screw_arc", label="Screw arc", group="Mounting",
         min=0, max=20, step=0.5, unit="mm",
         help="Moves the inner screws away from the lip for a deeper mounting arc. Zero follows the usable mounting curve. Outer screws stay put; available material limits the offset.",
     )
 )
 PRESETS = {
-    "board jug": Parameters(),
-    "deep jug": Parameters(
+    "Board jug": Parameters(),
+    "Deep jug": Parameters(
         width=142,
         lip_radius=12.5,
         end_wrap=145,
@@ -118,7 +118,7 @@ PRESETS = {
     # Wide enough for both hands and still 5% inside a 256 mm printer bed,
     # with a gentler arch so four screws spread across the body instead of
     # crowding the middle.
-    "two-handed jug": Parameters(
+    "Two-handed jug": Parameters(
         width=253,
         end_rounding=24,
         bow=12,
@@ -126,6 +126,15 @@ PRESETS = {
         screw_count=4,
     ),
 }
+
+
+def finite_number(value) -> bool:
+    """An int or float that fits a finite float; an integer too large for
+    a float would make isfinite raise."""
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def parse_parameters(values):
@@ -136,7 +145,7 @@ def parse_parameters(values):
     for item in CONTROLS:
         value = merged[item["key"]]
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            if not math.isfinite(value):
+            if not finite_number(value):
                 raise ValueError(f"{item['label']} must be a finite number.")
             merged[item["key"]] = min(item["max"], max(item["min"], value))
     if isinstance(merged["width"], (int, float)) and isinstance(
@@ -171,7 +180,10 @@ def design_document(p):
 
 def schema():
     return dict(
+        generator="garage-holds-jug",
         version=2,
+        slug="jug",
+        label="Jug Lab",
         defaults=asdict(Parameters()),
         controls=CONTROLS,
         presets={name: asdict(p) for name, p in PRESETS.items()},

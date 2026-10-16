@@ -11,9 +11,9 @@ import {
   OrthographicCamera,
   Vector3,
 } from "three";
-import type { Preview } from "../src/features/crimp-lab/api";
+import type { Preview } from "../src/features/hold-lab/api";
 import { Viewer } from "../src/features/model-viewer/viewer";
-import { previewGeometry } from "../src/features/crimp-lab/preview-geometry";
+import { previewGeometry } from "../src/features/labs/preview-geometry";
 import {
   BoardPanel,
   DEFAULT_BOARD_ANGLE,
@@ -48,17 +48,25 @@ test("40° means overhang from vertical, with the contact face pointing down and
   hold.geometry.dispose();
 });
 
-test("board face meets the hold back and enlarges to fit wide/curved holds", () => {
+test("board face meets the hold back and stays bed-sized, so a wide hold overhangs", () => {
   const board = new BoardPanel(true);
-  board.fitToHold(
+  board.placeBehind(
     new Box3(new Vector3(-150, -50, 0), new Vector3(150, 100, 60)),
   );
   board.mesh.updateMatrixWorld(true);
   const bounds = new Box3().setFromObject(board.mesh);
   assert.equal(bounds.max.z, 0);
   assert.equal(bounds.min.z, -8);
-  assert.ok(bounds.min.x < -150 && bounds.max.x > 150);
-  assert.ok(bounds.min.y < -50 && bounds.max.y > 100);
+  // A Bambu A1 bed, centred on the hold: 256 mm each way, whatever the
+  // hold's size, so this 300 mm hold sticks out past both edges.
+  assert.deepEqual([bounds.min.x, bounds.max.x], [-128, 128]);
+  assert.deepEqual([bounds.min.y, bounds.max.y], [25 - 128, 25 + 128]);
+  board.placeBehind(
+    new Box3(new Vector3(-20, -10, 0), new Vector3(20, 10, 15)),
+  );
+  board.mesh.updateMatrixWorld(true);
+  const small = new Box3().setFromObject(board.mesh);
+  assert.deepEqual([small.min.x, small.max.x], [-128, 128]);
   for (const angle of [-1, 71, NaN, Infinity])
     assert.throws(() => mountOnBoard(new Group(), angle), /Board angle/);
   board.dispose();
@@ -110,14 +118,12 @@ function preview(width: number): Preview {
     grip_inner: [0, 0],
     grip_outer: [0, 0],
     dimensions: [width, 48, 22],
-    volume_cm3: 1,
     material_grams: [1, 2],
     adjusted: {},
     seat_depth: 10,
     triangles: faces.length,
     screw_spacing: null,
     lip_radius: 5,
-    watertight: true,
     design: {
       generator: "garage-holds-crimp",
       version: 1,

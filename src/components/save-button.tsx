@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bookmark } from "lucide-react";
 import { toggleBookmark } from "@/features/holds/bookmark-actions";
 import { signInPath } from "@/features/auth/redirects";
+import { trackEvent } from "@/features/analytics/events";
 
 export function SaveButton({
   id,
@@ -30,11 +31,15 @@ export function SaveButton({
       return;
     }
     setError("");
+    const saving = !optimisticSaved;
     startTransition(async () => {
-      setOptimisticSaved(!optimisticSaved);
+      setOptimisticSaved(saving);
       const result = await toggleBookmark(id);
       if ("error" in result) setError(result.error);
-      else router.refresh();
+      else {
+        if (saving) trackEvent({ name: "save_design", hold: id });
+        router.refresh();
+      }
     });
   }
   return (

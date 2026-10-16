@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
+import { SECURITY_HEADERS } from "./src/lib/security-headers";
 
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   devIndicators: false,
+  async headers() {
+    return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
+  },
   // The old address sends visitors to the domain, so search engines and
   // shared links settle on one site. API paths stay put: Vercel's cron and
   // the lab generators are called by path, never by a person.
@@ -24,6 +28,7 @@ const config: NextConfig = {
       ["crimp", process.env.CRIMP_API_URL],
       ["sloper", process.env.SLOPER_API_URL],
       ["jug", process.env.JUG_API_URL],
+      ["foot", process.env.FOOT_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

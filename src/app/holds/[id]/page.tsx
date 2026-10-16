@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { HoldDetail } from "@/features/holds/hold-detail";
+import { designMetadata } from "@/features/holds/metadata";
 import {
   getHold,
   listReviews,
@@ -11,32 +13,12 @@ import type { Hold } from "@/features/holds/types";
 
 type Props = { params: Promise<{ id: string }> };
 
-async function loadHold(id: string): Promise<Hold | null> {
-  return getHold(id);
-}
+// generateMetadata and the page both need the design; cache() makes that
+// one read per request instead of two.
+const loadHold = cache(async (id: string): Promise<Hold | null> => getHold(id));
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const hold = await loadHold((await params).id);
-  if (!hold || hold.status !== "published")
-    return { title: "Hold design", robots: { index: false, follow: false } };
-  // The preview image is a signed URL that expires after an hour, which is
-  // enough for the first fetch a chat or social site makes when a link is
-  // posted.
-  const image = hold.photos[0]?.url;
-  const description = `${hold.type} · ${hold.size} · ${hold.mount}. ${hold.description}`;
-  return {
-    title: hold.title,
-    description: hold.description,
-    alternates: { canonical: `/holds/${hold.id}` },
-    openGraph: {
-      type: "article",
-      title: hold.title,
-      description,
-      url: `/holds/${hold.id}`,
-      ...(image ? { images: [{ url: image, alt: hold.title }] } : {}),
-    },
-    twitter: { card: image ? "summary_large_image" : "summary" },
-  };
+  return designMetadata(await loadHold((await params).id));
 }
 
 export default async function HoldPage({ params }: Props) {

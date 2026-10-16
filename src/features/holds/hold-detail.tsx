@@ -217,14 +217,16 @@ export function HoldDetail({
           <section className="license-panel">
             <h3>Sharing & license</h3>
             <LicenseSummary license={hold.license} />
-            <p className="detail-report">
+            {/* A div, not a p: the widget renders a dialog, which the HTML
+                parser would close a paragraph around, breaking hydration. */}
+            <div className="detail-report">
               <FeedbackWidget
                 label="Report this design"
                 icon="report"
                 signedIn={signedIn}
                 prefill={`Reporting "${hold.title}" (/holds/${hold.id}): `}
               />
-            </p>
+            </div>
             {hold.tags.length > 0 && (
               <>
                 <h3 className="tags-heading">Design tags</h3>

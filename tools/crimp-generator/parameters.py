@@ -204,7 +204,7 @@ CONTROLS.extend(
     [
         dict(
             key="bolt_diameter",
-            label="bolt hole diameter",
+            label="Bolt hole diameter",
             group="Mounting",
             min=8,
             max=14,
@@ -214,7 +214,7 @@ CONTROLS.extend(
         ),
         dict(
             key="bolt_head_diameter",
-            label="bolt head recess diameter",
+            label="Bolt head recess diameter",
             group="Mounting",
             min=16,
             max=30,
@@ -257,6 +257,17 @@ PRESETS = {
 }
 
 
+def finite_number(value) -> bool:
+    """An int or float that fits a finite float; a bool is not a number,
+    and an integer too large for a float would make isfinite raise."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
     if not isinstance(values, dict):
         raise ValueError("Settings must be a JSON object.")
@@ -267,11 +278,7 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
     parsed = asdict(Parameters()) | values
     for control in CONTROLS:
         key, value = control["key"], parsed[control["key"]]
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
-        ):
+        if not finite_number(value):
             raise ValueError(f"{control['label']} must be a finite number.")
         maximum = JUG_MAXIMA.get(key, control["max"]) if jug else control["max"]
         if not control["min"] <= value <= maximum:

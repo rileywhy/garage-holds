@@ -136,6 +136,7 @@ export const SAMPLE_HOLDS: Hold[] = designs.map((design, index) => ({
   size: design.size,
   mount: design.mount,
   problemGrade: design.problemGrade,
+  rating: { count: 0, average: null },
   recipes: [
     {
       material: design.material,

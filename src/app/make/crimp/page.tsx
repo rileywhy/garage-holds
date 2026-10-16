@@ -1,15 +1,21 @@
-import type { Metadata } from "next";
-import { CrimpLab } from "@/features/crimp-lab/crimp-lab";
+import { getCurrentUser } from "@/features/auth/current-user";
+import { HoldLab } from "@/features/hold-lab/hold-lab";
+import { LabNav } from "@/features/labs/lab-nav";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Crimp Lab",
   description:
     "Shape a 3D printable climbing crimp: edge depth, incut, lip rounding, body shape, and screw holes, with a live preview and STL export.",
-};
+  path: "/make/crimp",
+});
 
-export default function CrimpLabPage() {
+export default async function CrimpLabPage() {
+  // Signed in, presets save to the account instead of this browser.
+  const user = await getCurrentUser();
   return (
     <main className="main-container lab-page">
+      <LabNav current="crimp" />
       <div className="page-intro">
         <p className="eyebrow">SHAPE YOUR NEXT EDGE</p>
         <h1>Crimp Lab</h1>
@@ -18,7 +24,7 @@ export default function CrimpLabPage() {
           STL. Nothing is added to the library unless you upload it.
         </p>
       </div>
-      <CrimpLab />
+      <HoldLab kind="crimp" account={Boolean(user)} />
     </main>
   );
 }

@@ -17,7 +17,7 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.hold_mounting import drill, fit_bolt_and_screw
+from tools.hold_mounting import assert_closed, closed_mesh, drill, fit_bolt_and_screw
 
 if __package__:
     from .parameters import (
@@ -302,10 +302,7 @@ def build(requested: Parameters, quality="preview") -> Model:
         solid = _solid(mesh)
     bolts = [(h.x, h.y) for h in holes if h.bolt]
     if holes:
-        result = drill(solid, holes, float(mesh.bounds[1, 2])).to_mesh()
-        mesh = trimesh.Trimesh(
-            result.vert_properties[:, :3], result.tri_verts, process=True
-        )
+        solid = drill(solid, holes, float(mesh.bounds[1, 2]))
     elif screws:
         cone_height = (p.head_diameter - p.shank_diameter) / 2
         for x, y in screws:
@@ -319,16 +316,24 @@ def build(requested: Parameters, quality="preview") -> Model:
                 float(mesh.bounds[1, 2]) + 1, p.head_diameter / 2, circular_segments=48
             ).translate((x, y, seat + cone_height))
             solid -= shank + cone + bore
-        result = solid.to_mesh()
-        mesh = trimesh.Trimesh(
-            result.vert_properties[:, :3], result.tri_verts, process=True
-        )
-    if not mesh.is_watertight or not mesh.is_winding_consistent or mesh.volume <= 0:
-        raise ValueError("The mesh did not pass closed-solid checks.")
+    # A drilled hold is read back from Manifold as is; an undrilled one
+    # keeps the mesh exactly as built (see closed_mesh).
+    message = "The mesh did not pass closed-solid checks."
+    if holes or screws:
+        mesh = closed_mesh(solid, message)
+    else:
+        assert_closed(mesh, message)
+    # Only report changes the person did not ask for: an automatic span or
+    # seat landing somewhere is the feature, not an adjustment.
+    automatic = set()
+    if requested.auto_spacing:
+        automatic.add("screw_spacing")
+    if requested.auto_seat:
+        automatic.add("seat_depth")
     adjusted = {
         key: value
         for key, value in asdict(p).items()
-        if value != asdict(requested)[key]
+        if key not in automatic and value != asdict(requested)[key]
     }
     spacing_limit = max(6.0, p.width - p.head_diameter - 4.0)
     return Model(mesh, profile, screws, p, adjusted, bolts, seat_limit, spacing_limit)

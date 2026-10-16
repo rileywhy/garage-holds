@@ -55,6 +55,7 @@ export type Database = {
           object_key: string;
           orientation: string;
           position: number;
+          preview_object_key: string | null;
           status: string;
         };
         ComputedFields: never;
@@ -69,6 +70,7 @@ export type Database = {
           object_key: string;
           orientation?: string;
           position?: number;
+          preview_object_key?: string | null;
           status?: string;
         };
         Update: {
@@ -82,6 +84,7 @@ export type Database = {
           object_key?: string;
           orientation?: string;
           position?: number;
+          preview_object_key?: string | null;
           status?: string;
         };
         Relationships: [
@@ -109,6 +112,7 @@ export type Database = {
           print_notes: string;
           problem_grade: number | null;
           published_at: string | null;
+          search: unknown;
           size: string;
           special_process: string | null;
           status: string;
@@ -132,6 +136,7 @@ export type Database = {
           print_notes?: string;
           problem_grade?: number | null;
           published_at?: string | null;
+          search?: unknown;
           size: string;
           special_process?: string | null;
           status?: string;
@@ -154,6 +159,7 @@ export type Database = {
           print_notes?: string;
           problem_grade?: number | null;
           published_at?: string | null;
+          search?: unknown;
           size?: string;
           special_process?: string | null;
           status?: string;
@@ -202,6 +208,45 @@ export type Database = {
           {
             foreignKeyName: "feedback_author_id_fkey";
             columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lab_presets: {
+        Row: {
+          created_at: string;
+          id: string;
+          lab: string;
+          name: string;
+          owner_id: string;
+          search: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          lab: string;
+          name: string;
+          owner_id: string;
+          search?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          lab?: string;
+          name?: string;
+          owner_id?: string;
+          search?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lab_presets_owner_id_fkey";
+            columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -387,10 +432,17 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      catalog_type_counts: {
+        Row: {
+          designs: number | null;
+          hold_type: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [];
+      };
     };
     Functions: {
-      can_view_design: { Args: { design: string }; Returns: boolean };
+      [_ in never]: never;
     };
     Enums: {
       [_ in never]: never;

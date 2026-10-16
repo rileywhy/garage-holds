@@ -30,11 +30,6 @@ export const GEAR = {
     label: "Polymaker PolyLite PETG",
     search: "Polymaker PolyLite PETG 1.75mm",
   },
-  petgBudget: {
-    id: "petg-budget",
-    label: "Overture PETG",
-    search: "Overture PETG 1.75mm",
-  },
   petgBambu: {
     id: "petg-bambu",
     label: "Bambu PETG HF",
@@ -45,40 +40,10 @@ export const GEAR = {
     label: "filament dryer",
     search: "filament dryer box 1.75mm",
   },
-  desiccant: {
-    id: "desiccant",
-    label: "silica gel desiccant",
-    search: "silica gel desiccant packets rechargeable",
-  },
   woodScrews: {
     id: "wood-screws",
     label: "#10 star-drive wood screws",
     search: "#10 x 2 inch star drive wood screws",
-  },
-  tNuts: {
-    id: "t-nuts",
-    label: '3/8"-16 climbing t-nuts',
-    search: "3/8-16 t-nuts climbing holds",
-  },
-  bolts: {
-    id: "bolts",
-    label: '3/8"-16 socket head bolts',
-    search: "3/8-16 socket head cap screws 2 inch",
-  },
-  drillBit: {
-    id: "drill-bit",
-    label: '7/16" drill bit',
-    search: "7/16 inch brad point drill bit",
-  },
-  chalk: {
-    id: "chalk",
-    label: "climbing chalk",
-    search: "climbing chalk loose",
-  },
-  brush: {
-    id: "brush",
-    label: "boar's hair brush",
-    search: "climbing hold brush boar hair",
   },
 } as const satisfies Record<string, GearItem>;
 

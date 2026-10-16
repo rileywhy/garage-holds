@@ -19,6 +19,25 @@ const VIEWS: Record<ViewName, [number, number, number]> = {
   board: [1, 0.08, 0.28],
 };
 
+// The toolbar every lab draws: the same views, in the same order, with the
+// same names.
+export const VIEW_ORDER: ViewName[] = [
+  "three-quarter",
+  "board",
+  "side",
+  "angled-side",
+  "top",
+  "front",
+];
+export const VIEW_LABELS: Record<ViewName, string> = {
+  "three-quarter": "3D",
+  board: "Board preview",
+  side: "Side",
+  "angled-side": "Angled side",
+  top: "Above",
+  front: "Front",
+};
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
@@ -42,6 +61,14 @@ export class Viewer {
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
   private turning = 0;
+  private onKey = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "+" || event.key === "=") this.zoom(1.25);
+    else if (event.key === "-" || event.key === "_") this.zoom(0.8);
+    else if (event.key === "0") this.fit();
+    else return;
+    event.preventDefault();
+  };
 
   constructor(
     private container: HTMLElement,
@@ -60,6 +87,13 @@ export class Viewer {
     this.controls.addEventListener("change", () => this.render());
     // The first touch ends the slow turn; the hold is then where it was left.
     this.controls.addEventListener("start", () => this.setTurning(false));
+    // Zoom is also on the keyboard once the viewer has focus: + and - step
+    // in and out, 0 refits. Laptops without a wheel still have a way out,
+    // alongside the buttons the labs draw next to the viewer.
+    this.controls.minZoom = 0.15;
+    this.controls.maxZoom = 12;
+    if (!container.hasAttribute("tabindex")) container.tabIndex = 0;
+    container.addEventListener("keydown", this.onKey);
     this.scene.add(new THREE.HemisphereLight(0xece8ff, 0x3f3a47, 2.2));
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
     key.position.set(-60, 130, 80);
@@ -102,7 +136,7 @@ export class Viewer {
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.model.add(this.mesh);
     geometry.computeBoundingBox();
-    this.board.fitToHold(geometry.boundingBox!);
+    this.board.placeBehind(geometry.boundingBox!);
     if (first) this.setView(this.view);
     else if (fit) this.fit();
     this.render();
@@ -152,6 +186,17 @@ export class Viewer {
     this.fit();
   }
 
+  // Step the view in (factor above 1) or out, within the same limits the
+  // wheel and pinch gestures use.
+  zoom(factor: number) {
+    this.camera.zoom = Math.min(
+      this.controls.maxZoom,
+      Math.max(this.controls.minZoom, this.camera.zoom * factor),
+    );
+    this.camera.updateProjectionMatrix();
+    this.render();
+  }
+
   setBoardAngle(angle: number) {
     this.boardAngle = angle;
     if (this.view === "board") {
@@ -160,11 +205,17 @@ export class Viewer {
     }
   }
 
+  // What a fit frames: the hold, and on the board a margin of board around
+  // it rather than the whole panel, so the hold stays the subject and the
+  // framing does not depend on the panel's fixed size.
   private viewBounds() {
     this.model.updateWorldMatrix(true, true);
     const bounds = new THREE.Box3().setFromObject(this.mesh!);
-    if (this.view === "board")
-      bounds.union(new THREE.Box3().setFromObject(this.board.mesh));
+    if (this.view === "board") {
+      const size = bounds.getSize(new THREE.Vector3());
+      bounds.expandByScalar(Math.max(30, Math.max(size.x, size.y) * 0.35));
+      bounds.intersect(new THREE.Box3().setFromObject(this.board.mesh));
+    }
     return bounds;
   }
 
@@ -234,6 +285,7 @@ export class Viewer {
 
   dispose() {
     this.setTurning(false);
+    this.container.removeEventListener("keydown", this.onKey);
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.mesh?.geometry.dispose();

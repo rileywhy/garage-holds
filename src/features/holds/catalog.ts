@@ -1,46 +1,9 @@
-import type { Hold, HoldFilters, Review } from "./types";
+import { ratingSummary } from "./rows";
+import type { HoldFilters, Review } from "./types";
 
-export function filterHolds(holds: Hold[], filters: HoldFilters): Hold[] {
-  const query = filters.query.trim().toLowerCase();
-  const matches = holds.filter((hold) => {
-    const search = [
-      hold.title,
-      hold.creator,
-      hold.description,
-      hold.type,
-      ...hold.tags,
-      ...hold.recipes.map(
-        (r) =>
-          `${r.material} ${r.specialProcess ?? ""} ${r.postProcessing} ${r.textureNotes}`,
-      ),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return (
-      (!query || query.split(/\s+/).every((word) => search.includes(word))) &&
-      (!filters.designMethod || hold.designMethod === filters.designMethod) &&
-      (!filters.types.length || filters.types.includes(hold.type)) &&
-      (!filters.sizes.length || filters.sizes.includes(hold.size)) &&
-      (!filters.mounts.length || filters.mounts.includes(hold.mount)) &&
-      ((!filters.materials.length && !filters.specialProcesses.length) ||
-        hold.recipes.some(
-          (recipe) =>
-            (!filters.materials.length ||
-              filters.materials.includes(recipe.material)) &&
-            (!filters.specialProcesses.length ||
-              (recipe.specialProcess !== null &&
-                filters.specialProcesses.includes(recipe.specialProcess))),
-        )) &&
-      (filters.targetGrade === null ||
-        hold.problemGrade === filters.targetGrade)
-    );
-  });
-  if (filters.sort === "newest")
-    matches.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  if (filters.sort === "title")
-    matches.sort((a, b) => a.title.localeCompare(b.title));
-  return matches;
-}
+// Filtering, search, sorting and paging happen in the database (see
+// catalog-query.ts and repository.ts); what is left here is the arithmetic
+// the pages share.
 
 export function activeFilterCount(filters: HoldFilters): number {
   return (
@@ -55,14 +18,11 @@ export function activeFilterCount(filters: HoldFilters): number {
 }
 
 export function reviewSummary(reviews: Review[], holdId: string) {
-  const matching = reviews.filter((review) => review.holdId === holdId);
-  return {
-    count: matching.length,
-    average: matching.length
-      ? matching.reduce((sum, review) => sum + review.rating, 0) /
-        matching.length
-      : null,
-  };
+  return ratingSummary(
+    reviews
+      .filter((review) => review.holdId === holdId)
+      .map((review) => review.rating),
+  );
 }
 
 export function formatBytes(bytes: number): string {

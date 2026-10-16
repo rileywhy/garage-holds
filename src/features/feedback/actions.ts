@@ -1,19 +1,35 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { notifyOwner } from "@/lib/alerts";
+import { notifyOwner, notifyOwnerOnce } from "@/lib/alerts";
+import {
+  clientErrorKey,
+  formatClientError,
+  validateClientReport,
+} from "@/lib/error-reports";
 import { loadCurrentUser } from "@/features/auth/current-user";
+import { createRateLimiter } from "@/lib/rate-limit";
 import { validateFeedback } from "./validation";
 
 export interface FeedbackState {
   errors: string[];
   sent: boolean;
 }
+
+// A person gets a handful of messages per quarter hour; the site as a whole
+// gets a ceiling too, so a script cycling addresses still cannot flood the
+// owner's channel. Both are per server instance, which is enough here.
+const PER_SENDER_WINDOW_MS = 15 * 60 * 1000;
+const allowSender = createRateLimiter(4, PER_SENDER_WINDOW_MS);
+const allowAnyone = createRateLimiter(40, PER_SENDER_WINDOW_MS);
+const TOO_MANY =
+  "You have sent a few messages in a row. Wait a while and try again.";
 
 // Anyone may send feedback, signed in or not. Each message is stored and
 // forwarded to the owner's webhook in one line. The "website" field is a
@@ -35,6 +51,9 @@ export async function submitFeedback(
   const user = isSupabaseConfigured()
     ? await loadCurrentUser(await createSupabaseServerClient())
     : null;
+  const sender = user ? `user:${user.id}` : `ip:${await requestIp()}`;
+  if (!allowSender(sender) || !allowAnyone("all"))
+    return { errors: [TOO_MANY], sent: false };
   if (isSupabaseAdminConfigured()) {
     const { error } = await createSupabaseAdminClient()
       .from("feedback")
@@ -59,4 +78,35 @@ export async function submitFeedback(
     `Feedback from ${from} on ${input.page || "an unknown page"}:\n${input.body}`,
   );
   return { errors: [], sent: true };
+}
+
+// The caller's address as the proxy reports it; Vercel sets both headers.
+// Unknown callers share one bucket, which the site-wide ceiling covers.
+async function requestIp() {
+  const list = await headers();
+  return (
+    list.get("x-real-ip") ??
+    list.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown"
+  );
+}
+
+// Error reports get a smaller allowance than feedback: a real visitor's
+// page fails a few times at most, while a script choosing its own digest
+// would otherwise get a fresh line through the dedupe on every call.
+const allowReporter = createRateLimiter(5, PER_SENDER_WINDOW_MS);
+const allowAnyReport = createRateLimiter(30, PER_SENDER_WINDOW_MS);
+
+// Called once by the error boundary when a page fails in the browser. The
+// report is whatever the browser sent, so it is validated, flattened to one
+// plain line and redacted to the route template here, and never stored; the
+// owner gets one line per distinct error per minute, within the allowances
+// above. Refused reports are dropped silently: the browser has nothing to
+// do about them.
+export async function reportClientError(input: unknown): Promise<void> {
+  const report = validateClientReport(input);
+  if (!report) return;
+  if (!allowReporter(`ip:${await requestIp()}`) || !allowAnyReport("all"))
+    return;
+  await notifyOwnerOnce(clientErrorKey(report), formatClientError(report));
 }

@@ -35,6 +35,7 @@ const row: DesignRow = {
   created_at: "2026-10-10T12:00:00.000Z",
   updated_at: "2026-10-10T12:00:00.000Z",
   profiles: { display_name: "rileywhy" },
+  reviews: [{ rating: 5 }, { rating: 4 }],
   design_files: [
     {
       id: "photo-2",
@@ -47,6 +48,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      preview_object_key: null,
       orientation: "x,y,z",
     },
     {
@@ -60,6 +62,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      preview_object_key: null,
       orientation: "x,y,z",
     },
     {
@@ -73,6 +76,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "ready",
+      preview_object_key: null,
       orientation: "x,-y,-z",
     },
     {
@@ -86,6 +90,7 @@ const row: DesignRow = {
       design_id: "0b7b8a3e-2f6e-4d2a-9c1e-1f0a2b3c4d5e",
       created_at: "2026-10-10T12:00:00.000Z",
       status: "pending",
+      preview_object_key: null,
       orientation: "x,y,z",
     },
   ],

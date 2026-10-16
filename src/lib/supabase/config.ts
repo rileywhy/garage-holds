@@ -9,3 +9,9 @@ export function supabaseConfig() {
 export function isSupabaseConfigured() {
   return supabaseConfig() !== null;
 }
+
+// What a server action answers when called without Supabase set up. The
+// pages hide the way in, so this is for a direct call, which must get a
+// result rather than a thrown error.
+export const ACCOUNTS_NOT_CONFIGURED =
+  "Accounts aren't configured in this environment yet.";

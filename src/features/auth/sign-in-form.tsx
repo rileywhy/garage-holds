@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { LoaderCircle, MailCheck } from "lucide-react";
 import { Field, FieldErrors } from "@/components/form-fields";
+import { trackEvent } from "@/features/analytics/events";
 import {
   signInWithEmail,
   signInWithGoogle,
@@ -21,7 +22,11 @@ export function SignInForm({
   const [state, action, pending] = useActionState(signInWithEmail, INITIAL);
   return (
     <div className="sign-in-card">
-      <form action={signInWithGoogle} className="sign-in-provider">
+      <form
+        action={signInWithGoogle}
+        className="sign-in-provider"
+        onSubmit={() => trackEvent({ name: "sign_in", method: "google" })}
+      >
         <input type="hidden" name="next" value={next} />
         <button type="submit" className="button button-outline">
           <GoogleMark /> Continue with Google
@@ -35,7 +40,16 @@ export function SignInForm({
       <div className="sign-in-divider" role="separator">
         <span>or use an email code</span>
       </div>
-      <form action={action} className="sign-in-email" aria-busy={pending}>
+      <form
+        action={action}
+        className="sign-in-email"
+        aria-busy={pending}
+        onSubmit={() => {
+          // Counted when the code is requested, not again when it is entered.
+          if (state.step === "email")
+            trackEvent({ name: "sign_in", method: "email" });
+        }}
+      >
         <input type="hidden" name="next" value={next} />
         {state.step === "email" ? (
           <>
@@ -72,7 +86,7 @@ export function SignInForm({
           <>
             <p className="success-box" role="status">
               We sent a code to <strong>{state.email}</strong>. It expires in
-              about an hour.
+              ten minutes.
             </p>
             <Field label="One-time code">
               <input

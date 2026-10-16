@@ -1,5 +1,12 @@
 import type { Tables } from "@/lib/supabase/database.types";
-import type { Hold, ModelFile, Photo, Review, SpecialProcess } from "./types";
+import type {
+  Hold,
+  ModelFile,
+  Photo,
+  RatingSummary,
+  Review,
+  SpecialProcess,
+} from "./types";
 import type { License } from "./licenses";
 import { holdColor } from "./colors";
 import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
@@ -10,6 +17,8 @@ import { DEFAULT_ORIENTATION, isOrientation } from "./orientation";
 // Columns come from the generated database types. Text columns that the
 // schema restricts with check constraints are narrowed to the domain unions
 // here, since the generator only sees `text`.
+// The search vector is the database's business (see catalog-query.ts) and
+// the ratings come embedded, so a page of cards needs no second query.
 export type DesignRow = Omit<
   Tables<"designs">,
   | "hold_type"
@@ -19,6 +28,7 @@ export type DesignRow = Omit<
   | "special_process"
   | "status"
   | "design_method"
+  | "search"
 > & {
   hold_type: Hold["type"];
   size: Hold["size"];
@@ -29,6 +39,7 @@ export type DesignRow = Omit<
   status: Hold["status"];
   profiles: { display_name: string } | null;
   design_files: DesignFileRow[];
+  reviews: { rating: number }[];
 };
 
 export type DesignFileRow = Omit<Tables<"design_files">, "kind" | "status"> & {
@@ -68,6 +79,7 @@ export function designRowToHold(
       bytes: file.bytes,
       extension: file.extension,
       url: urls.get(file.id) ?? "",
+      previewUrl: urls.get(`${file.id}:preview`) ?? "",
       orientation: isOrientation(file.orientation)
         ? file.orientation
         : DEFAULT_ORIENTATION,
@@ -98,7 +110,17 @@ export function designRowToHold(
     color: holdColor(row.id),
     photos,
     files,
+    rating: ratingSummary(row.reviews.map((review) => review.rating)),
     createdAt: row.created_at,
+  };
+}
+
+export function ratingSummary(ratings: number[]): RatingSummary {
+  return {
+    count: ratings.length,
+    average: ratings.length
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : null,
   };
 }
 
@@ -173,4 +195,26 @@ export function photoObjectKeys(objectKey: string) {
       photoSizeKey(objectKey, size),
     ),
   ];
+}
+
+// designs/<design>/<file>.stl -> designs/<design>/<file>-preview.stl: the
+// simplified copy a model over the browser's preview limits gets (RIL-87).
+export function modelPreviewKey(objectKey: string) {
+  const dot = objectKey.lastIndexOf(".");
+  const base =
+    dot > objectKey.lastIndexOf("/") ? objectKey.slice(0, dot) : objectKey;
+  return `${base}-preview.stl`;
+}
+
+// The original and the preview copy it may have. Deleting a key that does
+// not exist is fine, so this is safe for models that never needed one.
+export function modelObjectKeys(objectKey: string) {
+  return [objectKey, modelPreviewKey(objectKey)];
+}
+
+// Every object a file row may own in the bucket.
+export function fileObjectKeys(file: { kind: string; object_key: string }) {
+  return file.kind === "photo"
+    ? photoObjectKeys(file.object_key)
+    : modelObjectKeys(file.object_key);
 }

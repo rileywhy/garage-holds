@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,6 +8,7 @@ import {
   Check,
   FileBox,
   LoaderCircle,
+  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -26,6 +27,10 @@ import {
   startPhotoUpload,
 } from "@/features/uploads/photo-actions";
 import { PhotoCropper } from "@/features/uploads/photo-cropper";
+import {
+  finishModelReplace,
+  startModelReplace,
+} from "@/features/uploads/model-actions";
 import { uploadAll } from "@/features/uploads/put-files";
 import {
   deleteDesign,
@@ -37,7 +42,7 @@ import { OrientationDialog } from "./orientation-picker";
 import { formatBytes } from "./catalog";
 import { readDesignInput } from "./design-form";
 import type { CropRect } from "@/features/uploads/crop";
-import { MAX_PHOTOS, validateDesign } from "./validation";
+import { MAX_PHOTOS, MODEL_EXTENSIONS, validateDesign } from "./validation";
 import type { Hold } from "./types";
 
 // One Save for everything: the details, then any photos waiting in the
@@ -107,6 +112,7 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
           start.uploads.map((upload, index) => ({
             url: upload.url,
             file: files[index],
+            contentType: upload.contentType,
           })),
         );
         const finished = await finishPhotoUpload(
@@ -137,9 +143,9 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
         <p className="eyebrow">EDIT DESIGN</p>
         <h1>{hold.title}</h1>
         <p>
-          Update the details other makers see, add or remove photos, and set
-          which way a model faces. The files themselves and publication state
-          stay as they are.
+          Update the details other makers see, add or remove photos, replace a
+          model file, and set which way a model faces. Publication state stays
+          as it is.
         </p>
       </div>
       <form
@@ -243,13 +249,61 @@ function DeleteSection({ hold }: { hold: Hold }) {
 
 // The model files as uploaded, with the orientation of each STL. A new
 // orientation is saved on its own, like a crop, since it is confirmed in
-// its dialog.
+// its dialog. Replacing a file is immediate too: it is confirmed first,
+// then goes up through a signed PUT and is verified before it takes the
+// old file's place (see uploads/model-actions.ts).
 function ModelSection({ hold, disabled }: { hold: Hold; disabled: boolean }) {
   const router = useRouter();
   const [orienting, setOrienting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
   const [error, setError] = useState("");
   const open = hold.files.find((file) => file.id === orienting);
+  // One hidden file input serves every Replace button; this is the file
+  // it was opened for.
+  const picker = useRef<HTMLInputElement>(null);
+  const target = useRef<string | null>(null);
+  const busy = disabled || saving !== null || replacing !== null;
+
+  async function replace(fileId: string, file: File) {
+    const current = hold.files.find((item) => item.id === fileId);
+    if (
+      !current ||
+      !window.confirm(
+        `Replace ${current.name} with ${file.name}? The current file is removed for good and downloads switch to the new one.`,
+      )
+    )
+      return;
+    setReplacing(fileId);
+    setError("");
+    const start = await startModelReplace(hold.id, fileId, {
+      kind: "model",
+      name: file.name,
+      bytes: file.size,
+      type: file.type,
+    });
+    if ("errors" in start) {
+      setReplacing(null);
+      setError(start.errors.join(" "));
+      return;
+    }
+    // A PUT that fails is reported by the finish step, which also removes
+    // the row it reserved.
+    await uploadAll([
+      { url: start.upload.url, file, contentType: start.upload.contentType },
+    ]);
+    const finished = await finishModelReplace(
+      hold.id,
+      fileId,
+      start.upload.fileId,
+    );
+    setReplacing(null);
+    if ("errors" in finished) {
+      setError(finished.errors.join(" "));
+      return;
+    }
+    router.refresh();
+  }
 
   async function apply(fileId: string, orientation: string) {
     setOrienting(null);
@@ -268,9 +322,25 @@ function ModelSection({ hold, disabled }: { hold: Hold; disabled: boolean }) {
     <section className="form-section" aria-labelledby="edit-models-heading">
       <h2 id="edit-models-heading">Model files</h2>
       <p className="small-note">
-        If a model shows upside down or on its side, set its orientation. The
-        file itself is never changed; downloads stay as you made them.
+        Replace a file to put a corrected version in its place; the old file is
+        removed and downloads switch to the new one. If a model shows upside
+        down or on its side, set its orientation instead: that never changes the
+        file.
       </p>
+      <input
+        ref={picker}
+        type="file"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        accept={MODEL_EXTENSIONS.map((extension) => `.${extension}`).join(",")}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          const fileId = target.current;
+          event.target.value = "";
+          if (file && fileId) void replace(fileId, file);
+        }}
+      />
       <ul className="file-list" aria-label="Model files">
         {hold.files.map((file) => (
           <li key={file.id}>
@@ -286,12 +356,31 @@ function ModelSection({ hold, disabled }: { hold: Hold; disabled: boolean }) {
               <button
                 type="button"
                 className="text-button"
-                disabled={disabled || saving !== null}
+                disabled={busy}
                 onClick={() => setOrienting(file.id)}
               >
                 {saving === file.id ? "Saving…" : "Orientation"}
               </button>
             )}
+            <button
+              type="button"
+              className="text-button"
+              disabled={busy}
+              onClick={() => {
+                target.current = file.id;
+                picker.current?.click();
+              }}
+            >
+              {replacing === file.id ? (
+                <>
+                  <LoaderCircle size={13} className="spin" /> Replacing…
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={13} /> Replace
+                </>
+              )}
+            </button>
           </li>
         ))}
       </ul>

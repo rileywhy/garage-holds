@@ -38,7 +38,7 @@ retains their dimensions.
   Arc wrap continues the rounded surface past its widest point and back toward the
   wall, adding a rounded return rather than lifting the whole body. It narrows the
   flat mounting face. Zero preserves the original half dome, including older saved
-  settings. **round ball** starts with a nearly spherical cap, 40° wrap and 18.6° lift.
+  settings. **Round ball** starts with a nearly spherical cap, 40° wrap and 18.6° lift.
 - **shape:** width, height, left/right depth taper, and seeded broad surface
   character. The footprint is always an oval. It is a new sloper surface, not
   a Crimp Lab preset: there is no shelf or sharp gripping lip.
