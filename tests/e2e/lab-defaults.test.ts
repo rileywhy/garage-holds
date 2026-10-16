@@ -22,7 +22,7 @@ import { linkSearch } from "../../src/features/lab-link/lab-link";
 // Needs the four generators from docs/sandbox.md (npm run test:e2e). After an
 // intended generator change, UPDATE_LAB_DEFAULTS=1 rewrites the fixture.
 
-const KINDS: Kind[] = ["crimp", "sloper", "jug", "foot"];
+const KINDS: Kind[] = ["crimp", "sloper", "jug", "foot", "pocket"];
 const PORTS: Record<Kind, number> = {
   crimp: 8766,
   sloper: 8771,
