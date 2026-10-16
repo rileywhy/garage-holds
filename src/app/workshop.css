@@ -130,7 +130,7 @@ h3 {
   font-size: 36px;
   font-weight: 700;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
   gap: 8px;
 }
 .brand-icon {
@@ -547,7 +547,7 @@ input[type="radio"] {
 }
 .footer-wordmark {
   font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
-  text-transform: uppercase;
+  text-transform: none;
   font-size: 26px;
   letter-spacing: 0;
 }

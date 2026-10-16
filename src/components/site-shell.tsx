@@ -34,7 +34,7 @@ export function SiteHeader({
       <header className="site-header">
         <Link href="/" className="brand" aria-label="Garage Holds home">
           <span className="brand-icon" aria-hidden="true" />
-          <span>garage holds</span>
+          <span>Garage Holds</span>
         </Link>
         <nav aria-label="Main navigation">
           <Link
@@ -82,7 +82,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="site-footer">
       <div>
-        <span className="footer-wordmark">garage holds</span>
+        <span className="footer-wordmark">Garage Holds</span>
         <span>grips for your board.</span>
       </div>
       <div className="footer-links">
