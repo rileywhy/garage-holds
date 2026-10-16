@@ -9,10 +9,12 @@ brief and applies across the catalog, guides, accounts and labs.
   ink `#efedf5`, lavender accent `#a18bc9`. The masthead and hold presentation
   use the same violet/lavender family. Success/error colors keep their semantic
   distinction. Never use color alone to communicate state.
-- Type: self-hosted Barlow Condensed Bold for headings/wordmark, existing Arial
-  for reading and controls. Consolas/system monospace only for measurements,
-  counts, file formats and technical values. Display 48–88px, page 36–48px,
-  section 24–30px, body 14–16px, dense labels 12–13px. Tabular numerals.
+- Type: Arial/Helvetica for page titles, section headings, product titles and
+  controls. Sentence case, measured weights (500?600), and clear size steps:
+  home title 40px desktop / 30px mobile; page titles 32px / 30px; section
+  headings 20?32px; product names 18?20px. Retain self-hosted Barlow Condensed
+  Bold only for the Garage Holds header and footer wordmarks. Consolas/system
+  monospace remains for measurements, counts and technical values.
 - Spacing: 4px scale; 8px control gaps, 16–20px panel padding, 24–32px section
   gaps, 40–56px outer desktop gutters. Mobile 16px gutters. Compact labs.
 - Surfaces: flat fields with 1px rules and 3–6px corners. No floating shadows,

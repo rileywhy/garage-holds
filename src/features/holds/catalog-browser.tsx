@@ -122,22 +122,19 @@ export function CatalogBrowser({
         </section>
       ) : (
         <section className="equipment-hero" aria-labelledby="home-title">
-          <h1 id="home-title">
-            Climbing holds.<span>Made to print.</span>
-          </h1>
-          <LabCarousel />
-          <div className="equipment-intro">
-            <p>
+          <div className="equipment-copy">
+            <h1 id="home-title">
+              Climbing holds. <span>Made to print.</span>
+            </h1>
+            <p className="equipment-description">
               Model files and print recipes for your home wall. Find your next
               hold in the pile, or shape it yourself in Hold Labs.
             </p>
-            <a href="#library">
-              Browse the pile <ArrowDown size={20} />
+            <a href="#library" className="equipment-browse button button-dark">
+              Browse the pile <ArrowDown size={16} />
             </a>
-            <Link href="/make">
-              Shape your own <ArrowUpRight size={20} />
-            </Link>
           </div>
+          <LabCarousel />
         </section>
       )}
       {beforeLibrary}
@@ -149,7 +146,7 @@ export function CatalogBrowser({
         <div className="library-title-row">
           <div>
             <h2>
-              {savedOnly ? "Saved designs" : "the pile"}
+              {savedOnly ? "Saved designs" : "The Pile"}
               <span className="result-count">{page.total}</span>
             </h2>
             {savedOnly && <p>Designs you have bookmarked.</p>}

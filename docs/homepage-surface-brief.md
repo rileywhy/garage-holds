@@ -69,3 +69,16 @@ matching top clearance for all five slides on desktop and mobile.
 The carousel's named selector strip is replaced with small in-window dots.
 Each dot keeps an accessible lab name and pressed state. Arrows and a compact
 pause/play control remain available; captions sit above the indicator row.
+
+Latest typography and layout refinement: page and product headings use the
+calmer Arial/Helvetica family in sentence case; only the brand wordmarks retain
+condensed display lettering. The homepage labels the carousel ?Hold Labs? with
+an explicit STL-design description. Its responsive window is 620 ? 280px at
+wide desktop sizes and 240px high on mobile, keeping more of the library in
+view while leaving room for the product image. The artwork itself links to
+the active lab. The catalog title reads ?The Pile?. Existing arrow, dot,
+pause/play, query, filter, save and lab behavior is preserved.
+
+Homepage actions now sit with their destinations: “Browse the pile” directly
+under the introduction, and “Open Hold Labs” beside the carousel heading.
+The previous paired action strip is removed.
