@@ -37,6 +37,7 @@ import {
   formatProblemGrade,
 } from "./grades";
 import { HoldCard } from "./hold-card";
+import { LabCarousel } from "../labs/lab-carousel";
 
 // Typing pauses this long before the address changes and the server is
 // asked for the matching page.
@@ -102,69 +103,43 @@ export function CatalogBrowser({
   const pageHref = (number: number) =>
     catalogHref({ ...query, page: number }, pathname);
   return (
-    <main className="main-container">
-      <section className={`catalog-hero ${savedOnly ? "saved-hero" : ""}`}>
-        <div className="hero-copy">
-          <h1>
-            {savedOnly ? (
-              <>Saved holds for your next print.</>
-            ) : (
-              <>
-                Climbing holds.
-                <br />
-                <span>Made to print.</span>
-              </>
-            )}
-          </h1>
-          {savedOnly && (
+    <main className={`main-container ${savedOnly ? "" : "equipment-home"}`}>
+      {savedOnly ? (
+        <section className="catalog-hero saved-hero">
+          <div className="hero-copy">
+            <h1>Saved holds for your next print.</h1>
             <p className="hero-description">
               Keep the designs you want to come back to. Saved designs follow
               your account to any device.
             </p>
-          )}
-          {!savedOnly && (
-            <p className="hero-description">
-              Find holds for your home wall, with model files and print recipes.
-              Or shape your own in the labs and export an STL.
-            </p>
-          )}
-          <div className="hero-links">
             <a href="#library" className="hero-text-link">
-              {savedOnly
-                ? "Browse your saved designs"
-                : "Browse the hold library"}
-              <ArrowDown size={15} />
+              Browse your saved designs <ArrowDown size={15} />
             </a>
-            {!savedOnly && (
-              <Link href="/make" className="button button-dark">
-                Open Hold Labs <ArrowUpRight size={15} />
-              </Link>
-            )}
           </div>
-        </div>
-        {!savedOnly && (
-          <figure className="hero-art">
-            <img
-              src="/images/hold-labs/crimp.webp"
-              alt="Rounded three-screw climbing crimp made in Crimp Lab"
-              width={1000}
-              height={625}
-              fetchPriority="high"
-            />
-            <figcaption>
-              <Link href="/make/crimp">
-                Crimp Lab <ArrowUpRight size={13} />
-              </Link>
-              <span>Adjust. Preview. Export STL.</span>
-            </figcaption>
-          </figure>
-        )}
-        {savedOnly && (
           <div className="saved-hero-icon">
             <Bookmark size={66} strokeWidth={1} />
           </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="equipment-hero" aria-labelledby="home-title">
+          <h1 id="home-title">
+            Climbing holds.<span>Made to print.</span>
+          </h1>
+          <LabCarousel />
+          <div className="equipment-intro">
+            <p>
+              Model files and print recipes for your home wall. Find your next
+              hold in the pile, or shape it yourself in Hold Labs.
+            </p>
+            <a href="#library">
+              Browse the pile <ArrowDown size={20} />
+            </a>
+            <Link href="/make">
+              Shape your own <ArrowUpRight size={20} />
+            </Link>
+          </div>
+        </section>
+      )}
       {beforeLibrary}
       <section
         id="library"
@@ -182,7 +157,7 @@ export function CatalogBrowser({
           <span className="sample-note">
             {savedOnly
               ? "Saved to your account"
-              : `${page.total} ${page.total === 1 ? "design" : "designs"} Â· add yours to get started`}
+              : "Community designs / Model files + print recipes"}
           </span>
         </div>
         <div className="catalog-layout">
@@ -282,7 +257,7 @@ export function CatalogBrowser({
               </summary>
               <div className="filter-group angle-filter">
                 <label htmlFor="target-grade">
-                  Suggested grade at {GRADE_BOARD_ANGLE}Â°
+                  Suggested grade at {GRADE_BOARD_ANGLE}°
                 </label>
                 <select
                   id="target-grade"
@@ -303,7 +278,7 @@ export function CatalogBrowser({
                     </option>
                   ))}
                 </select>
-                <p>Creator suggestions for problems on a 40Â° board.</p>
+                <p>Creator suggestions for problems on a 40° board.</p>
               </div>
             </details>
             <div className="sidebar-note">
@@ -321,7 +296,7 @@ export function CatalogBrowser({
                 <Search size={18} />
                 <input
                   aria-label="Search designs"
-                  placeholder="Search holds, creators, materialsâ€¦"
+                  placeholder="Search holds, creators, materials…"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                 />
@@ -356,7 +331,7 @@ export function CatalogBrowser({
                 >
                   <option value="featured">Featured</option>
                   <option value="newest">Newest</option>
-                  <option value="title">Name Aâ€“Z</option>
+                  <option value="title">Name A–Z</option>
                 </select>
               </label>
             </div>
@@ -377,7 +352,7 @@ export function CatalogBrowser({
                 {query.targetGrade !== null && (
                   <button onClick={() => navigate({ targetGrade: null })}>
                     {formatProblemGrade(query.targetGrade)} at{" "}
-                    {GRADE_BOARD_ANGLE}Â°
+                    {GRADE_BOARD_ANGLE}°
                     <X size={12} />
                     <span className="sr-only">Remove grade filter</span>
                   </button>
@@ -470,7 +445,7 @@ export function CatalogBrowser({
                 {page.holds.length
                   ? page.page < page.pageCount
                     ? "More designs on the next page."
-                    : "Youâ€™ve reached the end of this collection."
+                    : "You’ve reached the end of this collection."
                   : "Have a design in mind?"}
               </span>
               <Link href="/upload">

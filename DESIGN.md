@@ -36,3 +36,10 @@ Modes: catalog/hub introduce and help choose; labs operate; guide/help read.
 Avoid technical decoration that competes with real geometry or parameter data.
 Font source/license: Google Fonts' Barlow Condensed directory and accompanying
 SIL Open Font License in `public/fonts/BarlowCondensed-OFL.txt`.
+
+Homepage refinement: the independent equipment-catalog composition is scoped to
+the public homepage. Its full-width condensed heading, crimp product plate,
+browse/lab rail and ruled catalog entries are documented in
+`docs/homepage-surface-brief.md`. This surface does not replace the shared palette,
+masthead, lab system, account surfaces or Saved page. Preserve the cool purple
+tokens above; do not propagate homepage-only type sizes or grid rules globally.

@@ -25,6 +25,42 @@ const INK = "#efedf5";
 const MUTED = "#aaa6b8";
 const ACCENT = "#a18bc9";
 
+// Keep the supplied SVG unchanged. Browser artwork uses the same paths,
+// with a theme-aware fill so it remains visible on light and dark tabs.
+const browserIcon = icon
+  .toString()
+  .replace(
+    /(<svg\b[^>]*>)/,
+    "$1<style>path{fill:#282633}@media(prefers-color-scheme:dark){path{fill:#efedf5}}</style>",
+  );
+await writeFile(path.join(root, "public", "brand-icon.svg"), browserIcon);
+const lightMark = await sharp(
+  Buffer.from(icon.toString().replaceAll('fill="#111111"', `fill="${INK}"`)),
+)
+  .trim()
+  .png()
+  .toBuffer();
+
+async function browserRaster(size) {
+  const padding = Math.max(1, Math.round(size / 16));
+  const mark = await sharp(lightMark)
+    .resize(size - padding * 2, size - padding * 2, { fit: "inside" })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: "#282633" },
+  })
+    .composite([{ input: mark, gravity: "centre" }])
+    .png()
+    .toBuffer();
+}
+
+for (const size of [16, 32])
+  await writeFile(
+    path.join(root, "public", `favicon-${size}.png`),
+    await browserRaster(size),
+  );
+
 const W = 1200;
 const H = 630;
 
@@ -127,16 +163,7 @@ async function card({ file, eyebrow, title, text, render }) {
 
 // An .ico is a small directory of images; browsers accept PNG entries.
 async function ico(sizes) {
-  const images = await Promise.all(
-    sizes.map((size) =>
-      sharp(icon)
-        .resize(size, size)
-        .flatten({ background: MARK_BG })
-        .ensureAlpha()
-        .png()
-        .toBuffer(),
-    ),
-  );
+  const images = await Promise.all(sizes.map(browserRaster));
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
