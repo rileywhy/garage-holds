@@ -136,7 +136,7 @@ function caption(kind: Kind, p: Parameters) {
   if (kind === "pocket")
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
-    } · ${p.floor_angle}° floor`;
+    } · ${p.incut} mm incut`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
 }
 

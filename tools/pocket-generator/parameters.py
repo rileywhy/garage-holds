@@ -11,13 +11,13 @@ class Parameters:
     opening_width: float = 45
     opening_height: float = 28
     pocket_depth: float = 40
-    floor_angle: float = 10
+    incut: float = 14
     lip_radius: float = 12
     through: bool = False
     # The body, before overall scale.
     size: float = 100
-    width: float = 94
-    height: float = 94
+    width: float = 98
+    height: float = 98
     depth: float = 50
     roundness: float = 100
     edge_rounding: float = 10
@@ -84,14 +84,14 @@ CONTROLS = [
         hidden_by="through",
     ),
     control(
-        "floor_angle",
-        "Floor angle",
+        "incut",
+        "Incut",
         "Grip",
-        -20,
-        35,
+        -10,
+        25,
         1,
-        "°",
-        "Positive tilts the floor up into the hold so fingers hook. Zero goes straight in; negative slopes away.",
+        "mm",
+        "How far the inside drops below the lower lip. Positive hooks your fingers behind the lip; zero runs straight in; negative lifts the floor away.",
     ),
     control(
         "lip_radius",
@@ -273,9 +273,9 @@ PRESETS = {
         opening_width=26,
         opening_height=26,
         pocket_depth=36,
-        floor_angle=15,
-        width=80,
-        height=80,
+        incut=12,
+        width=84,
+        height=84,
         depth=46,
     ),
     "Three-finger pocket": replace(
@@ -283,18 +283,18 @@ PRESETS = {
         opening_width=66,
         opening_height=30,
         pocket_depth=40,
-        floor_angle=8,
-        width=120,
-        height=92,
+        incut=14,
+        width=128,
+        height=100,
         depth=50,
         screw_count=3,
     ),
-    "Deep two-finger": replace(BASE, pocket_depth=52, floor_angle=12, depth=62),
+    "Deep two-finger": replace(BASE, pocket_depth=52, incut=10, depth=62),
     "Slopey pocket": replace(
         BASE,
         opening_height=30,
         pocket_depth=26,
-        floor_angle=-12,
+        incut=-6,
         lip_radius=10,
         crown=25,
         width=100,
@@ -305,11 +305,11 @@ PRESETS = {
         BASE,
         roundness=25,
         width=124,
-        height=80,
+        height=88,
         depth=42,
         opening_height=26,
         pocket_depth=32,
-        floor_angle=15,
+        incut=12,
     ),
 }
 

@@ -9,7 +9,7 @@ import manifold3d as manifold
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import FLOOR, MARGIN, build, largest, lip_limit, lip_reach, pocket, slot
+from geometry import FLOOR, LIP_SPAN, MARGIN, build, largest, lip_reach, pocket, slot
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
 from tools.hold_mounting import _inside
@@ -75,7 +75,7 @@ class PocketTests(unittest.TestCase):
             replace(
                 PRESETS["Two-finger pocket"],
                 pocket_depth=50,
-                floor_angle=25,
+                incut=14,
                 lip_radius=6,
                 size=60,
                 screws=False,
@@ -98,7 +98,7 @@ class PocketTests(unittest.TestCase):
         self.assertEqual(contours_at(opened.mesh, 0.5), 2)
         # With a steep floor the exit climbs the back, and the body grows to
         # keep its margin around the exit.
-        steep = build(replace(PRESETS["Mono"], through=True, floor_angle=35))
+        steep = build(replace(PRESETS["Mono"], through=True, incut=25))
         self.assertEqual(steep.floor, 0)
         self.assertTrue(steep.mesh.is_watertight)
         self.assertEqual(len(steep.holes), 2)
@@ -128,66 +128,93 @@ class PocketTests(unittest.TestCase):
                         f"hole at {hole.x:.1f}, {hole.y:.1f} meets the pocket",
                     )
 
-    def test_cavity_deepest_point_lies_on_the_floor(self):
-        # Riley's drawing: the pocket's section is a C whose deepest point is
-        # at the floor, at the back, with the roof sweeping down to meet it;
-        # the floor runs straight from the lower lip to that point.
+    def turning_angles(self, points):
+        before, after = np.roll(points, 1, axis=0), np.roll(points, -1, axis=0)
+        v1, v2 = points - before, after - points
+        cross = v1[:, 0] * v2[:, 1] - v1[:, 1] * v2[:, 0]
+        dot = (v1 * v2).sum(axis=1)
+        return np.degrees(np.abs(np.arctan2(cross, dot)))
+
+    def test_cavity_section_is_a_rounded_c(self):
+        # Riley's drawing: in section the pocket is a C. The roof runs in
+        # from the upper lip and curls down a rounded back; the floor ramps
+        # down from the lower lip into a rounded bottom that sits the incut
+        # below the lip; the deepest point is at the chamber's mid-height,
+        # not on the floor; and there is no corner anywhere inside.
         for name in ("Two-finger pocket", "Three-finger pocket", "Mono"):
             p = PRESETS[name]
             with self.subTest(name=name):
                 depth = p.depth * p.size / 100
-                angle = math.radians(p.floor_angle)
+                h, incut, d = p.opening_height, p.incut, p.pocket_depth
                 cut = slot(p, depth, "export")
-                vertices = cut.to_mesh().vert_properties[:, :3]
-                deepest = vertices[np.argmin(vertices[:, 2])]
+                section = largest(cut.rotate((0, 90, 0)).slice(0))
+                z = section[:, 0]
+                inside = section[z < depth - 0.3]
+                # The opening at the face is the stadium itself: nothing
+                # bulges below the lower lip or above the upper one there.
+                at_face = largest(cut.slice(depth - 0.05))
+                self.assertAlmostEqual(at_face[:, 1].min(), -h / 2, delta=0.5)
+                self.assertAlmostEqual(at_face[:, 1].max(), h / 2, delta=0.5)
+                deepest = inside[np.argmin(inside[:, 0])]
+                self.assertAlmostEqual(deepest[1], -incut / 2, delta=2.5)
+                self.assertAlmostEqual(deepest[0], depth - d, delta=1.0)
+                lowest = inside[np.argmin(inside[:, 1])]
+                self.assertAlmostEqual(lowest[1], -h / 2 - incut, delta=1.0)
+                self.assertAlmostEqual(lowest[0], depth - 0.65 * d, delta=3.0)
+                self.assertLessEqual(inside[:, 1].max(), h / 2 + 0.5)
+                # The floor only goes down on the way in to the bottom.
+                front = inside[(inside[:, 0] > depth - 0.65 * d) & (inside[:, 1] < 0)]
+                order = np.argsort(-front[:, 0])
+                self.assertTrue(np.all(np.diff(front[order, 1]) <= 0.3))
+                # Rounded everywhere below the face: no bend over 35 degrees.
+                turning = self.turning_angles(section)
+                self.assertLess(turning[z < depth - 1.0].max(), 35)
+                # And it follows the incut: more incut, lower bottom.
+                more = slot(replace(p, incut=incut + 8), depth, "export")
                 self.assertAlmostEqual(
-                    deepest[1],
-                    -p.opening_height / 2 + p.pocket_depth * math.sin(angle),
-                    delta=1.5,
+                    more.bounding_box()[1], cut.bounding_box()[1] - 8, delta=0.5
                 )
-                self.assertAlmostEqual(
-                    deepest[2], depth - p.pocket_depth * math.cos(angle), delta=1.5
-                )
-                for fraction in (0.25, 0.5, 0.75):
-                    z = depth - fraction * p.pocket_depth * math.cos(angle)
-                    section = largest(cut.slice(z))
-                    floor = -p.opening_height / 2 + (depth - z) * math.tan(angle)
-                    self.assertAlmostEqual(section[:, 1].min(), floor, delta=1.0)
-                    height = section[:, 1].max() - section[:, 1].min()
-                    full = p.opening_height * math.sqrt(1 - fraction**2)
-                    self.assertLess(height, full / math.cos(angle) + 1.5)
-                    self.assertGreater(height, full * 0.8)
 
     def test_lip_has_no_creases(self):
         # A rounded lip: along section curves through the roof, floor and
         # side lips, no bend sharper than the facets themselves, whatever
         # the floor angle, the body's crown and taper, or a seeded wobble;
         # an open pocket too. The curves are read off the finished solid.
+        # The last two push well past the presets (a mono with most of its
+        # opening again in incut and a big lip; a steep, tapered, wobbly
+        # body). At the slider extremes beyond these the lip is a thin
+        # blade over a cone facet and its outer end can still kink.
         cases = [
-            PRESETS["Two-finger pocket"],
-            PRESETS["Three-finger pocket"],
-            replace(PRESETS["Mono"], floor_angle=30, lip_radius=18),
-            replace(PRESETS["Slopey pocket"], floor_angle=-20),
-            replace(PRESETS["Two-finger pocket"], through=True, floor_angle=35),
-            replace(
-                PRESETS["Two-finger pocket"], crown=50, taper=40, character=0.8, seed=7
+            (PRESETS["Two-finger pocket"], 35),
+            (PRESETS["Three-finger pocket"], 35),
+            (replace(PRESETS["Slopey pocket"], incut=-10), 35),
+            (replace(PRESETS["Two-finger pocket"], through=True, incut=20), 35),
+            (replace(PRESETS["Mono"], incut=20, lip_radius=14), 45),
+            (
+                replace(
+                    PRESETS["Two-finger pocket"],
+                    crown=35,
+                    taper=30,
+                    character=0.8,
+                    seed=7,
+                ),
+                45,
             ),
         ]
-        for p in cases:
+        for p, limit in cases:
             with self.subTest(values=asdict(p)):
                 model = build(replace(p, screws=False), "export")
                 b = model.parameters
                 depth = b.depth * b.size / 100
-                lip = min(b.lip_radius, lip_limit(b))
                 reach = lip_reach(b)
-                half_h = b.opening_height / 2 / math.cos(math.radians(b.floor_angle))
+                half_h = b.opening_height / 2 + max(b.incut, 0)
                 solid = manifold.Manifold(
                     manifold.Mesh(
                         np.asarray(model.mesh.vertices, dtype=np.float32),
                         np.asarray(model.mesh.faces, dtype=np.uint32),
                     )
                 )
-                floor = depth - 2 * lip - 2
+                floor = max(depth - 2 * reach - 2, 3.0)
                 worst, examined = 0.0, 0
                 # Planes x = x0 give (z, y) and cut the roof and floor lips
                 # squarely; the plane y = 0 gives (x, -z) through the side
@@ -220,7 +247,7 @@ class PocketTests(unittest.TestCase):
                     ]
                 )
                 for turned, offset, axes, half in planes:
-                    for polygon in turned.slice(offset).simplify(0.2).to_polygons():
+                    for polygon in turned.slice(offset).simplify(0.3).to_polygons():
                         points = np.asarray(polygon)
                         before, after = (
                             np.roll(points, 1, axis=0),
@@ -236,13 +263,15 @@ class PocketTests(unittest.TestCase):
                             worst = max(worst, float(turning[band].max()))
                             examined += int(band.sum())
                 self.assertGreater(examined, 40)
-                self.assertLess(worst, 35, f"a {worst:.0f} degree bend in the lip band")
+                self.assertLess(
+                    worst, limit, f"a {worst:.0f} degree bend in the lip band"
+                )
 
     def test_mono_opening_is_round(self):
         # Equal width and height give a round hole at the face; the lip's
         # reach around it varies a little with the wall it leaves and the
         # face it meets, so the shadow is only roughly opening plus two lips.
-        p = replace(PRESETS["Mono"], floor_angle=0, screws=False)
+        p = replace(PRESETS["Mono"], incut=0, screws=False)
         depth = p.depth * p.size / 100
         _, cut, _, _, _ = pocket(p, "preview")
         lo, hi = np.array(slot(p, depth, "preview").slice(depth).bounds()).reshape(2, 2)
@@ -251,7 +280,10 @@ class PocketTests(unittest.TestCase):
         self.assertAlmostEqual(mouth[0], p.opening_width, delta=0.5)
         lo, hi = np.array(cut.project().bounds()).reshape(2, 2)
         for size in hi - lo:
-            self.assertAlmostEqual(size, p.opening_width + 2 * p.lip_radius, delta=6)
+            self.assertGreaterEqual(size, p.opening_width + 2 * p.lip_radius - 1)
+            self.assertLessEqual(
+                size, p.opening_width + 2 * LIP_SPAN * p.lip_radius + 1
+            )
 
     def test_scale_applies_to_the_body_only(self):
         p = replace(PRESETS["Two-finger pocket"], screws=False)

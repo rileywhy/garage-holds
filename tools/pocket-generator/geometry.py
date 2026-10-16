@@ -36,11 +36,23 @@ from tools.hold_mounting import (
 # strength ratings.
 FLOOR = 6.0
 MARGIN = 6.0
+# A fillet on a sharp (undercut) edge starts further out than its radius;
+# past this many radii the radius shrinks instead, so an overhanging lip
+# keeps a rounded edge without eating the face around it.
+LIP_SPAN = 1.4
+# The least face left over the chamber around the lip, so an overhanging
+# lower lip is a lip and not a sliver.
+LIP_MEAT = 4.0
+# The least wedge angle between the face and the cavity wall at the lip,
+# so a lip under a steep crown is a lip and not a blade.
+LIP_WEDGE = math.radians(25)
+# The share of the pocket depth before the bowl begins.
+THROAT = 0.3
 # Odd arc counts put a vertex on each axis, so a mouth measures exactly
 # what was asked for across and up.
 QUALITY = {
-    "preview": dict(sphere=16, ring=72, arc=13, slabs=8, scoop=10),
-    "export": dict(sphere=32, ring=144, arc=25, slabs=12, scoop=20),
+    "preview": dict(sphere=16, ring=72, arc=13, slabs=10, chamber=32),
+    "export": dict(sphere=32, ring=144, arc=25, slabs=32, chamber=72),
 }
 LIMITS = {control["key"]: (control["min"], control["max"]) for control in CONTROLS}
 
@@ -56,20 +68,29 @@ def largest(section):
     return np.asarray(max(polygons, key=len))
 
 
+def lip_lean(p):
+    """How far the lower lip overhangs the floor behind it, as an angle from
+    vertical: the floor ramps down from the lip into the chamber's bottom
+    over the front half of the depth. Nothing when the floor rises."""
+    if p.through:
+        return math.atan2(max(p.incut, 0), max(p.depth * p.size / 100, 1.0))
+    return math.atan2(max(p.incut, 0), max(p.pocket_depth / 2, 1.0))
+
+
 def lip_factor(p):
     """The lip's reach across the face relative to its radius: one on a
-    square edge, more on the undercut side of a tilted pocket, where the
-    edge is sharper and a fillet of the same radius starts further out."""
-    return 1 / math.tan((math.pi / 2 - abs(math.radians(p.floor_angle))) / 2)
+    square edge, more on the undercut lower lip, capped at LIP_SPAN."""
+    return min(LIP_SPAN, 1 / math.tan((math.pi / 2 - lip_lean(p)) / 2))
 
 
 def lip_limit(p):
     """The most lip rounding a pocket can take: the fillet must meet the
-    cavity wall within half the pocket's depth, closer on a steep floor;
-    no limit once the pocket opens to the wall."""
+    cavity wall within half the pocket's depth, closer under an overhanging
+    lip; no limit once the pocket opens to the wall."""
     if p.through:
         return LIMITS["lip_radius"][1]
-    return min(LIMITS["lip_radius"][1], p.pocket_depth / (2 * lip_factor(p)))
+    reach_down = lip_factor(p) * math.cos(lip_lean(p))
+    return min(LIMITS["lip_radius"][1], p.pocket_depth / (2 * reach_down))
 
 
 def lip_reach(p):
@@ -173,45 +194,65 @@ def body(p, quality):
     return solid, s
 
 
-def scoop_inset(p, drop):
-    """How far the scoop's roof has come down from the mouth at a depth
-    below the face: nothing for a pocket open to the wall, else along the
-    quarter ellipse that takes the roof to the floor at full depth."""
-    if p.through or drop <= 0:
-        return 0.0
-    fraction = min(1.0, drop / p.pocket_depth)
-    return p.opening_height * (1 - math.sqrt(1 - fraction * fraction))
-
-
 def slot(p, depth, quality):
-    """The pocket cavity, tilted by the floor angle about the lower lip on
-    the face plane. Its section is a C: the floor runs straight in from the
-    lower lip to the deepest point at the back, and the roof sweeps down
-    from the upper lip along a quarter ellipse to meet it, so the stadium
-    mouth narrows to a line on the floor at full depth. A pocket open to
-    the wall is a straight stadium prism on through the back."""
+    """The pocket cavity. Closed, it is the hull of the mouth and a rounded
+    chamber behind it: an ellipsoid as tall as the opening plus the incut
+    and as long as the pocket is deep, hung so its top is level with the
+    upper lip and its bottom sits the incut below the lower lip, its ends
+    rounding off with the stadium's. In section that is a C: the roof runs
+    in and curls down the rounded back, the floor ramps down from the lower
+    lip into the rounded bottom, and the deepest point is at the chamber's
+    mid-height. A positive incut hooks the fingers behind the lip; a
+    negative one lifts the floor away. Open to the wall, it is a stadium
+    prism skewed by the incut over the body's depth."""
     q = QUALITY[quality]
     width, height = p.opening_width, p.opening_height
-    floor = -height / 2
+    run, rr = max(width - height, 0) / 2, min(width, height) / 2
     outline = stadium(width, height, q["arc"])
-    mouth = np.column_stack((outline, np.full(len(outline), depth + 25)))
     if p.through:
-        far = np.column_stack((outline, np.full(len(outline), -depth - 80)))
-        cut = manifold.Manifold.hull_points(np.vstack((mouth, far)))
-    else:
-        rings = [mouth, np.column_stack((outline, np.full(len(outline), depth)))]
-        for psi in np.linspace(0, math.pi / 2, q["scoop"] + 1)[1:]:
-            h = max(0.1, height * math.cos(psi))
-            ring = stadium(max(width - height, 0) + min(h, width), h, q["arc"])
-            ring[:, 1] += floor + h / 2
-            z = depth - p.pocket_depth * math.sin(psi)
-            rings.append(np.column_stack((ring, np.full(len(ring), z))))
-        cut = manifold.Manifold.hull_points(np.vstack(rings))
-    return (
-        cut.translate((0, -floor, -depth))
-        .rotate((p.floor_angle, 0, 0))
-        .translate((0, floor, depth))
-    )
+        slope = p.incut / max(p.depth * p.size / 100, 1.0)
+        near = np.column_stack(
+            (
+                outline[:, 0],
+                outline[:, 1] + 25 * slope,
+                np.full(len(outline), depth + 25),
+            )
+        )
+        far = np.column_stack(
+            (
+                outline[:, 0],
+                outline[:, 1] - (depth + 80) * slope,
+                np.full(len(outline), -80.0),
+            )
+        )
+        return manifold.Manifold.hull_points(np.vstack((near, far)))
+    # The mouth at the face hulls with the chamber; the prism that carries
+    # the opening up through the face is added separately, or the hull
+    # would bulge below the lower lip at the face.
+    mouth = np.column_stack((outline, np.full(len(outline), depth)))
+    above = np.column_stack((outline, np.full(len(outline), depth + 25)))
+    prism = manifold.Manifold.hull_points(np.vstack((mouth, above)))
+    # A throat before the bowl: the chamber starts THROAT of the depth in,
+    # so the lower lip keeps real thickness instead of thinning to a wedge.
+    throat = THROAT * p.pocket_depth
+    a, b = (p.pocket_depth - throat) / 2, (height + p.incut) / 2
+    centre_y, centre_z = -p.incut / 2, depth - throat - a
+    angles = np.linspace(0, 2 * math.pi, q["chamber"], endpoint=False)
+    ellipse = np.column_stack((b * np.sin(angles), a * np.cos(angles)))
+    ends = rr * np.sin(np.linspace(0, math.pi / 2, q["arc"]))
+    stations = np.concatenate((-run - ends[::-1], run + ends))
+    points = [mouth]
+    for x in stations:
+        scale = (
+            math.sqrt(max(0.0, 1 - ((abs(x) - run) / rr) ** 2)) if abs(x) > run else 1.0
+        )
+        ring = ellipse * scale
+        points.append(
+            np.column_stack(
+                (np.full(len(ring), x), centre_y + ring[:, 0], centre_z + ring[:, 1])
+            )
+        )
+    return manifold.Manifold.hull_points(np.vstack(points)) + prism
 
 
 def surface_height(solid, xy, fallback):
@@ -319,7 +360,7 @@ def wall_offsets(cut, face, mouth, normals, depths):
     return offsets
 
 
-def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None):
+def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None, with_wedge=False):
     """The fillet at every mouth vertex, in that vertex's outward-and-down
     plane, between the face and the cavity wall as the cutter really has
     it below that vertex. The face may sit below the apex plane there (a
@@ -331,7 +372,7 @@ def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None):
     face and deeper down the wall. Returns the corner points, their
     outward normals, each arc's centre (out, down), its start and end
     angles, and the slope used."""
-    lip = min(p.lip_radius, lip_limit(p))
+    lip = LIMITS["lip_radius"][1] if p is None else min(p.lip_radius, lip_limit(p))
     normals = outward_normals(mouth)
     if deficit is None:
         deficit = np.zeros(len(mouth))
@@ -343,21 +384,43 @@ def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None):
     along /= np.linalg.norm(along, axis=1)[:, None]
     into = np.column_stack((along[:, 1], -along[:, 0]))
     depths = np.full(len(mouth), float(lip))
-    for _ in range(3):
-        offsets = wall_offsets(cut, face, mouth, normals, deficit + depths) - base
-        down = np.column_stack((offsets, -depths))
+    radii = np.full(len(mouth), float(lip))
+    depths = np.full(len(mouth), float(lip))
+    for _ in range(6):
+        # The wall below each vertex as the straight line from the lip
+        # corner to the wall at the tangent depth.
+        here = wall_offsets(cut, face, mouth, normals, deficit + depths) - base
+        below = wall_offsets(cut, face, mouth, normals, deficit + depths + 1.0) - base
+        down = np.column_stack((here, -depths))
         down /= np.linalg.norm(down, axis=1)[:, None]
+        # Where the wall's own direction at the tangent depth differs from
+        # that line by more than 8 degrees, the wall bends between the lip
+        # and the tangent point: a smaller fillet meets it where it is still
+        # straight.
+        local = np.column_stack((below - here, -np.ones(len(here))))
+        local /= np.linalg.norm(local, axis=1)[:, None]
+        bent = np.arccos(np.clip((down * local).sum(axis=1), -1, 1)) > math.radians(8)
         corner = np.arccos(np.clip((along * down).sum(axis=1), -1, 1))
-        tangent = lip / np.tan(corner / 2)
+        # On a sharp edge the fillet would start further out than LIP_SPAN
+        # radii; shrink its radius there instead.
+        spread = 1 / np.tan(corner / 2)
+        radii = np.minimum(
+            radii, np.where(spread > LIP_SPAN, lip * LIP_SPAN / spread, lip)
+        )
+        radii = np.where(bent, radii * 0.8, radii)
+        tangent = radii * spread
         depths = np.maximum(0.5, -down[:, 1] * tangent)
-    centres = along * tangent[:, None] + into * lip
-    wall = down * tangent[:, None] - centres
-    flat = along * tangent[:, None] - centres
+    vertex = np.zeros((len(mouth), 2))
+    centres = vertex + along * tangent[:, None] + into * radii[:, None]
+    wall = vertex + down * tangent[:, None] - centres
+    flat = vertex + along * tangent[:, None] - centres
     start = np.arctan2(wall[:, 1], wall[:, 0])
     end = np.arctan2(flat[:, 1], flat[:, 0])
     start = end + np.mod(start - end, 2 * math.pi)
     start = np.where(start - end > math.pi, start - 2 * math.pi, start)
-    return lip, corners, normals, centres, start, end, slopes
+    if with_wedge:
+        return radii, corners, normals, centres, start, end, slopes, corner
+    return radii, corners, normals, centres, start, end, slopes
 
 
 def trumpet(p, solid, cut, depth, quality):
@@ -369,32 +432,31 @@ def trumpet(p, solid, cut, depth, quality):
     mouth = mouth_outline(cut, face)
     heights = surface_height(solid, mouth, depth)
     deficit = face - heights
-    # The face's slope outward from each vertex, over that vertex's own
-    # reach from a flat-face first pass; a ray that misses the body (the
-    # sample fell off the rim) counts as flat.
-    lip, corners, normals, centres, _, _, _ = lip_arcs(p, cut, face, mouth, deficit)
-    span = np.maximum(centres[:, 0], 1.0)
-    inner = surface_height(solid, corners, depth)
-    outer = surface_height(solid, corners + normals * span[:, None], np.nan)
-    slopes = np.clip(np.nan_to_num((outer - inner) / span, nan=0.0), -1.5, 1.5)
-    lip, corners, normals, centres, start, end, slopes = lip_arcs(
+    slopes = face_slopes(p, solid, depth, cut, face, mouth, deficit)
+    radii, corners, normals, centres, start, end, slopes = lip_arcs(
         p, cut, face, mouth, deficit, slopes
     )
-    # The first ring sits a touch inside the cavity and the last a touch
-    # above the face, so the cutter crosses both surfaces instead of lying
-    # on them: coincident faces leave needle-thin slivers behind. Heights
-    # are read off the real surface, relative to the sloping face line.
+    # Ring heights: the wall end of each arc stays in the frame the wall
+    # was measured in (the corner's face height plus the arc), the face end
+    # lands on the real surface, and the drape ramps in between, so the
+    # fillet meets the wall exactly and the face wherever it really is. The
+    # first ring sits a touch inside the cavity along the wall's normal and
+    # the last a touch below the surface, so the skirt crosses it and the cutter meets both
+    # surfaces instead of lying on them: coincident faces leave needle-thin
+    # slivers behind.
+    corner_z = surface_height(solid, corners, depth)
     rings = []
     for i in range(q["slabs"] + 1):
         a = start + (end - start) * i / q["slabs"]
-        u = centres[:, 0] + lip * np.cos(a)
-        w = centres[:, 1] + lip * np.sin(a)
+        u = centres[:, 0] + radii * np.cos(a)
+        w = centres[:, 1] + radii * np.sin(a)
         if i == 0:
-            u = u - 0.1
+            u, w = u + 0.2 * np.cos(start), w + 0.2 * np.sin(start)
         if i == q["slabs"]:
-            w = w + 0.1
+            w = w - 0.1
         xy = corners + normals * u[:, None]
-        z = surface_height(solid, xy, depth) + (w - slopes * u)
+        drape = surface_height(solid, xy, depth) - (corner_z + slopes * u)
+        z = corner_z + w + drape * (i / q["slabs"])
         rings.append(np.column_stack((xy, z)))
     return loft(rings)
 
@@ -423,6 +485,54 @@ def mounting_proxy(solid, cut, depth):
 
 def outside(points, section):
     return ~_inside(np.asarray(points, dtype=float), section.to_polygons())
+
+
+def face_slopes(p, solid, depth, cut, face, mouth, deficit):
+    """The face's slope at each arc's outer end, read by ray cast a
+    millimetre either side of the point where the fillet meets the face,
+    refined once as that point moves with the slope. A ray that misses the
+    body (the sample fell off the rim) falls back to the slope of the chord
+    from the lip corner."""
+    slopes = np.zeros(len(mouth))
+    inner = surface_height(solid, mouth, depth)
+    for _ in range(2):
+        _, corners, normals, centres, _, _, _ = lip_arcs(
+            p, cut, face, mouth, deficit, slopes
+        )
+        span = np.maximum(centres[:, 0], 1.0)
+        ahead = surface_height(solid, corners + normals * (span + 1)[:, None], np.nan)
+        behind = surface_height(solid, corners + normals * (span - 1)[:, None], np.nan)
+        at = surface_height(solid, corners + normals * span[:, None], np.nan)
+        chord = np.nan_to_num((at - inner) / span, nan=0.0)
+        local = (ahead - behind) / 2
+        slopes = np.clip(np.where(np.isnan(local), chord, local), -1.5, 1.5)
+    return slopes
+
+
+def lip_check(p, cut):
+    """What the lip would be on the body this setting builds: the least
+    face left over the cavity along the lip rim, and the least wedge angle
+    between the face and the cavity wall at the lip, both with the face's
+    real slope. The cutter here has its face plane at z=0."""
+    solid, s = body(p, "preview")
+    depth = s["depth"]
+    mouth = mouth_outline(cut, 0.0)
+    heights = surface_height(solid, mouth, depth)
+    deficit = depth - heights
+    slopes = face_slopes(p, solid, depth, cut, 0.0, mouth, deficit)
+    _, corners, normals, centres, _, _, _, wedge = lip_arcs(
+        p, cut, 0.0, mouth, deficit, slopes, with_wedge=True
+    )
+    rim = corners + normals * centres[:, :1]
+    face = surface_height(solid, rim, depth)
+    meat = np.full(len(rim), np.inf)
+    for i, (x, y) in enumerate(rim):
+        hits = cut.ray_cast(
+            (float(x), float(y), -0.01), (float(x), float(y), -depth - 1)
+        )
+        if hits:
+            meat[i] = face[i] - (depth + hits[0].position[2])
+    return float(meat.min()), float(wedge.min())
 
 
 def fit_pocket(requested):
@@ -475,7 +585,25 @@ def fit_pocket(requested):
                 worst = ratios.max(axis=0)
                 break
         if worst is None:
-            return p
+            # Enough face around the mouth; now enough face over the chamber
+            # along the lip rim, where a crowned face falls toward the
+            # chamber's top. Deeper bodies first, then less incut.
+            if p.through:
+                return p
+            meat, wedge = lip_check(p, cut)
+            if meat >= LIP_MEAT and wedge >= LIP_WEDGE:
+                return p
+            # Too little face over the chamber: a deeper body; too thin a
+            # wedge at the lip: less incut (depth does not change an angle).
+            if meat < LIP_MEAT and p.depth < LIMITS["depth"][1]:
+                p = replace(p, depth=p.depth + 1.0)
+            elif p.incut > LIMITS["incut"][0]:
+                p = replace(p, incut=p.incut - 1.0)
+            else:
+                raise ValueError(
+                    "The pocket does not fit this body, even at the deepest the sliders allow. Reduce the crown or the incut."
+                )
+            continue
         key = "width" if worst[0] >= worst[1] else "height"
         value = getattr(p, key)
         if value < LIMITS[key][1]:
