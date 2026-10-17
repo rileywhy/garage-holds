@@ -338,6 +338,44 @@ Locally, the same check runs against any deployment:
 `SMOKE_URL=https://<deployment>.vercel.app npm run test:smoke`, adding
 `VERCEL_AUTOMATION_BYPASS_SECRET=…` for a protected preview.
 
+## Merging to main
+
+Vercel deploys every commit on `main` to production as soon as it lands, so
+`main` only takes commits that have already passed CI. The ruleset in
+`.github/rulesets/main.json` blocks direct pushes, force pushes and deleting
+`main`, for everyone, agents and admins included. Changes go in through a
+pull request, which can merge once the "CI passed" check is green on a
+branch that is up to date with `main`. "CI passed" waits for every CI job
+and fails if any of them failed, timed out or was cancelled, so adding a job
+to `ci.yml` needs no change to the ruleset. No review approval is required.
+
+1. Work on a branch and push it. Vercel builds a preview and CI runs.
+2. Open a pull request (`gh pr create --fill`).
+3. Check the preview's Deploy smoke check, and for a lab branch run the
+   deep geometry tests (below). Neither is required by the ruleset: Deploy
+   smoke also records a skipped run for each of Vercel's "pending" events,
+   and GitHub counts a skipped check as passing.
+4. Merge once "CI passed" is green (`gh pr merge --merge`). If `main` moved
+   on in the meantime, GitHub asks for **Update branch** first, so CI runs
+   again on the exact commit production will get.
+
+To roll back in an emergency, use Vercel's Instant Rollback (Deployments →
+the previous production deployment), which needs no commit. Then revert the
+commit through a pull request as usual.
+
+The ruleset is set up and updated with the GitHub CLI. Its JSON is the
+source of truth:
+
+```bash
+gh api -X POST repos/rileywhy/garage-holds/rulesets --input .github/rulesets/main.json
+gh api repos/rileywhy/garage-holds/rulesets --jq '.[] | "\(.id) \(.name)"'
+gh api -X PUT repos/rileywhy/garage-holds/rulesets/<id> --input .github/rulesets/main.json
+```
+
+The first command creates it; the other two find its id and apply later
+edits. `integration_id` 15368 is GitHub Actions, so only a CI run can
+satisfy the check, not a status posted by anything else.
+
 ## Generator tests: a sample on push, in full every night
 
 CI runs each generator's Python tests as its own parallel job

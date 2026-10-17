@@ -5,9 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to a pull request replaces its older run. Runs on main always
+# finish, so every commit that reached production has a result on record: on
+# 2026-10-16 the run for the commit that broke the home page was cancelled by
+# the rollback push and never reported.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -91,8 +95,24 @@ jobs:
       - if: always()
         run: npx supabase stop --no-backup
 
-  # A push to main that fails or times out posts to Discord. A timeout reads
-  # as "cancelled", the same as a run replaced by a newer push, so a run whose
+  # The one check the main branch ruleset requires before a pull request can
+  # merge (.github/rulesets/main.json), so adding or renaming a job here
+  # never means editing the ruleset. A failed, timed-out or cancelled job
+  # fails it.
+  passed:
+    name: CI passed
+    needs: [geometry, checks, ownership]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          broken=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"')
+          [ -z "$broken" ] || { echo "$broken"; exit 1; }
+
+  # A push to main that fails or times out posts to Discord. A run whose
   # commit is no longer the tip of main stays quiet: the newer run reports.
   # On 2026-10-16 the geometry job timed out on two pushes and nobody saw.
   alert:
