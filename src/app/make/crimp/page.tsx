@@ -20,7 +20,7 @@ export default async function CrimpLabPage() {
         <h1>Crimp Lab</h1>
         <p>
           Adjust the edge, incut, and lip rounding, then export an STL. Nothing
-          is added to the library unless you upload it.
+          is added to the pile unless you upload it.
         </p>
       </div>
       <HoldLab kind="crimp" account={Boolean(user)} />

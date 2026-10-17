@@ -23,7 +23,7 @@ export default async function SignInPage({
   return (
     <main className="main-container form-page sign-in-page">
       <Link href="/" className="back-link">
-        <ArrowLeft size={15} /> Back to the library
+        <ArrowLeft size={15} /> Back to the pile
       </Link>
       <div className="page-intro">
         <h1>Sign in to Garage Holds.</h1>

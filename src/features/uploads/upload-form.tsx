@@ -208,7 +208,7 @@ function UploadDesignForm({
   return (
     <main className="main-container form-page">
       <Link href="/" className="back-link">
-        <ArrowLeft size={15} /> Back to the library
+        <ArrowLeft size={15} /> Back to the pile
       </Link>
       <div className="page-intro">
         <h1>Upload a hold design</h1>
@@ -338,7 +338,7 @@ function UploadDesignForm({
                   {savedHold.fileCount === 1
                     ? "its original file are"
                     : "its original files are"}{" "}
-                  live in the library for everyone to download.
+                  live in the pile for everyone to download.
                 </p>
               </div>
               <div className="completion-actions">
@@ -356,7 +356,7 @@ function UploadDesignForm({
                   Add another design
                 </button>
                 <Link className="completion-library-link" href="/">
-                  Back to the library
+                  Back to the pile
                 </Link>
               </div>
             </div>

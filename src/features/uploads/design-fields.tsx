@@ -202,7 +202,7 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>Sharing</h2>
-            <p>Free downloads are the starting point for this library.</p>
+            <p>Free downloads are the starting point for the pile.</p>
           </div>
         </div>
         <DesignMethodField />

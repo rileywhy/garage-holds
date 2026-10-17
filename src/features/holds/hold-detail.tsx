@@ -38,7 +38,7 @@ export function HoldDetail({
   return (
     <main className="main-container detail-page">
       <Link href="/" className="back-link">
-        <ArrowLeft size={15} /> Back to the library
+        <ArrowLeft size={15} /> Back to the pile
       </Link>
       <div className="detail-layout">
         <div className="detail-gallery">

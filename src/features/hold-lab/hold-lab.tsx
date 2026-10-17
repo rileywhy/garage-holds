@@ -965,7 +965,7 @@ export function HoldLab({
           </p>
           <p className="small-note">
             Millimetres · flat back · original geometry. Upload it like any
-            other design when it has earned a place in the library.
+            other design when it has earned a place in the pile.
           </p>
         </section>
       </div>

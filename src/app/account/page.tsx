@@ -19,7 +19,7 @@ export default async function AccountPage() {
   return (
     <main className="main-container form-page account-page">
       <Link href="/" className="back-link">
-        <ArrowLeft size={15} /> Back to the library
+        <ArrowLeft size={15} /> Back to the pile
       </Link>
       <div className="page-intro">
         <h1>{user.displayName}</h1>

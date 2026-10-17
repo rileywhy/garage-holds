@@ -225,8 +225,8 @@ function DeleteSection({ hold }: { hold: Hold }) {
     <section className="danger-zone" aria-labelledby="delete-design-heading">
       <h2 id="delete-design-heading">Delete this design</h2>
       <p className="small-note">
-        Removes it from the library along with its files, reviews, and saves.
-        There is no undo.
+        Removes it from the pile along with its files, reviews, and saves. There
+        is no undo.
       </p>
       <button
         type="button"

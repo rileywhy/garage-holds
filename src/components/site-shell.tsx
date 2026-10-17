@@ -41,7 +41,7 @@ export function SiteHeader({
             href="/"
             className={`nav-link ${pathname === "/" ? "active" : ""}`}
           >
-            Hold library
+            Hold pile
           </Link>
           <Link
             href="/saved"
