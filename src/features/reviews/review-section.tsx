@@ -7,6 +7,7 @@ import { Star, Plus, LoaderCircle } from "lucide-react";
 import { ProblemGradeField } from "@/components/problem-grade-field";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "@/features/holds/grades";
 import { Field, FieldErrors } from "@/components/form-fields";
+import { LocalDate } from "@/components/local-date";
 import { reviewSummary } from "@/features/holds/catalog";
 import type { Review } from "@/features/holds/types";
 import { signInPath } from "@/features/auth/redirects";
@@ -166,12 +167,8 @@ export function ReviewSection({
               <div className="avatar">{review.author[0]?.toUpperCase()}</div>
               <div>
                 <strong>{review.author}</strong>
-                <span suppressHydrationWarning>
-                  {new Date(review.createdAt).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                <span>
+                  <LocalDate iso={review.createdAt} />
                   {review.id === ownReview?.id && " · Your review"}
                 </span>
               </div>
