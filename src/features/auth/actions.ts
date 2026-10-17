@@ -7,7 +7,6 @@ import {
   ACCOUNTS_NOT_CONFIGURED,
   isSupabaseConfigured,
 } from "@/lib/supabase/config";
-import { requestOrigin } from "@/lib/request-origin";
 import {
   normalizeBio,
   normalizeDisplayName,
@@ -87,19 +86,41 @@ export async function signInWithEmail(
   return previous;
 }
 
-export async function signInWithGoogle(formData: FormData) {
-  const next = safeNextPath(String(formData.get("next") ?? ""));
-  if (!isSupabaseConfigured()) redirect(`${signInPath(next)}&error=google`);
+const GOOGLE_FAILED =
+  "Google sign-in didn't complete. Try again or use an email code.";
+
+// Google's button hands the browser an ID token signed for this site's client
+// ID, with the nonce's hash inside. Supabase checks the signature, audience,
+// expiry and nonce, then the session cookies are set on this response. The
+// sign-in never leaves garageholds.com, so Google's popup names this site
+// instead of the Supabase project's address.
+export async function signInWithGoogleToken(
+  credential: unknown,
+  nonce: unknown,
+  next: unknown,
+): Promise<{ error: string }> {
+  if (!isSupabaseConfigured()) return { error: ACCOUNTS_NOT_CONFIGURED };
+  if (
+    typeof credential !== "string" ||
+    typeof nonce !== "string" ||
+    credential.length > 8192 ||
+    nonce.length > 256
+  )
+    return { error: GOOGLE_FAILED };
   const supabase = await createSupabaseServerClient();
-  const origin = await requestOrigin();
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithIdToken({
     provider: "google",
-    options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-    },
+    token: credential,
+    nonce,
   });
-  if (error || !data.url) redirect(`${signInPath(next)}&error=google`);
-  redirect(data.url);
+  if (error) return { error: GOOGLE_FAILED };
+  const user = await loadCurrentUser(supabase);
+  redirect(
+    postSignInPath(
+      user?.onboarded ?? true,
+      typeof next === "string" ? next : "/",
+    ),
+  );
 }
 
 export async function signOut() {

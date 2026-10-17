@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createHash } from "node:crypto";
 import {
   postSignInPath,
   safeNextPath,
   signInPath,
   welcomePath,
 } from "../src/features/auth/redirects";
+import { createGoogleNonce } from "../src/features/auth/google-nonce";
 import {
   normalizeBio,
   normalizeDisplayName,
@@ -61,4 +63,15 @@ test("bios are optional, short, and printable", () => {
   assert.equal(validateBio("x".repeat(281)).length, 1);
   assert.equal(validateBio("tab\there").length, 1);
   assert.equal(normalizeBio("a\r\nb "), "a\nb");
+});
+
+test("the Google nonce sends Google a SHA-256 hash of a fresh random value", async () => {
+  const first = await createGoogleNonce();
+  const second = await createGoogleNonce();
+  assert.match(first.raw, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(
+    first.hashed,
+    createHash("sha256").update(first.raw).digest("hex"),
+  );
+  assert.notEqual(first.raw, second.raw);
 });

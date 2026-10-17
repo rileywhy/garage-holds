@@ -2391,8 +2391,12 @@ svg {
   flex-direction: column;
   gap: 14px;
 }
-.sign-in-provider .button {
-  width: 100%;
+/* Google draws its own button in an iframe; this keeps its row from jumping
+   while the script loads. */
+.google-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
 }
 .sign-in-divider {
   display: flex;
