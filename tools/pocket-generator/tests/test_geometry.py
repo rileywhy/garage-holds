@@ -1,4 +1,5 @@
 import math
+import os
 import random
 import sys
 import unittest
@@ -13,6 +14,12 @@ from geometry import FLOOR, LIP_SPAN, MARGIN, build, largest, lip_reach, pocket,
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
 from tools.hold_mounting import _inside
+
+# Push CI samples each sweep with fixed seeds. The nightly deep run
+# (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
+# counts and HOLD_TESTS_SEED for fresh seeds, printed in its log.
+DEEP = os.environ.get("HOLD_TESTS_DEEP") == "1"
+SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
 
 
 def random_settings(rng):
@@ -104,15 +111,19 @@ class PocketTests(unittest.TestCase):
         self.assertEqual(len(steep.holes), 2)
 
     def test_hardware_clears_the_pocket(self):
-        variants = []
-        for p in PRESETS.values():
-            variants += [
-                p,
+        # Push runs try each preset as it is and each hardware variant on the
+        # default preset; the deep run tries every variant on every preset.
+        def hardware(p):
+            return [
                 replace(p, through=True),
                 replace(p, bolt_mount=True),
                 replace(p, screw_count=3),
                 replace(p, through=True, bolt_mount=True),
             ]
+
+        variants = list(PRESETS.values())
+        for p in PRESETS.values() if DEEP else [PRESETS["Two-finger pocket"]]:
+            variants += hardware(p)
         for p in variants:
             with self.subTest(values=asdict(p)):
                 model = build(p)
@@ -298,9 +309,10 @@ class PocketTests(unittest.TestCase):
         # A seeded sweep across every control and switch. The fitter may say
         # hardware or the opening does not fit, in words; anything else must
         # export as one closed body.
-        rng = random.Random(2026)
+        rng = random.Random(2026 + SEED)
+        count = 40 if DEEP else 3
         exported = 0
-        for _ in range(20):
+        for _ in range(count):
             p = parse_parameters(random_settings(rng))
             with self.subTest(values=asdict(p)):
                 try:
@@ -314,7 +326,7 @@ class PocketTests(unittest.TestCase):
                 if not model.parameters.through:
                     self.assertGreaterEqual(model.floor, FLOOR - 0.1)
                 exported += 1
-        self.assertGreater(exported, 8)
+        self.assertGreater(exported, count * 2 // 5)
 
     def test_growth_stays_within_the_sliders(self):
         limits = {control["key"]: control["max"] for control in CONTROLS}
@@ -340,12 +352,13 @@ class PocketTests(unittest.TestCase):
         # The exported design carries the settings actually built, so
         # parsing it back and building again gives the same hold: links,
         # presets and settings files depend on it.
-        rng = random.Random(78)
+        rng = random.Random(78 + SEED)
+        count = 60 if DEEP else 3
         cases = [
             dict(
                 opening_width=80, opening_height=45, width=50, height=50, screw_count=3
             )
-        ] + [random_settings(rng) for _ in range(30)]
+        ] + [random_settings(rng) for _ in range(count)]
         rebuilt = 0
         for values in cases:
             p = parse_parameters(values)
@@ -363,7 +376,7 @@ class PocketTests(unittest.TestCase):
                 self.assertTrue(np.allclose(again.mesh.vertices, model.mesh.vertices))
                 self.assertEqual(again.adjusted, {})
                 rebuilt += 1
-        self.assertGreater(rebuilt, 15)
+        self.assertGreater(rebuilt, count // 2)
 
     def test_manual_seat_survives_turning_screws_off(self):
         for p in PRESETS.values():

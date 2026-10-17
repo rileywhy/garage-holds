@@ -338,6 +338,26 @@ Locally, the same check runs against any deployment:
 `SMOKE_URL=https://<deployment>.vercel.app npm run test:smoke`, adding
 `VERCEL_AUTOMATION_BYPASS_SECRET=…` for a protected preview.
 
+## Generator tests: a sample on push, in full every night
+
+CI runs each generator's Python tests as its own parallel job
+(`.github/workflows/ci.yml`, "Hold geometry"). The random sweeps and the
+reopen-and-rebuild checks run a small fixed sample there, so each job stays
+near two minutes; the 10-minute timeout only catches a hang. When a push to
+`main` fails or times out, the "Alert on a broken main" job posts to
+`DISCORD_ALERT_WEBHOOK`, unless `main` has already moved on to a newer
+commit whose own run will report.
+
+`.github/workflows/deep-tests.yml` runs the same tests in full every night
+(`HOLD_TESTS_DEEP=1`): every sweep at full count, every hardware variant on
+every preset, with fresh seeds (`HOLD_TESTS_SEED`, printed at the top of
+each job's log). A nightly failure posts to `DISCORD_ALERT_WEBHOOK` with the
+generator, the failing tests and the seed. Before merging a lab branch, run
+it by hand on the branch (Actions → Deep geometry tests → Run workflow); to
+reproduce a nightly failure, run it with that night's seed, or locally with
+`HOLD_TESTS_DEEP=1 HOLD_TESTS_SEED=<seed>` set before the usual
+`unittest discover` command.
+
 ## Crimp Lab's Python function
 
 `/api/crimp` is `api/crimp.py`, a Vercel Python function built from the

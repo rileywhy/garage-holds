@@ -16,10 +16,23 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
-  crimp-generator:
-    name: Hold geometry and export tests
+  # One job per generator, in parallel. The sweeps run a fixed sample here;
+  # deep-tests.yml runs them in full every night. The timeout only catches a
+  # hung test: keep each job near two minutes by sampling, not by raising it.
+  geometry:
+    name: Hold geometry (${{ matrix.tool }})
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        tool:
+          - crimp-generator
+          - sloper-generator
+          - jug-generator
+          - foot-generator
+          - pocket-generator
+          - mesh-preview
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,12 +41,7 @@ jobs:
           cache: pip
           cache-dependency-path: tools/crimp-generator/requirements.txt
       - run: python -m pip install -r tools/crimp-generator/requirements.txt
-      - run: python -m unittest discover -s tools/crimp-generator/tests -v
-      - run: python -m unittest discover -s tools/sloper-generator/tests -v
-      - run: python -m unittest discover -s tools/jug-generator/tests -v
-      - run: python -m unittest discover -s tools/foot-generator/tests -v
-      - run: python -m unittest discover -s tools/pocket-generator/tests -v
-      - run: python -m unittest discover -s tools/mesh-preview/tests -v
+      - run: python -m unittest discover -s tools/${{ matrix.tool }}/tests -v
 
   checks:
     name: Format, lint, typecheck, test, build
@@ -82,3 +90,36 @@ jobs:
           path: src/lib/supabase/database.types.ts
       - if: always()
         run: npx supabase stop --no-backup
+
+  # A push to main that fails or times out posts to Discord. A timeout reads
+  # as "cancelled", the same as a run replaced by a newer push, so a run whose
+  # commit is no longer the tip of main stays quiet: the newer run reports.
+  # On 2026-10-16 the geometry job timed out on two pushes and nobody saw.
+  alert:
+    name: Alert on a broken main
+    needs: [geometry, checks, ownership]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post the failure to Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+          NEEDS: ${{ toJSON(needs) }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          broken=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"')
+          [ -n "$broken" ] || exit 0
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$tip" != "$GITHUB_SHA" ]; then
+            echo "main has moved on to $tip; its own run reports."
+            exit 0
+          fi
+          content=$(printf '🔴 CI broke on main at %s "%s"\n%s\n%s' \
+            "${GITHUB_SHA:0:7}" "${MESSAGE%%$'\n'*}" "$broken" "$RUN_URL" | head -c 1900)
+          echo "$content"
+          [ -z "$WEBHOOK" ] || curl -sS -o /dev/null --max-time 20 \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg content "$content" '{content: $content}')" "$WEBHOOK"

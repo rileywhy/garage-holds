@@ -1,5 +1,6 @@
 import io
 import math
+import os
 import random
 import sys
 import unittest
@@ -18,6 +19,12 @@ from geometry import (
     cross_section,
     estimate_material,
 )
+
+# Push CI samples each sweep with fixed seeds. The nightly deep run
+# (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
+# counts and HOLD_TESTS_SEED for fresh seeds, printed in its log.
+DEEP = os.environ.get("HOLD_TESTS_DEEP") == "1"
+SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
 from parameters import (
     CONTROLS,
     PRESETS,
@@ -300,9 +307,10 @@ class GeometryTests(unittest.TestCase):
         # for the person; anything else must export. The final closed-solid
         # check used to refuse 1-4% of valid shapes after a vertex merge
         # opened pinholes in them.
-        rng = random.Random(2026)
+        rng = random.Random(2026 + SEED)
+        count = 60 if DEEP else 3
         exported = 0
-        for _ in range(30):
+        for _ in range(count):
             values = random_settings(rng, CONTROLS)
             try:
                 p = parse_parameters(values)
@@ -316,7 +324,7 @@ class GeometryTests(unittest.TestCase):
                     continue
                 self.assert_solid(model)
                 exported += 1
-        self.assertGreater(exported, 10)
+        self.assertGreater(exported, count // 3)
 
     def test_designs_reopen_and_rebuild_the_same_hold(self):
         # The exported design carries the settings actually built. Parsing
@@ -331,8 +339,8 @@ class GeometryTests(unittest.TestCase):
             {"width": 100, "screw_spacing": 85, "end_rounding": 20, "screw_count": 2, "auto_spacing": False},
             {"edge_depth": 7.5, "lip_radius": 14.75, "width": 78, "taper": -46, "auto_seat": False, "seat_depth": 2},
         ]
-        rng = random.Random(70)
-        while len(cases) < 40:
+        rng = random.Random(70 + SEED)
+        while len(cases) < (80 if DEEP else 7):
             cases.append(random_settings(rng, CONTROLS))
         rebuilt = 0
         for values in cases:
@@ -351,7 +359,7 @@ class GeometryTests(unittest.TestCase):
                 self.assertEqual(again.mesh.vertices.shape, model.mesh.vertices.shape)
                 self.assertTrue(np.allclose(again.mesh.vertices, model.mesh.vertices))
                 rebuilt += 1
-        self.assertGreater(rebuilt, 20)
+        self.assertGreater(rebuilt, len(cases) // 2)
 
     def test_bolt_mount_keeps_a_manual_span_and_reports_its_seat(self):
         model = build(Parameters(bolt_mount=True, auto_spacing=False, screw_spacing=60))

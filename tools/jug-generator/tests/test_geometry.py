@@ -1,6 +1,7 @@
 """Regression checks for Jug Lab's shared crimp geometry."""
 
 import io
+import os
 import random
 import sys
 import unittest
@@ -14,6 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
 from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+
+# Push CI samples each sweep with fixed seeds. The nightly deep run
+# (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
+# counts and HOLD_TESTS_SEED for fresh seeds, printed in its log.
+DEEP = os.environ.get("HOLD_TESTS_DEEP") == "1"
+SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
 
 # Sampled settings whose export used to fail the closed-solid check even
 # though the solid was fine: the finer export loft made a pair of sliver
@@ -77,9 +84,10 @@ class GeometryTests(unittest.TestCase):
         # A seeded sweep across the control ranges, plus the two settings
         # that used to be refused at export. The mounting solver may say
         # there is no room, in words; anything else must export closed.
-        rng = random.Random(2026)
+        rng = random.Random(2026 + SEED)
+        count = 40 if DEEP else 3
         exported = 0
-        for _ in range(20):
+        for _ in range(count):
             values = random_settings(rng, CONTROLS)
             try:
                 p = parse_parameters(values)
@@ -95,7 +103,7 @@ class GeometryTests(unittest.TestCase):
                 self.assertTrue(model.mesh.is_winding_consistent)
                 self.assertGreater(model.mesh.volume, 0)
                 exported += 1
-        self.assertGreater(exported, 6)
+        self.assertGreater(exported, count * 3 // 10)
         for values in PINHOLE_JUGS:
             with self.subTest(values=values):
                 model = build(Parameters(**values), "export")
