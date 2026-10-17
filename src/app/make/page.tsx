@@ -22,7 +22,7 @@ export default function HoldLabsPage() {
         </p>
       </div>
       <div className={styles.grid}>
-        {LABS.map(({ name, href, image, description, experimental }) => (
+        {LABS.map(({ name, href, image, description, status }) => (
           <Link
             key={href}
             href={href}
@@ -40,7 +40,15 @@ export default function HoldLabsPage() {
             <div className={styles.content}>
               <h2>
                 {name}
-                {experimental && <span className="tag">experimental</span>}
+                {status && (
+                  <span
+                    className={
+                      status === "out of order" ? "tag tag-out-of-order" : "tag"
+                    }
+                  >
+                    {status}
+                  </span>
+                )}
               </h2>
               <p>{description}</p>
               <span className={styles.action}>

@@ -61,6 +61,9 @@
   font-family: var(--font);
   letter-spacing: 0;
 }
+.card h2 :global(.tag-out-of-order) {
+  color: var(--error-ink);
+}
 .card p {
   color: var(--muted);
   font-size: 14px;

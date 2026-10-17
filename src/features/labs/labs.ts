@@ -12,7 +12,9 @@ export interface LabInfo {
   href: string;
   image: string;
   description: string;
-  experimental?: boolean;
+  // A tag on the lab's card: "experimental" for a new lab, "out of order"
+  // for one that still opens but is waiting on a rework.
+  status?: "experimental" | "out of order";
 }
 
 // The one list of labs. The hub draws its cards from it and every lab page
@@ -53,7 +55,7 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/foot.webp",
     description:
       "Board edges, toe-in edges, chips, smears, balls and dishes, sized for one, two or three screws.",
-    experimental: true,
+    status: "experimental",
   },
   {
     slug: "pocket",
@@ -63,7 +65,7 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/pocket.webp",
     description:
       "A mono, two-finger or three-finger pocket in a round body. Set the opening, depth and floor angle, then export an STL.",
-    experimental: true,
+    status: "experimental",
   },
   {
     slug: "custom-shape",
@@ -73,5 +75,6 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/custom-shape.webp",
     description:
       "Paint your own silhouette, shape the grip, and place mounting holes where you need them.",
+    status: "out of order",
   },
 ];
