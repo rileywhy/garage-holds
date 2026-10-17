@@ -14,8 +14,6 @@ test("every response carries the baseline security headers", () => {
   assert.equal(headers["Referrer-Policy"], "strict-origin-when-cross-origin");
   assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
   assert.match(headers["Content-Security-Policy"], /base-uri 'self'/);
-  // A form-action directive would block the redirect to Google after the
-  // sign-in form is submitted.
   assert.doesNotMatch(headers["Content-Security-Policy"], /form-action/);
 });
 
@@ -32,5 +30,13 @@ test("page CSP allows only nonce-bearing inline scripts and the fixed theme", ()
   assert.match(contentSecurityPolicy("dev", true), /'unsafe-eval'/);
   assert.match(policy, /connect-src 'self' https:/);
   assert.match(policy, /img-src 'self' data: blob: https:/);
+  // Google's sign-in button: its script, stylesheet and iframes, nothing
+  // else from Google.
+  assert.match(scripts, / https:\/\/accounts\.google\.com\/gsi\/client( |$)/);
+  assert.match(
+    policy,
+    /style-src [^;]* https:\/\/accounts\.google\.com\/gsi\/style/,
+  );
+  assert.match(policy, /frame-src https:\/\/accounts\.google\.com\/gsi\/(;|$)/);
   assert.doesNotMatch(policy, /form-action/);
 });

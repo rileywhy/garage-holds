@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
@@ -33,7 +33,10 @@ export default async function SignInPage({
         </p>
       </div>
       {isSupabaseConfigured() ? (
-        <SignInForm next={next} googleError={params.error === "google"} />
+        <SignInForm
+          next={next}
+          googleClientId={process.env.GOOGLE_CLIENT_ID || null}
+        />
       ) : (
         <p className="error-box" role="alert">
           Accounts aren&apos;t configured in this environment. Set the Supabase

@@ -5,7 +5,7 @@ import { THEME_INITIALIZATION_SCRIPT } from "./theme";
 // the edge, so it is not repeated here.
 //
 // form-action is left out on purpose: browsers apply it to the redirect
-// that follows a form submit, which is how Google sign-in leaves the site.
+// that follows a form submit, and nothing here needs it.
 export const SECURITY_HEADERS: { key: string; value: string }[] = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -26,11 +26,16 @@ const themeHash = createHash("sha256")
   .update(THEME_INITIALIZATION_SCRIPT)
   .digest("base64");
 
+// Google Identity Services, for the sign-in button: its script, the
+// stylesheet it injects, and the iframes that draw the button and popup.
+const GOOGLE_SIGN_IN = "https://accounts.google.com/gsi/";
+
 export function contentSecurityPolicy(nonce: string, development = false) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'sha256-${themeHash}' https://va.vercel-scripts.com${development ? " 'unsafe-eval'" : ""}`,
-    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'nonce-${nonce}' 'sha256-${themeHash}' https://va.vercel-scripts.com ${GOOGLE_SIGN_IN}client${development ? " 'unsafe-eval'" : ""}`,
+    `style-src 'self' 'unsafe-inline' ${GOOGLE_SIGN_IN}style`,
+    `frame-src ${GOOGLE_SIGN_IN}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self'",
     // Signed R2 URLs and Supabase's project host vary by deployment.

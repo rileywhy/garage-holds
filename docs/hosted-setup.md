@@ -9,6 +9,7 @@ each value goes. Nothing here is secret except where marked.
 | -------------------------------------- | ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`             | Browser + server | No      | Supabase dashboard → Project Settings → API → Project URL                                                                                     |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server | No      | Supabase dashboard → Project Settings → API Keys → Publishable key (`sb_publishable_…`)                                                       |
+| `GOOGLE_CLIENT_ID`                     | Browser + server | No      | Google Auth Platform → Clients → the web client's ID (`…apps.googleusercontent.com`). Unset, the sign-in page offers email codes only         |
 | `SUPABASE_SECRET_KEY`                  | Server only      | **Yes** | Supabase dashboard → Project Settings → API Keys → Secret keys → create one                                                                   |
 | `R2_ACCOUNT_ID`                        | Server only      | No      | The 32-character hex string in the R2 S3 endpoint URL                                                                                         |
 | `R2_ACCESS_KEY_ID`                     | Server only      | **Yes** | Cloudflare → R2 → Manage R2 API Tokens → create a token scoped to the bucket                                                                  |
@@ -109,33 +110,41 @@ Dashboard → Authentication.
      Supabase's own limit on emails per hour (**Rate Limits**) is set to
      100; Brevo's free plan sends 300 a day.
 3. **Sign In / Providers → Google**
-   - Enable, then paste the Client ID and Client Secret from the Google step
-     below. Leave "Skip nonce check" off.
-   - Note the **Callback URL** shown there; it is
-     `https://<project-ref>.supabase.co/auth/v1/callback` and Google needs it.
+   - Enable, then paste the Client ID (and the Client Secret, which this flow
+     does not use but the form asks for) from the Google step below. Leave
+     "Skip nonce check" off: the nonce is what stops a Google token issued
+     elsewhere from being replayed here.
 
 ## Google Cloud: OAuth client
 
-Google Cloud console, in the project you intend to use.
+Google sign-in runs on Google Identity Services: Google's own button opens
+its popup from garageholds.com, returns an ID token to the page, and the
+server action `signInWithGoogleToken` hands it to Supabase
+(`signInWithIdToken`), which checks it and sets the session. Because the
+popup is opened by this site, Google's consent screen says "Sign in to
+garageholds.com" instead of the Supabase project's address.
 
-1. **APIs & Services → OAuth consent screen** (now under "Google Auth Platform").
-   - User type External. App name "Garage Holds", support email, developer email.
-   - Scopes: the defaults (`openid`, `email`, `profile`) are enough.
-   - While in "Testing" status only listed test users can sign in. Add both
-     test accounts there, or publish the app when ready.
-2. **Credentials → Create credentials → OAuth client ID**
-   - Application type: Web application.
-   - Authorized JavaScript origins: `http://127.0.0.1:3000`, `http://localhost:3000`, and `https://garageholds.com`.
-   - Authorized redirect URIs: the Supabase callback URL from above
-     (`https://<project-ref>.supabase.co/auth/v1/callback`). Not the app's own
-     `/auth/callback`; Supabase talks to Google, then redirects to the app.
-   - The app's `/auth/callback` builds its final redirect from the request's
-     `Origin`, `x-forwarded-host` and `Host` headers (`src/lib/request-origin.ts`).
-     Vercel sets those from the real request, so they are safe here; on a host
-     that passes client headers through unchecked they would become a
-     header-controlled redirect target, and the origin should come from
-     `NEXT_PUBLIC_SITE_URL` instead.
-   - Copy the Client ID and Client Secret into the Supabase Google provider.
+Google Cloud console (the garageholds.com Workspace account), **Google Auth
+Platform**:
+
+1. **Branding:** app name "Garage Holds", user support email
+   `support@garageholds.com` (a Google Group, which is why it can be chosen;
+   aliases cannot). No logo: one triggers Google's brand review.
+2. **Audience:** External, published ("In production"). With only the
+   default scopes (`openid`, `email`, `profile`) that needs no review.
+3. **Clients → Create client:** Web application.
+   - Authorized JavaScript origins: `https://garageholds.com`,
+     `http://localhost:3000` and `http://127.0.0.1:3000`. The button only
+     works on a listed origin, so a Vercel preview shows it but cannot finish
+     a sign-in unless its URL is added here first (the branch URL,
+     `https://garage-holds-git-<branch>-garage-holds.vercel.app`, is stable).
+   - Authorized redirect URIs:
+     `https://<project-ref>.supabase.co/auth/v1/callback`. The popup flow
+     does not redirect, but keeping it lets Supabase's own redirect flow work
+     if it is ever needed.
+4. Put the Client ID in `GOOGLE_CLIENT_ID` (Vercel, Production and Preview)
+   and in the Supabase Google provider. Without `GOOGLE_CLIENT_ID` the sign-in
+   page offers email codes only.
 
 ## Migrations and the Supabase CLI
 
@@ -524,9 +533,9 @@ Analytics tab.
 - `src/proxy.ts` refreshes the session cookie on each navigation and sends
   signed-out visitors away from `/account`.
 - `src/features/auth/actions.ts` holds the server functions: email code
-  request and verify, Google redirect, sign out, display-name update.
-- `src/app/auth/callback/route.ts` finishes Google sign-in by exchanging the
-  code for a session.
+  request and verify, Google ID-token sign-in, sign out, display-name update.
+- `src/features/auth/google-sign-in.tsx` draws Google's button and passes
+  the token it returns, with the matching nonce, to the server.
 - `supabase/migrations/20261010000000_profiles.sql` creates a profile for every new user
   (name and avatar from Google when available, otherwise the email's local
   part) and enforces unique, editable display names.
