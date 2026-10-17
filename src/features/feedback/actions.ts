@@ -15,6 +15,7 @@ import {
 } from "@/lib/error-reports";
 import { loadCurrentUser } from "@/features/auth/current-user";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { spamVerdict } from "./spam";
 import { validateFeedback } from "./validation";
 
 export interface FeedbackState {
@@ -33,7 +34,9 @@ const TOO_MANY =
 
 // Anyone may send feedback, signed in or not. Each message is stored and
 // forwarded to the owner's webhook in one line. The "website" field is a
-// honeypot: real people never see it, so a filled one is a bot.
+// honeypot: real people never see it, so a filled one is a bot. A message
+// posted without the widget is dropped the same way, and a sales pitch is
+// stored but not forwarded (see spam.ts). Both get the usual "Sent".
 export async function submitFeedback(
   _previous: FeedbackState,
   formData: FormData,
@@ -45,6 +48,8 @@ export async function submitFeedback(
     contact: text("contact"),
     page: text("page"),
   };
+  const verdict = spamVerdict(input);
+  if (verdict === "bot") return { errors: [], sent: true };
   const errors = validateFeedback(input);
   if (errors.length) return { errors, sent: false };
 
@@ -74,9 +79,8 @@ export async function submitFeedback(
   const from = user
     ? `${user.displayName} (${user.email})`
     : input.contact || "a visitor";
-  await notifyOwner(
-    `Feedback from ${from} on ${input.page || "an unknown page"}:\n${input.body}`,
-  );
+  if (verdict !== "pitch")
+    await notifyOwner(`Feedback from ${from} on ${input.page}:\n${input.body}`);
   return { errors: [], sent: true };
 }
 
