@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { LocalDate } from "@/components/local-date";
 import { deleteLabPreset } from "./actions";
 import { PRESET_LAB_NAMES } from "./saved-presets";
 import type { AccountPreset } from "./repository";
@@ -46,7 +47,7 @@ export function PresetList({ presets }: { presets: AccountPreset[] }) {
               <div className="preset-item-body">
                 <strong>{preset.name}</strong>
                 <span className="preset-item-date">
-                  Saved {preset.savedAt.slice(0, 10)}
+                  Saved <LocalDate iso={preset.savedAt} />
                 </span>
               </div>
               <div className="preset-item-actions">
