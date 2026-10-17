@@ -23,8 +23,8 @@ export default function ErrorPage({
 
   return (
     <main className="main-container empty-state">
-      <h1>Something interrupted the climb.</h1>
-      <p>The page couldn’t load. Try again to return to your library.</p>
+      <h1>The website took a bad whipper.</h1>
+      <p>The page didn’t load. Try again, or come back in a minute.</p>
       <button className="button button-dark" onClick={() => retry()}>
         Try again
       </button>

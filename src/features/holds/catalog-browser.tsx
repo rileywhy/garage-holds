@@ -138,11 +138,7 @@ export function CatalogBrowser({
         </section>
       )}
       {beforeLibrary}
-      <section
-        id="library"
-        className="library-section"
-        aria-label="Hold library"
-      >
+      <section id="library" className="library-section" aria-label="Hold pile">
         <div className="library-title-row">
           <div>
             <h2>

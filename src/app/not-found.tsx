@@ -11,11 +11,10 @@ export default function NotFound() {
     <main className="main-container empty-state">
       <h1>A hold on the route is missing.</h1>
       <p>
-        This page doesn’t exist. Head back to the library to find your next
-        design.
+        This page doesn’t exist. Head back to the pile to find your next design.
       </p>
       <Link href="/" className="button button-dark">
-        Back to the library
+        Back to the pile
       </Link>
     </main>
   );

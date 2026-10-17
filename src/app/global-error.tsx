@@ -27,15 +27,15 @@ export default function GlobalError({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>{`Something went wrong | ${SITE_NAME}`}</title>
+        <title>{`Took a whipper | ${SITE_NAME}`}</title>
         <script
           dangerouslySetInnerHTML={{ __html: THEME_INITIALIZATION_SCRIPT }}
         />
       </head>
       <body>
         <main className="main-container empty-state">
-          <h1>Something interrupted the climb.</h1>
-          <p>The site couldn’t load. Try again, or come back in a minute.</p>
+          <h1>The website took a bad whipper.</h1>
+          <p>The site didn’t load. Try again, or come back in a minute.</p>
           <button className="button button-dark" onClick={() => retry()}>
             Try again
           </button>

@@ -150,8 +150,8 @@ export function PhotoCropper({
         </button>
       </div>
       <p className="small-note">
-        Drag the box to move it, or its corners to resize. Library cards show a
-        4:3 crop; the design page shows the whole photo.
+        Drag the box to move it, or its corners to resize. Cards in the pile
+        show a 4:3 crop; the design page shows the whole photo.
       </p>
       <div className="crop-stage">
         <img ref={image} src={url} alt="" onLoad={loaded} draggable={false} />
