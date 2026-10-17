@@ -3419,6 +3419,12 @@ svg {
 .eyebrow-tags .tag {
   color: var(--accent);
 }
+/* A lab that still opens but is waiting on a rework. */
+.tag.tag-out-of-order {
+  border-color: var(--error-line);
+  background: var(--error-bg);
+  color: var(--error-ink);
+}
 .card-human-shaped {
   position: absolute;
   right: 14px;
