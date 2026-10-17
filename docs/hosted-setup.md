@@ -236,8 +236,18 @@ link on every design page open the same small form. Each message is stored
 in the `feedback` table (`supabase/migrations/20261017000000_feedback.sql`),
 which only the server reads, and forwarded as one line to
 `ALERT_WEBHOOK_URL` with the sender's name and email when signed in, or
-whatever contact they typed otherwise. A hidden honeypot field drops bot
-submissions. To read everything ever sent:
+whatever contact they typed otherwise. Spam is filtered in
+`src/features/feedback/spam.ts`, and every filtered sender still sees "Sent":
+
+- A filled hidden honeypot field, or an empty `page` field, drops the
+  message. The widget fills `page` when it opens, which takes JavaScript,
+  so an empty one means a script posted the form without the widget. That
+  is how the October 2026 SEO pitches arrived.
+- A message matching a sales-pitch phrase (SEO, "search index", backlinks,
+  "online visibility" and a few more) is stored but not forwarded, so a
+  false match costs a notification, not the message.
+
+To read everything ever sent, pitches included:
 
 ```sql
 select created_at, contact, page, body from public.feedback order by created_at desc;
@@ -303,10 +313,36 @@ repo's Settings → Secrets and variables → Actions (the same URL as
 
 GitHub runs schedules on a best-effort basis: the 5-minute schedule ran
 once in 6.5 hours on 15 Oct 2026, and GitHub pauses scheduled workflows in
-a repository with no commits for 60 days. Treat the workflow as a backstop
-and point an outside monitor (UptimeRobot or Better Stack, free tiers check
-every 5 minutes and can post to the same Discord webhook) at
-`https://garageholds.com/api/health`.
+a repository with no commits for 60 days. So the workflow is only a
+backstop. The real check is UptimeRobot (free plan, Riley's account): two
+HTTP monitors, `https://garageholds.com/` and
+`https://garageholds.com/api/health`, every 5 minutes, alerting the contacts
+set up there. Its Discord alerts use a webhook of their own named
+"UptimeRobot" in the alerts channel, so it can be revoked on its own.
+
+## Firewall and spend
+
+Two Vercel settings guard against a bill run up on purpose, both changed in
+the dashboard, not in code:
+
+- **Rate limit.** The project's Firewall has one custom rule, "Rate limit
+  generators": requests whose path starts with `/api/` get 120 per minute
+  per IP, then a 429, which the labs show as "Try again in a moment". The
+  generators are public and CPU-heavy, so this caps one client looping
+  them. To check it, send 130 quick requests to `/api/health` and expect
+  the last 10 to be 429s. The firewall API reports no config for the
+  project, so reading it back does not work.
+- **Spend Management.** Team Settings → Billing: an on-demand budget of $20
+  beyond the Pro plan's $20 usage credit, with alerts at 50, 75 and 100%,
+  and Pause Production Deployments on. If it trips, garageholds.com answers
+  503 until the project is resumed by hand (project Settings → General);
+  raising the budget does not resume it. Normal months use about the credit,
+  almost all of it builds.
+
+Bot Protection's managed rules stay off: they challenge non-browser
+clients, which would fail the uptime workflow and the deploy smoke test.
+During an attack, Firewall → Attack Challenge Mode challenges every visitor
+until it is turned off.
 
 ## Smoke test after each deploy
 
