@@ -29,6 +29,7 @@ import {
   controlRanges,
   normalizeParameters,
 } from "./controls";
+import { SafetyNote } from "@/features/legal/safety-note";
 import styles from "./custom-shape-lab.module.css";
 import { BrushSizeControl } from "./brush-size-control";
 import { drawingContours } from "./drawing-preview";
@@ -922,6 +923,7 @@ export function CustomShapeLab() {
             {exporting ? "Exporting…" : "Download STL"}
           </button>
         </div>
+        <SafetyNote />
         <div className={styles.settingsHeading}>
           <h3>Hold settings</h3>
           <span>Size, grip & mounting</span>

@@ -113,8 +113,10 @@ export const CLIENT_ROUTES = [
   "/make/pocket",
   "/make/sloper",
   "/phone/[session]",
+  "/privacy",
   "/saved",
   "/sign-in",
+  "/terms",
   "/upload",
   "/welcome",
 ];
