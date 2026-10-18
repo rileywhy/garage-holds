@@ -205,7 +205,7 @@ export function DesignFields({
             <p>Free downloads are the starting point for the pile.</p>
           </div>
         </div>
-        <DesignMethodField />
+        <DesignMethodField defaultValue={defaults?.designMethod ?? ""} />
         <LicenseField defaultValue={defaults?.license ?? ""} />
         {sharingConfirmation && (
           <label className="checkbox-row ownership-check">
