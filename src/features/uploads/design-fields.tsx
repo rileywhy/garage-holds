@@ -212,7 +212,11 @@ export function DesignFields({
             <input name="ownership" type="checkbox" required />
             <span>
               I created these files or have permission to share them under the
-              selected license.
+              selected license, and I agree to the{" "}
+              <Link href="/terms#uploads" target="_blank">
+                terms
+              </Link>
+              .
             </span>
           </label>
         )}

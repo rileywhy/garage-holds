@@ -33,10 +33,17 @@ export default async function SignInPage({
         </p>
       </div>
       {isSupabaseConfigured() ? (
-        <SignInForm
-          next={next}
-          googleClientId={process.env.GOOGLE_CLIENT_ID || null}
-        />
+        <>
+          <SignInForm
+            next={next}
+            googleClientId={process.env.GOOGLE_CLIENT_ID || null}
+          />
+          <p className="field-hint sign-in-terms">
+            By signing in you agree to the{" "}
+            <Link href="/terms">terms of use</Link> and the{" "}
+            <Link href="/privacy">privacy policy</Link>.
+          </p>
+        </>
       ) : (
         <p className="error-box" role="alert">
           Accounts aren&apos;t configured in this environment. Set the Supabase

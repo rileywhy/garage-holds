@@ -56,6 +56,7 @@ import {
 import { errorReason } from "@/features/labs/lab-request";
 import { GearLink } from "@/features/gear/gear-link";
 import { GEAR } from "@/features/gear/gear";
+import { SafetyNote } from "@/features/legal/safety-note";
 import {
   DESIGN_FILE_LIMIT,
   KIND_LABELS,
@@ -967,6 +968,7 @@ export function HoldLab({
             Millimetres · flat back · original geometry. Upload it like any
             other design when it has earned a place in the pile.
           </p>
+          <SafetyNote />
         </section>
       </div>
     </div>
