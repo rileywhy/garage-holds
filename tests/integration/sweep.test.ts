@@ -37,6 +37,7 @@ function fakeStore(initial: StoredObject[]) {
           key: key.replace(/\.jpg$/, `-${size}.jpg`),
           lastModified: now,
         });
+      return null;
     },
     createModelPreview: async () => null,
     keys: () => [...objects.keys()].sort(),
