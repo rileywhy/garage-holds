@@ -30,6 +30,7 @@ const config: NextConfig = {
       ["jug", process.env.JUG_API_URL],
       ["foot", process.env.FOOT_API_URL],
       ["pocket", process.env.POCKET_API_URL],
+      ["pinch", process.env.PINCH_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

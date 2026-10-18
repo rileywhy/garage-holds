@@ -2,7 +2,7 @@
 // by LabSlug, like the carousel's artwork framing, then needs its entry
 // before the type checker is satisfied.
 export type LabSlug =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "custom-shape";
+  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
 
 export interface LabInfo {
   slug: LabSlug;
@@ -65,6 +65,16 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/pocket.webp",
     description:
       "A mono, two-finger or three-finger pocket in a round body. Set the opening, depth and floor angle, then export an STL.",
+    status: "experimental",
+  },
+  {
+    slug: "pinch",
+    name: "Pinch Lab",
+    short: "pinch",
+    href: "/make/pinch",
+    image: "/images/hold-labs/pinch.webp",
+    description:
+      "A block to squeeze between thumb and fingers. Set the span, lean or undercut each side, offset the top, then export an STL.",
     status: "experimental",
   },
   {

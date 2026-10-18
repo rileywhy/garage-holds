@@ -179,14 +179,21 @@ def fit_bolt_and_screw(
     return []
 
 
-def screw_layout(p, solid, target):
+def screw_layout(p, solid, target, targets=None):
     """One to three countersunk screws, each at the eligible spot nearest its
     target: centred for one, spread toward the sides for two, with a third
-    below the middle. The seat lowers in steps until every recess fits."""
+    below the middle, unless the caller places the targets itself. The seat
+    lowers in steps until every recess fits."""
     bounds = np.array(solid.bounding_box()).reshape(2, 3)
     lo, hi = bounds
     xx, yy = np.meshgrid(np.linspace(lo[0], hi[0], 51), np.linspace(lo[1], hi[1], 51))
     points = np.column_stack((xx.ravel(), yy.ravel()))
+    if targets is None:
+        targets = (
+            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
+        )
+        if p.screw_count == 3:
+            targets.append((0, lo[1] * 0.55))
     for seat in np.arange(max(2, target), 1.9, -0.5):
         eligible = points[
             _inside(
@@ -195,11 +202,6 @@ def screw_layout(p, solid, target):
         ]
         if not len(eligible):
             continue
-        targets = (
-            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
-        )
-        if p.screw_count == 3:
-            targets.append((0, lo[1] * 0.55))
         chosen = []
         for x, y in targets:
             candidates = eligible

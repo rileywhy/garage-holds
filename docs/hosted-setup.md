@@ -365,8 +365,9 @@ until it is turned off.
 every deployment Vercel reports as ready (GitHub's `deployment_status`
 event), with `SMOKE_URL` set to the deployed site. It requests every page,
 fails on any 5xx, and also fetches each generator's schema from
-`/api/crimp`, `/api/sloper`, `/api/jug`, `/api/foot` and `/api/pocket`,
-which only a deployment can serve because the Python functions run on Vercel alone.
+`/api/crimp`, `/api/sloper`, `/api/jug`, `/api/foot`, `/api/pocket` and
+`/api/pinch`, which only a deployment can serve because the Python functions
+run on Vercel alone.
 
 - **Preview deployments** are checked at their own URL. A server error
   fails the check, which shows on the pull request beside CI, so look at it

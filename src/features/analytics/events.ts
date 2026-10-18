@@ -6,7 +6,8 @@ import type { LabErrorReason } from "@/features/labs/lab-request";
 // The few clicks worth counting. Vercel records the page each one happened
 // on by itself; the properties say which thing was clicked. Names and
 // properties are listed here so the Analytics tab stays readable.
-type Lab = "crimp" | "sloper" | "jug" | "foot" | "pocket" | "custom-shape";
+type Lab =
+  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
 
 type Event =
   // The labs: an export is the conversion, an error says a generator call

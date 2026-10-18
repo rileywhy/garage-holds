@@ -104,10 +104,10 @@ function reportError(
   trackEvent({ name: "lab_error", lab, stage, reason: errorReason(error) });
 }
 
-// The one lab behind the Crimp, Sloper, Jug and Foot Labs: sliders on the
+// The one lab behind the parametric labs, Crimp to Pinch: sliders on the
 // left, the generated hold on the right; on a phone the hold stays pinned
 // above the sliders. Every change asks /api/<kind> for a fresh preview and
-// export asks for a finer STL. What differs between the four is in kinds.ts.
+// export asks for a finer STL. What differs between them is in kinds.ts.
 export function HoldLab({
   kind,
   account = false,
@@ -332,6 +332,9 @@ export function HoldLab({
         ...(key === "seat_depth" ? { auto_seat: false } : {}),
         ...(key === "screw_count" && "auto_screw_count" in p
           ? { auto_screw_count: false }
+          : {}),
+        ...(key === "bolt_mount" && "auto_mount" in p
+          ? { auto_mount: false }
           : {}),
       })),
     [edit],
@@ -678,7 +681,7 @@ export function HoldLab({
               )}
               {name === "Shape" && schema.shapes && (
                 <label className="lab-field">
-                  <span>Body shape</span>
+                  <span>{schema.shapeLabel ?? "Body shape"}</span>
                   <select
                     value={String(parameters.shape)}
                     onChange={(e) =>

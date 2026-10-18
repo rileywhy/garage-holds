@@ -1,20 +1,22 @@
-// The generator contract behind the Crimp, Sloper, Jug, Foot and Pocket
-// Labs. GET /api/<kind> returns the control schema; POST runs an action on a
-// set of settings. Python is the one source of limits, defaults and presets,
-// so a lab fetches its schema at load instead of repeating any of it here.
+// The generator contract behind the Crimp, Sloper, Jug, Foot, Pocket and
+// Pinch Labs. GET /api/<kind> returns the control schema; POST runs an
+// action on a set of settings. Python is the one source of limits, defaults
+// and presets, so a lab fetches its schema at load instead of repeating any
+// of it here.
 import {
   EXPORT_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   labRequest,
 } from "@/features/labs/lab-request";
 
-export type Kind = "crimp" | "sloper" | "jug" | "foot" | "pocket";
+export type Kind = "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch";
 export const KIND_LABELS: Record<Kind, string> = {
   crimp: "Crimp",
   sloper: "Sloper",
   jug: "Jug",
   foot: "Foot",
   pocket: "Pocket",
+  pinch: "Pinch",
 };
 
 export interface Control {
@@ -26,7 +28,8 @@ export interface Control {
   step: number;
   unit: string;
   help: string;
-  // Foot Lab: the body shapes this control applies to; absent means all.
+  // Foot and Pinch Labs: the shapes this control applies to; absent means
+  // all.
   shapes?: string[];
   // A switch (see Toggle) that hides this control while it is on: the
   // Pocket Lab's depth has no meaning once the pocket opens to the wall.
@@ -44,12 +47,14 @@ export interface Schema {
   defaults: Parameters;
   controls: Control[];
   presets: Record<string, Parameters>;
-  // Foot Lab: the body shapes a design can switch between, key → label.
+  // Foot and Pinch Labs: the shapes a design can switch between, key →
+  // label, and what the menu is called when it is not the body's shape.
   shapes?: Record<string, string>;
+  shapeLabel?: string;
   // Foot Lab: the generator can pick the screw count from the body size.
   autoScrewCount?: boolean;
-  // Pocket Lab: switches the generator declares, beside the mounting ones
-  // every lab has.
+  // Pocket and Pinch Labs: switches the generator declares, beside the
+  // mounting ones every lab has.
   toggles?: Toggle[];
 }
 // A settings file, as a lab or the local tool saves it.
@@ -75,8 +80,8 @@ export interface Preview {
   // body so the screws fit. The design's parameters already include them.
   adjusted: Record<string, number>;
   design: Design;
-  // Sloper, jug, foot and pocket: the complete settings as built, which the
-  // sliders then show.
+  // Sloper, jug, foot, pocket and pinch: the complete settings as built,
+  // which the sliders then show.
   parameters?: Parameters;
   // Pocket: the material left behind the pocket, zero when it opens to the
   // wall, and every outline of the centre section, which an open pocket
@@ -158,6 +163,7 @@ const DESIGN_VERSIONS: Record<Kind, number> = {
   jug: 2,
   foot: 2,
   pocket: 1,
+  pinch: 1,
 };
 // Settings that older files leave out, with the value that keeps the saved
 // shape as it was: crimps saved before the count control had two screws

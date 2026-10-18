@@ -33,6 +33,11 @@ export const ARTWORK_FRAMING: Record<
     left: 3.53,
     top: -5.18,
   },
+  pinch: {
+    width: 100,
+    left: -0.9,
+    top: -1.6,
+  },
   "custom-shape": {
     width: 91.05145413870245,
     left: 4.1555928411633145,

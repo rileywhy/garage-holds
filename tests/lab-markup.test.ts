@@ -12,7 +12,14 @@ const render = (kind: Kind, account = false) =>
   renderToStaticMarkup(createElement(HoldLab, { kind, account }));
 
 test("every lab renders its first markup with its own labels, tabs and views", () => {
-  for (const kind of ["crimp", "sloper", "jug", "foot", "pocket"] as const) {
+  for (const kind of [
+    "crimp",
+    "sloper",
+    "jug",
+    "foot",
+    "pocket",
+    "pinch",
+  ] as const) {
     const html = render(kind);
     const label = kind[0].toUpperCase() + kind.slice(1);
     assert.match(html, new RegExp(`aria-label="${label} controls"`));

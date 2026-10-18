@@ -130,6 +130,17 @@ test("a taken name gets a number", () => {
   assert.equal(uniqueName("Edge", ["Edge", "Edge 2"]), "Edge 3");
 });
 
+test("pinch presets name themselves by span, and offset or depth", () => {
+  assert.equal(
+    defaultPresetName("pinch", { width: 50, depth: 40, offset: 0 }),
+    "50 mm pinch · 40 mm deep",
+  );
+  assert.equal(
+    defaultPresetName("pinch", { width: 48, depth: 46, offset: 40 }),
+    "48 mm pinch · 40% offset",
+  );
+});
+
 test("pocket presets name themselves by opening and depth, or open to the wall", () => {
   assert.equal(
     defaultPresetName("pocket", {

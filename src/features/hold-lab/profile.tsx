@@ -2,7 +2,9 @@ import type { Kind, Parameters, Preview } from "./api";
 
 // The centre cross-section with the wall on the left, as a plain SVG. The
 // crimp's drawing marks the edge depth between the grip points its
-// generator reports; the others show the body with a caption.
+// generator reports; the others show the body with a caption. The pinch's
+// section runs across the hold, so its two gripping sides are the top and
+// bottom of the drawing.
 export function Profile({
   data,
   kind,
@@ -25,6 +27,7 @@ const NOUNS: Record<Kind, string> = {
   jug: "jug",
   foot: "foothold",
   pocket: "pocket hold",
+  pinch: "pinch",
 };
 
 function outline(
@@ -137,6 +140,8 @@ function caption(kind: Kind, p: Parameters) {
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
     } · ${p.incut} mm incut`;
+  if (kind === "pinch")
+    return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
 }
 

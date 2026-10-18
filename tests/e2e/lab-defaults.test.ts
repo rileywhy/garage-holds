@@ -19,16 +19,17 @@ import { linkSearch } from "../../src/features/lab-link/lab-link";
 // expected values live in tests/fixtures/lab-defaults.json; the test fails
 // when any of them moves, whether the lab or the generator changed.
 //
-// Needs the four generators from docs/sandbox.md (npm run test:e2e). After an
+// Needs the six generators from docs/sandbox.md (npm run test:e2e). After an
 // intended generator change, UPDATE_LAB_DEFAULTS=1 rewrites the fixture.
 
-const KINDS: Kind[] = ["crimp", "sloper", "jug", "foot", "pocket"];
+const KINDS: Kind[] = ["crimp", "sloper", "jug", "foot", "pocket", "pinch"];
 const PORTS: Record<Kind, number> = {
   crimp: 8766,
   sloper: 8771,
   jug: 8781,
   foot: 8785,
   pocket: 8795,
+  pinch: 8796,
 };
 const FIXTURE = fileURLToPath(
   new URL("../fixtures/lab-defaults.json", import.meta.url),
