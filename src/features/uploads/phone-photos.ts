@@ -66,8 +66,10 @@ export async function attachInboxPhotos(
     // The phone checked the bytes when it confirmed the photo, so the
     // sizes are expected to succeed; if they do not, the photo is dropped
     // with a log line rather than left as a ready row with a broken card.
+    // Stripping its metadata can change its size.
+    let bytes = photo.bytes;
     try {
-      await createPhotoSizes(key, photo.extension);
+      bytes = (await createPhotoSizes(key, photo.extension)) ?? bytes;
     } catch (error) {
       console.error("phone photo sizes failed", { designId, photo, error });
       await deleteObject(key);
@@ -82,7 +84,7 @@ export async function attachInboxPhotos(
       object_key: key,
       name: photo.name,
       extension: photo.extension,
-      bytes: photo.bytes,
+      bytes,
       position: firstPosition + index,
       status: "ready",
     });

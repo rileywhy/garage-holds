@@ -183,9 +183,12 @@ export async function finishPhotoUpload(
     }
     // The sizes come first: making them reads the bytes, so a file that
     // is not an image is dropped here instead of becoming a ready row with
-    // a broken card and a sweep that fails on it every night.
+    // a broken card and a sweep that fails on it every night. Stripping its
+    // metadata can change its size.
+    let bytes = file.bytes;
     try {
-      await createPhotoSizes(file.object_key, file.extension);
+      bytes =
+        (await createPhotoSizes(file.object_key, file.extension)) ?? bytes;
     } catch (error) {
       errors.push(
         error instanceof UnreadablePhotoError
@@ -200,7 +203,7 @@ export async function finishPhotoUpload(
     }
     const { error } = await admin
       .from("design_files")
-      .update({ status: "ready" })
+      .update({ status: "ready", bytes })
       .eq("id", file.id);
     if (error) {
       console.error("photo ready update failed", { designId, file, error });
@@ -267,11 +270,11 @@ export async function cropPhoto(
     const bytes = new Uint8Array(await output.toBuffer());
     const key = objectKey(designId, crypto.randomUUID(), file.extension);
     await putObject(key, bytes, contentType);
-    await createPhotoSizes(key, file.extension);
+    const sized = await createPhotoSizes(key, file.extension);
     const admin = createSupabaseAdminClient();
     const { error } = await admin
       .from("design_files")
-      .update({ object_key: key, bytes: bytes.byteLength })
+      .update({ object_key: key, bytes: sized ?? bytes.byteLength })
       .eq("id", file.id);
     if (error) {
       await deletePhotoObjects(key);
