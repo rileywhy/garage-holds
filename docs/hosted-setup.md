@@ -214,15 +214,10 @@ Without `dry=1` the same call performs the sweep. Vercel's Hobby plan runs
 cron jobs once a day at an approximate time, which is enough here.
 
 Photo originals lose their metadata (camera, time, GPS position) as they
-finish uploading (`src/features/uploads/photo-metadata.ts`). Photos uploaded
-before that are cleaned once with `scrub=1`, counted first with `dry=1`;
-re-running it is harmless. Remove `photo-scrub.ts` and the route's branch
-once it has run:
-
-```sh
-curl -H "Authorization: Bearer $CRON_SECRET" "https://garageholds.com/api/sweep?scrub=1&dry=1"
-curl -H "Authorization: Bearer $CRON_SECRET" "https://garageholds.com/api/sweep?scrub=1"
-```
+finish uploading (`src/features/uploads/photo-metadata.ts`). The sweep also
+cleans any original that still has it, which covers photos uploaded before
+that; the response's `scrub` block counts them (`withMetadata`), and a dry
+run counts without rewriting (`src/features/uploads/photo-scrub.ts`).
 
 ## Upload allowance
 

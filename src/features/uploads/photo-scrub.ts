@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-// One-off: photos published before originals were cleaned on upload (see
-// photo-metadata.ts) still carry their EXIF, GPS included. Run once after
-// deploy with `/api/sweep?scrub=1` (add `&dry=1` to count without writing),
-// then delete this file and the route's branch. Re-running is safe: a photo
-// with nothing to remove is left alone.
+// Photos published before originals were cleaned on upload (see
+// photo-metadata.ts) still carry their EXIF, GPS included. The nightly sweep
+// runs this after its own work, so they are cleaned on the first run after
+// deploy. Later runs find nothing to do: a photo with nothing to remove is
+// only read, not rewritten. That read is every photo every night, which is
+// nothing at today's few photos; drop this from the route once the first
+// run has passed and the pile grows (RIL-113).
 
 export interface ScrubReport {
   dryRun: boolean;
