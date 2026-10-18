@@ -100,6 +100,7 @@ test("a photo whose sizes cannot be made is counted and logged, not fatal", asyn
     createPhotoSizes: async (key: string) => {
       if (key.endsWith("bad.jpg")) throw new Error("not an image");
       made.push(key);
+      return null;
     },
     createModelPreview: async () => null,
   };
@@ -174,7 +175,7 @@ test("a big model with no preview copy gets one from the sweep, and a failure is
           }))
         : [],
     deleteObject: async () => {},
-    createPhotoSizes: async () => {},
+    createPhotoSizes: async () => null,
     createModelPreview: async (file: { object_key: string }) => {
       asked.push(file.object_key);
       if (file.object_key.endsWith("bad.stl")) throw new Error("function down");

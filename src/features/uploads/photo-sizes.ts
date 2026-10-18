@@ -7,6 +7,7 @@ import {
   photoObjectKeys,
   photoSizeKey,
 } from "@/features/holds/rows";
+import { stripPhotoMetadata } from "./photo-metadata";
 
 // Display sizes of a stored photo. Browsers shrink a full phone photo into a
 // 300 px card with a cheap filter that turns chalk and texture into shimmer;
@@ -46,10 +47,21 @@ async function readPhoto(objectKey: string) {
   return original;
 }
 
-export async function createPhotoSizes(objectKey: string, extension: string) {
+// Every photo passes through here before it is marked ready, so this is also
+// where the original loses its metadata (see photo-metadata.ts). Returns the
+// original's new size in bytes when it was rewritten, for the caller's row.
+export async function createPhotoSizes(
+  objectKey: string,
+  extension: string,
+): Promise<number | null> {
   const contentType = photoContentType(extension);
-  if (!contentType) return;
-  const original = await readPhoto(objectKey);
+  if (!contentType) return null;
+  let original = await readPhoto(objectKey);
+  const clean = await stripPhotoMetadata(original, contentType);
+  if (clean) {
+    await putObject(objectKey, clean, contentType);
+    original = clean;
+  }
   for (const [size, width] of Object.entries(PHOTO_SIZES)) {
     // rotate() bakes the orientation tag in so every copy is upright.
     const resized = sharp(original)
@@ -67,6 +79,25 @@ export async function createPhotoSizes(objectKey: string, extension: string) {
       contentType,
     );
   }
+  return clean ? clean.byteLength : null;
+}
+
+// Cleans an original that is already stored and sized (photo-scrub.ts).
+// Its sizes were made with rotate() and no metadata, so they still match.
+export async function stripStoredPhoto(
+  objectKey: string,
+  extension: string,
+  dryRun: boolean,
+): Promise<number | null> {
+  const contentType = photoContentType(extension);
+  if (!contentType) return null;
+  const clean = await stripPhotoMetadata(
+    await readPhoto(objectKey),
+    contentType,
+  );
+  if (!clean) return null;
+  if (!dryRun) await putObject(objectKey, clean, contentType);
+  return clean.byteLength;
 }
 
 // The original and every size. Deleting a key that does not exist is fine,

@@ -243,9 +243,13 @@ export async function finalizeDesign(
     }
     // A photo's sizes come first: making them reads the bytes, so a file
     // that is not an image is refused here instead of becoming a ready row.
+    // Stripping its metadata can change its size.
+    let bytes = file.bytes;
     if (file.kind === "photo")
       try {
-        await createPhotoSizes(file.object_key, fileExtension(file.name));
+        bytes =
+          (await createPhotoSizes(file.object_key, fileExtension(file.name))) ??
+          bytes;
       } catch (error) {
         errors.push(
           error instanceof UnreadablePhotoError
@@ -260,7 +264,7 @@ export async function finalizeDesign(
       }
     await admin
       .from("design_files")
-      .update({ status: "ready" })
+      .update({ status: "ready", bytes })
       .eq("id", file.id);
   }
   if (errors.length) return { errors };

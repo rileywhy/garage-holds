@@ -32,7 +32,11 @@ export interface StoredObject {
 export interface ObjectStore {
   listObjects(prefix: string): Promise<StoredObject[]>;
   deleteObject(key: string): Promise<void>;
-  createPhotoSizes(objectKey: string, extension: string): Promise<void>;
+  // The original's new size when making the sizes rewrote it (photo-sizes.ts).
+  createPhotoSizes(
+    objectKey: string,
+    extension: string,
+  ): Promise<number | null>;
   // The preview copy's key, or null when the model needs none (RIL-87).
   createModelPreview(file: {
     object_key: string;
@@ -193,7 +197,17 @@ export async function sweep(
   if (!dryRun)
     for (const file of unsized)
       try {
-        await store.createPhotoSizes(file.object_key, file.extension);
+        const bytes = await store.createPhotoSizes(
+          file.object_key,
+          file.extension,
+        );
+        if (bytes !== null) {
+          const { error } = await admin
+            .from("design_files")
+            .update({ bytes })
+            .eq("id", file.id);
+          if (error) throw new Error(error.message);
+        }
       } catch (error) {
         photoSizeFailures += 1;
         console.error("sweep: photo sizes failed", { file, error });
