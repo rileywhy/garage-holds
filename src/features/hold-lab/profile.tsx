@@ -141,8 +141,10 @@ function caption(kind: Kind, p: Parameters) {
 }
 
 function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
-  const ys = data.profile.map(([y]) => y);
-  const zs = data.profile.map(([, z]) => z);
+  // An open pocket splits the section in two: draw every outline.
+  const parts = data.profiles ?? [data.profile];
+  const ys = parts.flat().map(([y]) => y);
+  const zs = parts.flat().map(([, z]) => z);
   const low = Math.min(...ys);
   const high = Math.max(...ys);
   const depth = Math.max(...zs);
@@ -156,7 +158,10 @@ function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
       role="img"
       aria-label={`Centre cross-section of the ${NOUNS[kind]}, with the wall on the left`}
     >
-      <path d={outline(data.profile, px, py)} className="lab-profile-body" />
+      <path
+        d={parts.map((part) => outline(part, px, py)).join(" ")}
+        className="lab-profile-body"
+      />
       <line
         x1={px(0)}
         x2={px(0)}

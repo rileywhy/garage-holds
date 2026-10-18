@@ -79,8 +79,10 @@ export interface Preview {
   // sliders then show.
   parameters?: Parameters;
   // Pocket: the material left behind the pocket, zero when it opens to the
-  // wall.
+  // wall, and every outline of the centre section, which an open pocket
+  // splits in two (profile is the larger).
   floor?: number;
+  profiles?: [number, number][][];
   // The crimp generator reports its fitted values beside the settings, and
   // the Crimp Lab shows them: where the grip starts and ends in the
   // profile, where the countersink starts above the wall (auto or by
