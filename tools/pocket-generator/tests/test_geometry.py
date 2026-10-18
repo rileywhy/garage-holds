@@ -8,10 +8,22 @@ from pathlib import Path
 
 import manifold3d as manifold
 import numpy as np
+import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import FLOOR, LIP_SPAN, MARGIN, build, largest, lip_reach, pocket, slot
-from parameters import CONTROLS, PRESETS, design_document, parse_parameters
+from geometry import (
+    FLOOR,
+    LIP_SPAN,
+    MARGIN,
+    body,
+    build,
+    fillets,
+    largest,
+    lip_reach,
+    pocket,
+    slot,
+)
+from parameters import BASE, CONTROLS, PRESETS, design_document, parse_parameters
 
 from tools.hold_mounting import _inside
 
@@ -54,6 +66,31 @@ def contours_at(mesh, z):
     return solid.slice(z).num_contour()
 
 
+def span_at(section, z):
+    """The lowest and highest y where a closed (z, y) outline crosses z."""
+    after = np.roll(section, -1, axis=0)
+    a, b = section, after
+    crossing = (a[:, 0] - z) * (b[:, 0] - z) <= 0
+    a, b = a[crossing], b[crossing]
+    run = np.where(b[:, 0] == a[:, 0], 1.0, b[:, 0] - a[:, 0])
+    y = a[:, 1] + (z - a[:, 0]) / run * (b[:, 1] - a[:, 1])
+    return y.min(), y.max()
+
+
+def creases(model, quality):
+    """The bends, in degrees, between neighbouring faces in and around the
+    pocket, wall plane left out: where one passes the lab's 30 degree crease
+    angle the viewer shades a hard line, and where many sit just under it
+    a faint seam shows anyway."""
+    mesh = model.mesh
+    _, cut, _, _, _ = pocket(model.parameters, quality)
+    ends = mesh.vertices[mesh.face_adjacency_edges]
+    near = cut.project().offset(1.0, manifold.JoinType.Round, 2.0, 16)
+    around = _inside(ends.mean(axis=1)[:, :2], near.to_polygons())
+    off_wall = ends[:, :, 2].max(axis=1) > 0.05
+    return np.degrees(mesh.face_adjacency_angles[around & off_wall])
+
+
 class PocketTests(unittest.TestCase):
     def test_presets_and_exports(self):
         for name, p in PRESETS.items():
@@ -73,9 +110,14 @@ class PocketTests(unittest.TestCase):
     def test_closed_pockets_keep_a_floor(self):
         for name, p in PRESETS.items():
             with self.subTest(name=name):
-                self.assertGreaterEqual(build(p).floor, FLOOR - 0.1)
+                closed = build(replace(p, through=False))
+                self.assertGreaterEqual(closed.floor, FLOOR - 0.1)
         # A pocket deeper than the body makes the body deeper, and says so.
-        deep = build(replace(PRESETS["Two-finger pocket"], pocket_depth=50, depth=20))
+        deep = build(
+            replace(
+                PRESETS["Two-finger pocket"], through=False, pocket_depth=50, depth=20
+            )
+        )
         self.assertGreaterEqual(deep.floor, FLOOR - 0.1)
         self.assertIn("depth", deep.adjusted)
         self.assertGreater(deep.parameters.depth, 20)
@@ -83,6 +125,7 @@ class PocketTests(unittest.TestCase):
         small = build(
             replace(
                 PRESETS["Two-finger pocket"],
+                through=False,
                 pocket_depth=50,
                 incut=14,
                 lip_radius=6,
@@ -95,10 +138,10 @@ class PocketTests(unittest.TestCase):
         self.assertLessEqual(small.parameters.depth, 70)
 
     def test_open_pocket_reaches_the_wall(self):
-        closed = build(replace(PRESETS["Two-finger pocket"], screws=False))
-        opened = build(
-            replace(PRESETS["Two-finger pocket"], screws=False, through=True)
+        closed = build(
+            replace(PRESETS["Two-finger pocket"], screws=False, through=False)
         )
+        opened = build(replace(PRESETS["Two-finger pocket"], screws=False))
         self.assertEqual(opened.floor, 0)
         self.assertTrue(opened.mesh.is_watertight)
         self.assertAlmostEqual(opened.mesh.bounds[0, 2], 0, places=5)
@@ -117,10 +160,10 @@ class PocketTests(unittest.TestCase):
         # default preset; the deep run tries every variant on every preset.
         def hardware(p):
             return [
-                replace(p, through=True),
+                replace(p, through=not p.through),
                 replace(p, bolt_mount=True),
                 replace(p, screw_count=3),
-                replace(p, through=True, bolt_mount=True),
+                replace(p, through=not p.through, bolt_mount=True),
             ]
 
         variants = list(PRESETS.values())
@@ -155,7 +198,7 @@ class PocketTests(unittest.TestCase):
         # below the lip; the deepest point is at the chamber's mid-height,
         # not on the floor; and there is no corner anywhere inside.
         for name in ("Two-finger pocket", "Three-finger pocket", "Mono"):
-            p = PRESETS[name]
+            p = replace(PRESETS[name], through=False)
             with self.subTest(name=name):
                 depth = p.depth * p.size / 100
                 h, incut, d = p.opening_height, p.incut, p.pocket_depth
@@ -199,10 +242,11 @@ class PocketTests(unittest.TestCase):
         # blade over a cone facet and its outer end can still kink.
         cases = [
             (PRESETS["Two-finger pocket"], 35),
+            (replace(PRESETS["Two-finger pocket"], through=False), 35),
             (PRESETS["Three-finger pocket"], 35),
             (replace(PRESETS["Slopey pocket"], incut=-10), 35),
-            (replace(PRESETS["Two-finger pocket"], through=True, incut=20), 35),
-            (replace(PRESETS["Mono"], incut=20, lip_radius=14), 45),
+            (replace(PRESETS["Two-finger pocket"], incut=20), 35),
+            (replace(PRESETS["Mono"], through=False, incut=20, lip_radius=14), 45),
             (
                 replace(
                     PRESETS["Two-finger pocket"],
@@ -259,8 +303,10 @@ class PocketTests(unittest.TestCase):
                         for sign in (1, -1)
                     ]
                 )
+                # Simplified only to 0.05 mm: coarser, a small lower lip's arc
+                # would read as a few sharp chords.
                 for turned, offset, axes, half in planes:
-                    for polygon in turned.slice(offset).simplify(0.3).to_polygons():
+                    for polygon in turned.slice(offset).simplify(0.05).to_polygons():
                         points = np.asarray(polygon)
                         before, after = (
                             np.roll(points, 1, axis=0),
@@ -279,6 +325,175 @@ class PocketTests(unittest.TestCase):
                 self.assertLess(
                     worst, limit, f"a {worst:.0f} degree bend in the lip band"
                 )
+
+    def test_default_opens_to_the_wall_with_far_less_material(self):
+        # The default pocket runs all the way back: the wall is its back, so
+        # the back face is a ring and nothing is left behind the pocket.
+        self.assertTrue(BASE.through)
+        model = build(BASE)
+        self.assertEqual(model.adjusted, {})
+        self.assertEqual(model.floor, 0)
+        self.assertEqual(contours_at(model.mesh, 0.5), 2 + len(model.holes))
+        # The open pocket is as deep as the body, and both are shallow: the
+        # old closed default stood 50 mm off the wall around a 40 mm pocket
+        # and came to 218 cm3. A closed pocket starts shallow too.
+        self.assertLessEqual(BASE.depth, 32)
+        self.assertLessEqual(BASE.pocket_depth, 28)
+        self.assertLess(model.mesh.volume, 0.6 * 218_000)
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                self.assertTrue(p.through)
+
+    def test_open_section_is_the_drawn_c(self):
+        # Riley's second drawing, the open default: the roof runs level from
+        # the upper lip back to the wall and curls down onto it; the floor
+        # drops from the lower lip to the incut, runs level back to the wall
+        # and curls up onto it; between the two curls the wall itself is the
+        # pocket's back. Rounded everywhere inside, and where the curls meet
+        # the wall they meet it at a real angle, not a feathered edge.
+        for name in ("Two-finger pocket", "Three-finger pocket", "Mono"):
+            p = PRESETS[name]
+            with self.subTest(name=name):
+                depth = p.depth * p.size / 100
+                h, incut = p.opening_height, p.incut
+                cut = slot(p, depth, "export")
+                section = largest(cut.rotate((0, 90, 0)).slice(0))
+                z = section[:, 0]
+                body = section[(z > 0) & (z < depth - 0.3)]
+                at_face = largest(cut.slice(depth - 0.05))
+                self.assertAlmostEqual(at_face[:, 1].min(), -h / 2, delta=0.5)
+                self.assertAlmostEqual(at_face[:, 1].max(), h / 2, delta=0.5)
+                # A level roof at the upper lip, from the lip back to the curl.
+                for at in (depth / 2, depth / 3):
+                    self.assertAlmostEqual(span_at(section, at)[1], h / 2, delta=0.5)
+                self.assertLessEqual(body[:, 1].max(), h / 2 + 0.5)
+                # The floor sits the incut below the lower lip, runs level at
+                # the back, and only goes down on the way in to it.
+                bottom = -h / 2 - incut
+                self.assertAlmostEqual(body[:, 1].min(), bottom, delta=0.5)
+                level = body[body[:, 1] < bottom + 0.5]
+                self.assertGreater(np.ptp(level[:, 0]), 3)
+                front = body[(body[:, 1] < -incut / 2) & (body[:, 0] > depth / 2)]
+                order = np.argsort(-front[:, 0])
+                self.assertTrue(np.all(np.diff(front[order, 1]) <= 0.3))
+                # The wall shows between the curls for at least a third of
+                # the chamber's height.
+                lo, hi = np.array(cut.slice(0.0).bounds()).reshape(2, 2)
+                self.assertGreater(hi[1] - lo[1], (h + incut) / 3)
+                self.assertLess(hi[1] - lo[1], h + incut - 4)
+                # Rounded: no bend over 35 degrees between the wall and face.
+                turning = self.turning_angles(section)
+                self.assertLess(turning[(z > 0.3) & (z < depth - 1.0)].max(), 35)
+                # Where the curls cross the wall plane they rise off it at
+                # 20 degrees or more: a real edge at the wall.
+                after = np.roll(section, -1, axis=0)
+                step = (after - section)[(section[:, 0] < 0) != (after[:, 0] < 0)]
+                self.assertEqual(len(step), 2)
+                rise = np.degrees(np.arctan2(np.abs(step[:, 0]), np.abs(step[:, 1])))
+                self.assertGreaterEqual(rise.min(), 20)
+
+    def test_lower_lip_stays_round(self):
+        # The lower lip is where the fingers rest. A shallow open pocket
+        # still ramps its floor down over most of the body's depth, so an
+        # incut lower lip keeps a real radius: the old, deeper closed
+        # default's was about 6 mm, and none falls far below that.
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                p = build(p).parameters
+                solid, s = body(p, "preview")
+                cut = slot(p, s["depth"], "preview")
+                mouth, (radii, *_) = fillets(p, solid, cut, s["depth"])
+                lower = mouth[:, 1] < -p.opening_height / 2 + 1
+                self.assertGreaterEqual(radii[lower].min(), 5)
+
+    def test_openings_are_about_twenty_mm_per_finger(self):
+        # Three fingers take 61 mm, not 66; the others narrow in proportion,
+        # and the mono stays round.
+        ratio = 61 / 66
+        self.assertEqual(PRESETS["Three-finger pocket"].opening_width, 61)
+        self.assertEqual(
+            PRESETS["Two-finger pocket"].opening_width, round(45 * ratio)
+        )
+        mono = PRESETS["Mono"]
+        self.assertEqual(mono.opening_width, round(26 * ratio))
+        self.assertEqual(mono.opening_height, mono.opening_width)
+        help = next(c["help"] for c in CONTROLS if c["key"] == "opening_width")
+        for size in (round(25 * ratio), round(45 * ratio), 61):
+            self.assertIn(f"{size} ", help)
+        self.assertNotIn("66", help)
+
+    def test_wall_opening_reads_round(self):
+        # The hole through to the wall was a rounded square; its corners are
+        # eased a little rounder, short of an oval: it fills less of its
+        # bounding box than it did (0.93 for two fingers, 0.95 for three),
+        # and still more than a circle's 0.79.
+        for name, most in (("Two-finger pocket", 0.9), ("Three-finger pocket", 0.93)):
+            with self.subTest(name=name):
+                p = build(PRESETS[name]).parameters
+                hole = slot(p, p.depth * p.size / 100, "export").slice(0.0)
+                lo, hi = np.array(hole.bounds()).reshape(2, 2)
+                fill = hole.area() / np.prod(hi - lo)
+                self.assertLess(fill, most)
+                self.assertGreater(fill, 0.84)
+
+    def test_body_has_no_facet_creases(self):
+        # The body's rounded rim and crown are sampled alike all round, so
+        # the preview has no faceted creases or stripes on it: no two faces
+        # bend more than 15 degrees, on a round, a squarish or a wobbly body.
+        for p in (
+            BASE,
+            PRESETS["Pocket rail"],
+            replace(BASE, character=0.8, seed=7, crown=35, taper=30),
+        ):
+            with self.subTest(roundness=p.roundness, character=p.character):
+                solid, _ = body(build(replace(p, screws=False)).parameters, "preview")
+                mesh = solid.to_mesh()
+                faces = trimesh.Trimesh(
+                    mesh.vert_properties[:, :3], mesh.tri_verts, process=True
+                )
+                ends = faces.vertices[faces.face_adjacency_edges]
+                off_wall = ends[:, :, 2].min(axis=1) > 0.05
+                bends = np.degrees(faces.face_adjacency_angles[off_wall])
+                self.assertLess(bends.max(), 15)
+
+    def test_cavity_outline_turns_finely(self):
+        # In preview the cavity's outline turns no more than about 3 degrees
+        # from vertex to vertex, at the mouth and inside alike, so the hull
+        # joins the two point for point: a mouth sampled more coarsely than
+        # the chamber fans out in long triangles, shaded as stripes.
+        for p in (BASE, PRESETS["Three-finger pocket"]):
+            with self.subTest(width=p.opening_width):
+                b = build(p).parameters
+                depth = b.depth * b.size / 100
+                cut = slot(b, depth, "preview")
+                for z in (depth - 0.05, depth / 2, depth / 4):
+                    outline = largest(cut.slice(z))
+                    turning = self.turning_angles(outline)
+                    self.assertLess(turning.max(), 3.5, f"at z={z:.1f}")
+
+    def test_pocket_has_no_seams(self):
+        # The lab shades a bend over 30 degrees as a hard line, so nowhere
+        # in or around the pocket may two faces meet that sharply: not where
+        # the lip leaves the face, not where it joins the cavity wall, not
+        # inside the chamber, and not at a needle or speck left by the
+        # booleans, whose normal is noise.
+        cases = [
+            (BASE, "preview"),
+            (BASE, "export"),
+            (PRESETS["Three-finger pocket"], "preview"),
+            (PRESETS["Mono"], "preview"),
+            (PRESETS["Slopey pocket"], "preview"),
+            (replace(BASE, through=False), "preview"),
+            (replace(BASE, through=False), "export"),
+        ]
+        for p, quality in cases:
+            with self.subTest(
+                through=p.through, width=p.opening_width, quality=quality
+            ):
+                model = build(replace(p, screws=False), quality)
+                bends = creases(model, quality)
+                self.assertGreater(len(bends), 500)
+                self.assertLess(bends.max(), 30, f"{np.sum(bends >= 30)} hard lines")
 
     def test_mono_opening_is_round(self):
         # Equal width and height give a round hole at the face; the lip's
@@ -299,13 +514,13 @@ class PocketTests(unittest.TestCase):
             )
 
     def test_scale_applies_to_the_body_only(self):
-        p = replace(PRESETS["Two-finger pocket"], screws=False)
+        p = replace(PRESETS["Two-finger pocket"], screws=False, through=False)
         small, large = build(p), build(replace(p, size=200))
         np.testing.assert_allclose(
             large.mesh.extents[:2], small.mesh.extents[:2] * 2, rtol=1e-4
         )
         # The same pocket in a body twice as deep leaves far more floor.
-        self.assertGreater(large.floor, small.floor + 30)
+        self.assertGreater(large.floor, small.floor + 25)
 
     def test_random_settings_export_closed_solids(self):
         # A seeded sweep across every control and switch. The fitter may say
@@ -341,6 +556,7 @@ class PocketTests(unittest.TestCase):
                     height=50,
                     screw_count=3,
                     bolt_mount=False,
+                    through=False,
                 )
             )
         )
@@ -388,6 +604,28 @@ class PocketTests(unittest.TestCase):
                 )
                 self.assertTrue(model.mesh.is_watertight)
                 self.assertEqual(model.holes, [])
+
+    def test_screws_sit_in_mirror_image(self):
+        # A symmetrical hold gets symmetrical hardware: the pair mirror each
+        # other either side of the pocket, and a third sits on the middle
+        # line, never crowded in beside one of the pair (Riley's screenshot:
+        # the three-finger preset had it 11 mm from its neighbour).
+        cases = list(PRESETS.items()) + [
+            ("default, three screws", replace(BASE, screw_count=3)),
+            ("closed, three screws", replace(BASE, through=False, screw_count=3)),
+        ]
+        for name, p in cases:
+            with self.subTest(name=name):
+                model = build(p)
+                self.assertEqual(len(model.holes), p.screw_count)
+                left, right = sorted(model.holes[:2], key=lambda h: h.x)
+                self.assertAlmostEqual(left.x, -right.x, delta=0.5)
+                self.assertAlmostEqual(left.y, right.y, delta=0.5)
+                self.assertGreater(right.x - left.x, model.parameters.opening_width)
+                if p.screw_count == 3:
+                    self.assertLess(abs(model.holes[2].x), 0.5)
+                if name in PRESETS:
+                    self.assertEqual(model.adjusted, {})
 
     def test_manual_seat_is_used_when_it_fits(self):
         model = build(

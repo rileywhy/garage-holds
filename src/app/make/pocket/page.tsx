@@ -29,9 +29,9 @@ export default async function PocketLabPage() {
         </p>
         <h1>Pocket Lab</h1>
         <p>
-          A mono, two-finger or three-finger pocket in a round body. Set the
-          opening, depth and floor angle, or open it to the wall, then export an
-          STL.
+          A mono, two-finger or three-finger pocket in a round body, open to the
+          wall by default. Set the opening, depth and floor angle, then export
+          an STL.
         </p>
       </div>
       <HoldLab kind="pocket" account={Boolean(user)} />
