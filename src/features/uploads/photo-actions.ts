@@ -8,9 +8,7 @@ import {
 } from "@/lib/supabase/admin";
 import sharp from "sharp";
 import {
-  deleteObject,
   getObject,
-  headObject,
   isR2Configured,
   MODEL_CONTENT_TYPE,
   putObject,
@@ -25,11 +23,9 @@ import {
 import { MAX_PHOTOS, validatePhotos } from "@/features/holds/validation";
 import type { PendingUpload, UploadFileDescriptor } from "./actions";
 import { normalizeCrop, type CropRect } from "./crop";
-import {
-  createPhotoSizes,
-  deletePhotoObjects,
-  UnreadablePhotoError,
-} from "./photo-sizes";
+import { createPhotoSizes, deletePhotoObjects } from "./photo-sizes";
+import { bucket } from "./bucket";
+import { verifyPendingFiles, type PendingFile } from "./verification";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -134,9 +130,9 @@ export async function startPhotoUpload(
   return { uploads };
 }
 
-// Verifies each pending photo the way publishing does: present in R2 with
-// the declared size. Anything that did not arrive is removed again, so a
-// failed attempt leaves nothing behind.
+// Verifies each pending photo the way publishing does (verification.ts).
+// Anything that did not arrive intact is removed again, so a failed attempt
+// leaves nothing behind.
 export async function finishPhotoUpload(
   designId: string,
   fileIds: string[],
@@ -161,57 +157,15 @@ export async function finishPhotoUpload(
   const admin = createSupabaseAdminClient();
   const { data: files } = await admin
     .from("design_files")
-    .select("id, object_key, name, extension, bytes, status")
+    .select("id, object_key, name, extension, bytes, kind, status")
     .eq("design_id", designId)
     .eq("kind", "photo")
     .in("id", fileIds);
-  const errors: string[] = [];
-  let added = 0;
-  for (const file of files ?? []) {
-    if (file.status === "ready") continue;
-    const object = await headObject(file.object_key);
-    if (!object.exists) {
-      errors.push(`${file.name} did not finish uploading.`);
-      await admin.from("design_files").delete().eq("id", file.id);
-      continue;
-    }
-    if (object.bytes !== file.bytes) {
-      errors.push(`${file.name} arrived with an unexpected size.`);
-      await admin.from("design_files").delete().eq("id", file.id);
-      await deleteObject(file.object_key);
-      continue;
-    }
-    // The sizes come first: making them reads the bytes, so a file that
-    // is not an image is dropped here instead of becoming a ready row with
-    // a broken card and a sweep that fails on it every night. Stripping its
-    // metadata can change its size.
-    let bytes = file.bytes;
-    try {
-      bytes =
-        (await createPhotoSizes(file.object_key, file.extension)) ?? bytes;
-    } catch (error) {
-      errors.push(
-        error instanceof UnreadablePhotoError
-          ? `${file.name} is not a readable image.`
-          : `${file.name} could not be prepared. Try again.`,
-      );
-      if (!(error instanceof UnreadablePhotoError))
-        console.error("photo sizes failed", { designId, file, error });
-      await admin.from("design_files").delete().eq("id", file.id);
-      await deletePhotoObjects(file.object_key);
-      continue;
-    }
-    const { error } = await admin
-      .from("design_files")
-      .update({ status: "ready", bytes })
-      .eq("id", file.id);
-    if (error) {
-      console.error("photo ready update failed", { designId, file, error });
-      errors.push(`${file.name} could not be saved. Try again.`);
-      continue;
-    }
-    added += 1;
-  }
+  const { ready: added, errors } = await verifyPendingFiles(
+    admin,
+    bucket,
+    (files ?? []) as PendingFile[],
+  );
   if (added) {
     revalidatePath("/");
     revalidatePath(`/holds/${designId}`);
