@@ -9,7 +9,6 @@ import {
 } from "@/lib/supabase/admin";
 import {
   deleteObject,
-  headObject,
   isR2Configured,
   MODEL_CONTENT_TYPE,
   signUpload,
@@ -31,11 +30,9 @@ import {
   attachInboxPhotos,
   ownInboxPhotos,
 } from "./phone-photos";
-import {
-  createPhotoSizes,
-  deletePhotoObjects,
-  UnreadablePhotoError,
-} from "./photo-sizes";
+import { deletePhotoObjects } from "./photo-sizes";
+import { bucket } from "./bucket";
+import { verifyPendingFiles, type PendingFile } from "./verification";
 import { checkAllowance, isNearLimit, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 import { notifyOwner } from "@/lib/alerts";
@@ -217,56 +214,10 @@ export async function finalizeDesign(
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("design_files")
-    .select("id, object_key, name, bytes, kind, status")
+    .select("id, object_key, name, extension, bytes, kind, status")
     .eq("design_id", designId);
-  const files = (data ?? []) as {
-    id: string;
-    object_key: string;
-    name: string;
-    bytes: number;
-    kind: "model" | "photo";
-    status: "pending" | "ready";
-  }[];
-  const errors: string[] = [];
-  for (const file of files) {
-    if (file.status === "ready") continue;
-    const object = await headObject(file.object_key);
-    if (!object.exists) {
-      errors.push(`${file.name} did not finish uploading.`);
-      continue;
-    }
-    if (object.bytes !== file.bytes) {
-      errors.push(`${file.name} arrived with an unexpected size.`);
-      await deleteObject(file.object_key);
-      await admin.from("design_files").delete().eq("id", file.id);
-      continue;
-    }
-    // A photo's sizes come first: making them reads the bytes, so a file
-    // that is not an image is refused here instead of becoming a ready row.
-    // Stripping its metadata can change its size.
-    let bytes = file.bytes;
-    if (file.kind === "photo")
-      try {
-        bytes =
-          (await createPhotoSizes(file.object_key, fileExtension(file.name))) ??
-          bytes;
-      } catch (error) {
-        errors.push(
-          error instanceof UnreadablePhotoError
-            ? `${file.name} is not a readable image.`
-            : `${file.name} could not be prepared. Try again.`,
-        );
-        if (!(error instanceof UnreadablePhotoError))
-          console.error("photo sizes failed", { designId, file, error });
-        await deletePhotoObjects(file.object_key);
-        await admin.from("design_files").delete().eq("id", file.id);
-        continue;
-      }
-    await admin
-      .from("design_files")
-      .update({ status: "ready", bytes })
-      .eq("id", file.id);
-  }
+  const files = (data ?? []) as PendingFile[];
+  const { errors } = await verifyPendingFiles(admin, bucket, files);
   if (errors.length) return { errors };
 
   const phonePhotos = await ownInboxPhotos(supabase, phonePhotoIds);
@@ -275,7 +226,7 @@ export async function finalizeDesign(
       errors: ["Some phone photos are no longer available. Scan again."],
     };
   try {
-    await attachInboxPhotos(admin, designId, phonePhotos, files.length);
+    await attachInboxPhotos(admin, bucket, designId, phonePhotos, files.length);
   } catch (error) {
     console.error("attach phone photos failed", { designId, error });
     return { errors: ["Your phone photos could not be attached. Try again."] };
@@ -288,10 +239,7 @@ export async function finalizeDesign(
     for (const file of files)
       if (file.kind === "model")
         try {
-          const previewKey = await makeModelPreview({
-            ...file,
-            extension: fileExtension(file.name),
-          });
+          const previewKey = await makeModelPreview(file);
           if (previewKey)
             await admin
               .from("design_files")

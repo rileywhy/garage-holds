@@ -7,28 +7,18 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import {
-  deleteObject,
-  headObject,
-  isR2Configured,
-  MODEL_CONTENT_TYPE,
-  signImage,
-  signUpload,
-} from "@/lib/r2";
+import { isR2Configured, signImage, signUpload } from "@/lib/r2";
 import { requestOrigin } from "@/lib/request-origin";
 import { getUserId } from "@/features/holds/repository";
-import {
-  fileExtension,
-  inboxObjectKey,
-  photoContentType,
-} from "@/features/holds/rows";
-import { MAX_PHOTO_BYTES, MAX_PHOTOS } from "@/features/holds/validation";
+import { photoContentType } from "@/features/holds/rows";
+import { MAX_PHOTOS } from "@/features/holds/validation";
 import {
   attachInboxPhotos,
-  MAX_SESSION_PHOTOS,
   ownInboxPhotos,
+  reservePhonePhoto,
+  verifyPhonePhoto,
 } from "./phone-photos";
-import { UnreadablePhotoError, verifyPhoto } from "./photo-sizes";
+import { bucket } from "./bucket";
 import { checkAllowance, limitMessage } from "./allowance";
 import { contactEmail, loadAllowance } from "./usage";
 
@@ -36,7 +26,8 @@ import { contactEmail, loadAllowance } from "./usage";
 // URL as a QR code; the phone opens it and uploads photos without signing
 // in, the session id being the only credential; the desktop polls for what
 // arrived. Phone-side actions therefore look the session up with the
-// service role and never trust anything else from the request.
+// service role and never trust anything else from the request (see
+// phone-photos.ts).
 
 export interface PhonePhoto {
   id: string;
@@ -108,43 +99,19 @@ export async function signPhonePhoto(
 ): Promise<SignPhotoResult> {
   if (!isR2Configured() || !isSupabaseAdminConfigured())
     return { error: "Uploads aren't configured in this environment yet." };
-  const admin = createSupabaseAdminClient();
-  const session = await openSession(admin, sessionId);
-  if (!session) return { error: "This code has expired. Scan a new one." };
-  const extension = fileExtension(file.name);
-  if (!photoContentType(extension))
-    return {
-      error: `${file.name}: photos must be .jpg, .png, or .webp files.`,
-    };
-  if (!(file.bytes > 0 && file.bytes <= MAX_PHOTO_BYTES))
-    return { error: `${file.name}: photos must be between 1 byte and 10 MB.` };
-  const { count } = await admin
-    .from("phone_photos")
-    .select("id", { count: "exact", head: true })
-    .eq("session_id", sessionId);
-  if ((count ?? 0) >= MAX_SESSION_PHOTOS)
-    return {
-      error: `That's the limit of ${MAX_SESSION_PHOTOS} photos per code.`,
-    };
-  const photoId = crypto.randomUUID();
-  const key = inboxObjectKey(sessionId, photoId, extension);
-  const { error } = await admin.from("phone_photos").insert({
-    id: photoId,
-    session_id: sessionId,
-    object_key: key,
-    name: file.name,
-    extension,
-    bytes: file.bytes,
-  });
-  if (error) {
-    console.error("phone photo insert failed", { sessionId, error });
-    return { error: "Could not prepare the upload. Try again." };
-  }
-  const contentType = photoContentType(extension) ?? MODEL_CONTENT_TYPE;
+  const reserved = await reservePhonePhoto(
+    createSupabaseAdminClient(),
+    sessionId,
+    file,
+  );
+  if ("error" in reserved) return reserved;
   return {
-    photoId,
-    url: await signUpload(key, { bytes: file.bytes, contentType }),
-    contentType,
+    photoId: reserved.photoId,
+    url: await signUpload(reserved.objectKey, {
+      bytes: file.bytes,
+      contentType: reserved.contentType,
+    }),
+    contentType: reserved.contentType,
   };
 }
 
@@ -155,42 +122,12 @@ export async function confirmPhonePhoto(
 ): Promise<{ ok: true } | { error: string }> {
   if (!isR2Configured() || !isSupabaseAdminConfigured())
     return { error: "Uploads aren't configured in this environment yet." };
-  const admin = createSupabaseAdminClient();
-  // Every phone step checks the session, as the phone page promises: the
-  // PUT URL is the real window, but an expired code confirms nothing.
-  if (!(await openSession(admin, sessionId)))
-    return { error: "This code has expired. Scan a new one." };
-  const { data: photo } = await admin
-    .from("phone_photos")
-    .select("id, object_key, bytes, name")
-    .eq("id", photoId)
-    .eq("session_id", sessionId)
-    .maybeSingle();
-  if (!photo) return { error: "This photo could not be found." };
-  const object = await headObject(photo.object_key);
-  if (!object.exists)
-    return { error: `${photo.name} did not finish uploading.` };
-  if (object.bytes !== photo.bytes) {
-    await deleteObject(photo.object_key);
-    await admin.from("phone_photos").delete().eq("id", photo.id);
-    return { error: `${photo.name} arrived with an unexpected size.` };
-  }
-  try {
-    await verifyPhoto(photo.object_key);
-  } catch (error) {
-    await deleteObject(photo.object_key);
-    await admin.from("phone_photos").delete().eq("id", photo.id);
-    if (!(error instanceof UnreadablePhotoError)) {
-      console.error("phone photo check failed", { photoId, error });
-      return { error: `${photo.name} could not be checked. Try again.` };
-    }
-    return { error: `${photo.name} is not a readable image.` };
-  }
-  await admin
-    .from("phone_photos")
-    .update({ status: "ready" })
-    .eq("id", photo.id);
-  return { ok: true };
+  return verifyPhonePhoto(
+    createSupabaseAdminClient(),
+    bucket,
+    sessionId,
+    photoId,
+  );
 }
 
 export type AttachResult = { added: number } | { errors: string[] };
@@ -237,6 +174,7 @@ export async function attachPhonePhotos(
   try {
     added = await attachInboxPhotos(
       createSupabaseAdminClient(),
+      bucket,
       designId,
       photos,
       nextPosition,
@@ -257,18 +195,4 @@ export async function attachPhonePhotos(
   revalidatePath(`/holds/${designId}`);
   revalidatePath(`/holds/${designId}/edit`);
   return { added };
-}
-
-async function openSession(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  sessionId: string,
-) {
-  if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return null;
-  const { data } = await admin
-    .from("phone_sessions")
-    .select("id, owner_id, design_id, expires_at")
-    .eq("id", sessionId)
-    .maybeSingle();
-  if (!data || Date.parse(data.expires_at) < Date.now()) return null;
-  return data;
 }
