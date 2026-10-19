@@ -173,7 +173,7 @@
   },
   "pinch": {
     "dimensions": [53.38, 110, 50.47],
-    "triangles": 12262,
+    "triangles": 12270,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -197,13 +197,13 @@
       "screw_count": 2,
       "auto_seat": true,
       "seat_depth": 8,
-      "shank_diameter": 4.5,
-      "head_diameter": 8.5,
+      "shank_diameter": 5.5,
+      "head_diameter": 11,
       "bolt_mount": false,
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 2259784,
-    "stlSha256": "0f4425a41ccb73b2ef78ca996f1678a034330898756d4b2b04ac3871d92abc87"
+    "stlBytes": 2257984,
+    "stlSha256": "2483888b0fb3be058434b80d143830d9b24d40023ebe3e9801ca4ae6c49a020f"
   }
 }

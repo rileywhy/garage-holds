@@ -31,8 +31,8 @@ class Parameters:
     screw_count: int = 2
     auto_seat: bool = True
     seat_depth: float = 3
-    shank_diameter: float = 4.5
-    head_diameter: float = 8.5
+    shank_diameter: float = 5.5
+    head_diameter: float = 11
     bolt_mount: bool = False
     bolt_diameter: float = 10.5
     bolt_head_diameter: float = 20
