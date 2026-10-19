@@ -26,6 +26,8 @@ import {
 } from "./mask";
 import {
   DEFAULT_PARAMETERS,
+  SCREW_HEAD,
+  SCREW_HOLE,
   controlRanges,
   normalizeParameters,
 } from "./controls";
@@ -973,15 +975,15 @@ export function CustomShapeLab() {
                 controls: [
                   {
                     key: "shankDiameter",
-                    label: "Screw shank diameter",
+                    label: SCREW_HOLE.label,
                     unit: "mm",
-                    step: 0.1,
+                    step: SCREW_HOLE.step,
                   },
                   {
                     key: "headDiameter",
-                    label: "Head recess diameter",
+                    label: SCREW_HEAD.label,
                     unit: "mm",
-                    step: 0.1,
+                    step: SCREW_HEAD.step,
                   },
                   {
                     key: "seatDepth",

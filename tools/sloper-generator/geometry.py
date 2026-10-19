@@ -249,7 +249,6 @@ def build(requested: Parameters, quality="preview") -> Model:
     if quality not in {"preview", "export"}:
         raise ValueError("Unknown mesh quality.")
     p = parse_parameters(asdict(requested))
-    p = replace(p, head_diameter=max(p.head_diameter, p.shank_diameter + 1.5))
     # Mounting uses preview geometry at both qualities, so hole layout and
     # adjusted settings never change just because the user exports an STL.
     # Allow enough growth steps to reach the full supported size range.

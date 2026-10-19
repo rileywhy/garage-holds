@@ -1,7 +1,14 @@
 """Sloper Lab's versioned settings and GUI schema. Dimensions are millimetres."""
 
 import math
+
+# Standalone GUI entry points also need the repository's shared hardware code.
+import sys
 from dataclasses import asdict, dataclass, fields
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools import hold_hardware as hardware
 
 MAX_WIDTH = 525
 MAX_HEIGHT = 420
@@ -22,13 +29,13 @@ class Parameters:
     seed: int = 21
     screws: bool = True
     bolt_mount: bool = False
-    bolt_diameter: float = 10.5
-    bolt_head_diameter: float = 20
+    bolt_diameter: float = hardware.BOLT_DIAMETER
+    bolt_head_diameter: float = hardware.BOLT_HEAD_DIAMETER
     screw_count: int = 3
     auto_spacing: bool = True
     screw_spacing: float = 60
-    shank_diameter: float = 5.5
-    head_diameter: float = 11
+    shank_diameter: float = hardware.SHANK_DIAMETER
+    head_diameter: float = hardware.HEAD_DIAMETER
     auto_seat: bool = True
     seat_depth: float = 24.3
 
@@ -148,26 +155,7 @@ CONTROLS = [
         "Two to six holes spread around the body. Turn mounting holes off for none.",
     ),
     control("screw_spacing", "Manual screw span", "Mounting", 6, MAX_WIDTH, 0.25, "mm", "Distance between the outer screw centres."),
-    control(
-        "shank_diameter",
-        "Screw hole diameter",
-        "Mounting",
-        1,
-        12,
-        0.1,
-        "mm",
-        "Through-hole diameter for your hardware and printer tolerance.",
-    ),
-    control(
-        "head_diameter",
-        "Head recess diameter",
-        "Mounting",
-        3,
-        25,
-        0.5,
-        "mm",
-        "A 90° countersink joins the through hole to the head recess.",
-    ),
+    *hardware.SCREW_CONTROLS,
     control(
         "seat_depth",
         "Seat above the wall",
@@ -180,30 +168,7 @@ CONTROLS = [
     ),
 ]
 
-CONTROLS.extend(
-    [
-        dict(
-            key="bolt_diameter",
-            label="Bolt hole diameter",
-            group="Mounting",
-            min=8,
-            max=14,
-            step=0.1,
-            unit="mm",
-            help="Through-hole clearance. 10.5 mm is the default for an M10 bolt.",
-        ),
-        dict(
-            key="bolt_head_diameter",
-            label="Bolt head recess diameter",
-            group="Mounting",
-            min=16,
-            max=30,
-            step=0.5,
-            unit="mm",
-            help="Flat-bottom counterbore for the bolt head. Check against your hardware.",
-        ),
-    ]
-)
+CONTROLS.extend(hardware.BOLT_CONTROLS)
 
 PRESETS = {
     "Rounded board sloper": Parameters(),
@@ -257,6 +222,9 @@ def parse_parameters(values: dict) -> Parameters:
     seed = parsed["seed"]
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 999999:
         raise ValueError("Seed must be a whole number between 0 and 999999.")
+    parsed["head_diameter"] = max(
+        parsed["head_diameter"], parsed["shank_diameter"] + hardware.HEAD_OVER_SHANK
+    )
     parsed["bolt_head_diameter"] = max(
         parsed["bolt_head_diameter"], parsed["bolt_diameter"] + 2
     )
