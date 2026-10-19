@@ -224,7 +224,29 @@ class PinchTests(unittest.TestCase):
                 self.assertLess(np.ptp(xs), 0.5)
                 if count > 1:
                     self.assertAlmostEqual(ys[0], -ys[-1], delta=1.5)
-                    self.assertGreater(ys[-1] - ys[0], p.height * 0.35)
+                    self.assertGreater(ys[-1] - ys[0], p.height * 0.3)
+
+    def test_recesses_open_on_the_level_top(self):
+        # The hardware keeps to the level part of the top, in one line up
+        # the pinch, with a bolt's anti-rotation screw below it: no recess
+        # opens out through the slope of an end, and none is pushed to the
+        # corner of one beside a side.
+        for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin"):
+            for count in (2, 3):
+                with self.subTest(name=name, count=count):
+                    model = build(replace(PRESETS[name], screw_count=count))
+                    solid = loft(model.parameters, "preview")[0]
+                    self.assertLess(np.ptp([h.x for h in model.holes]), 0.5)
+                    for hole in model.holes:
+                        rims = [
+                            max(crossings(solid, hole.x, hole.y + s * hole.head / 2))
+                            for s in (-1, 1)
+                        ]
+                        self.assertLess(abs(rims[0] - rims[1]), 0.5)
+                    bolts = [h for h in model.holes if h.bolt]
+                    if bolts:
+                        screw = next(h for h in model.holes if not h.bolt)
+                        self.assertLess(screw.y, bolts[0].y)
 
     def test_recesses_stay_enclosed_under_undercut_faces(self):
         # Every recess, its shank and its bore sit inside the body with

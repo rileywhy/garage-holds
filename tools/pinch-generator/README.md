@@ -37,11 +37,13 @@ Hardware goes only where a vertical line from the wall leaves through the
 top: clear of both sides, their edges, the waist above a flare, and the
 ends' slopes. The shared fitters work on the body cut down to that region,
 so no recess, shank or bore can open through an undercut side, at any
-height (RIL-37). Screws run up the middle of the pinch, where it levers;
-when they could only sit side by side the pinch grows taller, up to the
-height slider. Automatic mounting takes the bolt and one anti-rotation
-screw on a pinch over 60 mm across, after overall scale, where they fit, and
-screws otherwise; ticking or clearing the bolt by hand turns it off.
+height (RIL-37). Screws run up the middle of the pinch, where it levers,
+out to the ends of the level part of the top so each recess opens flat; only
+long rounded ends push them down onto the slopes. When they could only sit
+side by side the pinch grows taller, up to the height slider. Automatic
+mounting takes the bolt and one anti-rotation screw, in line below it, on a
+pinch over 60 mm across, after overall scale, where they fit, and screws
+otherwise; ticking or clearing the bolt by hand turns it off.
 Overall scale multiplies the whole pinch; hardware stays in millimetres.
 
 There is no standalone GUI: the lab page is the interface. To run the hosted

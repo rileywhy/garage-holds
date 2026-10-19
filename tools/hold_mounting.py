@@ -83,11 +83,14 @@ def fit_bolt_and_screw(
     edge_clearance=None,
     layout_target=None,
     enclose_requested=True,
+    screw_target=None,
 ):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
 
     Every recess and shank is checked in inset slices before drilling. Manual
-    seats can lower to fit, matching the existing lab fitting behavior.
+    seats can lower to fit, matching the existing lab fitting behavior. A
+    caller can name where the screw belongs (screw_target); it then takes the
+    eligible spot nearest there instead of the longest lever arm.
     """
     lo, hi = bounds
     xs = np.unique(np.append(np.linspace(lo[0], hi[0], 41), 0))
@@ -135,14 +138,20 @@ def fit_bolt_and_screw(
             eligible = screws[distances >= separation]
             if not len(eligible):
                 continue
-            # Favor a right-hand screw and a long lever arm, below the bolt
-            # when the body has room. This is a layout, not a strength rating.
-            score = (
-                np.linalg.norm(eligible - bolt, axis=1)
-                + (eligible[:, 0] > bolt[0]) * 5
-                - np.maximum(0, eligible[:, 1] - bolt[1]) * 0.5
-            )
-            screw = eligible[np.argmax(score)]
+            if screw_target is not None:
+                screw = eligible[
+                    np.argmin(np.sum((eligible - screw_target) ** 2, axis=1))
+                ]
+            else:
+                # Favor a right-hand screw and a long lever arm, below the
+                # bolt when the body has room. This is a layout, not a
+                # strength rating.
+                score = (
+                    np.linalg.norm(eligible - bolt, axis=1)
+                    + (eligible[:, 0] > bolt[0]) * 5
+                    - np.maximum(0, eligible[:, 1] - bolt[1]) * 0.5
+                )
+                screw = eligible[np.argmax(score)]
             if layout_target is not None and not p.auto_seat:
                 # The layout was found at the automatic seat; the requested
                 # seat is used only as high as both recesses stay enclosed,

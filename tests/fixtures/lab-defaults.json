@@ -173,7 +173,7 @@
   },
   "pinch": {
     "dimensions": [53.38, 110, 50.47],
-    "triangles": 12298,
+    "triangles": 12262,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -203,7 +203,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 2264784,
-    "stlSha256": "09f2d1c72875b78830fb47c6807d0f2065065e48eb935490ac0286cac588dbcd"
+    "stlBytes": 2259784,
+    "stlSha256": "0f4425a41ccb73b2ef78ca996f1678a034330898756d4b2b04ac3871d92abc87"
   }
 }

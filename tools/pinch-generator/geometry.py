@@ -383,12 +383,18 @@ def mounting_proxy(solid, region):
     return solid ^ column
 
 
-def screw_targets(proxy, count):
+def screw_targets(p, proxy, count):
     """One to three screws up the middle of the pinch, spread up the wall
     where it levers: one in the middle, two toward the ends, and a third
-    between them."""
+    between them. The outer two keep to the level part of the top, so each
+    recess opens flat instead of out through an end's slope; with long
+    rounded ends they spread down onto them, never closer in than 40% of
+    the way along the hardware region nor further out than 65%."""
     lo, hi = np.array(proxy.bounding_box()).reshape(2, 3)
-    x, y, reach = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (hi[1] - lo[1]) / 2 * 0.65
+    x, y, half = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (hi[1] - lo[1]) / 2
+    length = p.height * p.size / 100
+    level = length / 2 * (1 - p.end_rounding / 100) - p.head_diameter / 2
+    reach = float(np.clip(level, half * 0.4, half * 0.65))
     if count == 1:
         return [(x, y)]
     return [(x, y - reach), (x, y + reach)] + ([(x, y)] if count == 3 else [])
@@ -463,14 +469,19 @@ def build(requested, quality="preview"):
         depth = p.depth * p.size / 100
         target = min(8, depth * 0.25) if p.auto_seat else p.seat_depth
         proxy = mounting_proxy(solid, region)
+        # The bolt's anti-rotation screw sits in line below it, where the
+        # lower of two screws would.
+        targets = screw_targets(p, proxy, 2 if bolt else p.screw_count)
         holes = (
             fit_bolt_and_screw(
-                p, proxy, np.array(proxy.bounding_box()).reshape(2, 3), target
+                p,
+                proxy,
+                np.array(proxy.bounding_box()).reshape(2, 3),
+                target,
+                screw_target=np.array(targets[0]),
             )
             if bolt
-            else screw_layout(
-                p, proxy, target, targets=screw_targets(proxy, p.screw_count)
-            )
+            else screw_layout(p, proxy, target, targets=targets)
         )
         grown = replace(p, height=min(LIMITS["height"][1], p.height + 4))
         # Screws belong in a line up the pinch. A layout that could only set
