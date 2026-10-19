@@ -173,7 +173,7 @@
   },
   "pinch": {
     "dimensions": [53.38, 110, 50.47],
-    "triangles": 12270,
+    "triangles": 8662,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -189,7 +189,7 @@
       "size": 100,
       "height": 110,
       "end_rounding": 60,
-      "base_flare": 4.5,
+      "base_flare": 0,
       "character": 0,
       "seed": 0,
       "auto_mount": true,
@@ -203,7 +203,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 2257984,
-    "stlSha256": "2483888b0fb3be058434b80d143830d9b24d40023ebe3e9801ca4ae6c49a020f"
+    "stlBytes": 1545184,
+    "stlSha256": "660c4d3141dafad134dce66876902fcf03582a9d11a1827305857e1055bbf6ae"
   }
 }

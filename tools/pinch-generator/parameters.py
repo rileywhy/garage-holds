@@ -21,7 +21,7 @@ class Parameters:
     size: float = 100
     height: float = 110
     end_rounding: float = 60
-    base_flare: float = 4.5
+    base_flare: float = 0
     character: float = 0
     seed: int = 0
     # Mounting, shared with the other labs. Automatic mounting takes the
@@ -162,7 +162,7 @@ CONTROLS = [
         15,
         0.5,
         "mm",
-        "Widens the foot of each side into the wall for strength, before overall scale. Zero meets the wall square.",
+        "Widens the foot of each side into the wall, before overall scale. Zero runs the sides straight to the wall.",
     ),
     control(
         "character",
@@ -283,7 +283,6 @@ PRESETS = {
         thumb_angle=13,
         finger_angle=13,
         edge_radius=6.5,
-        base_flare=0,
     ),
     "Lip pinch": replace(
         BASE,
@@ -293,7 +292,6 @@ PRESETS = {
         thumb_angle=-24,
         finger_angle=-24,
         edge_radius=5.5,
-        base_flare=9,
     ),
     "Offset pinch": replace(
         BASE,
@@ -304,7 +302,6 @@ PRESETS = {
         finger_angle=-17,
         offset=40,
         edge_radius=7.5,
-        base_flare=6.5,
     ),
     "Ridged fin": replace(
         BASE,
