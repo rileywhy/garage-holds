@@ -11,8 +11,8 @@ class Parameters:
     # side stands than the finger side.
     width: float = 55
     depth: float = 44
-    thumb_angle: float = -5
-    finger_angle: float = -5
+    thumb_angle: float = -7
+    finger_angle: float = -7
     offset: float = 0
     edge_radius: float = 9
     # The body, before overall scale.
@@ -259,8 +259,8 @@ PRESETS = {
         BASE,
         width=35,
         depth=37,
-        thumb_angle=-10,
-        finger_angle=-10,
+        thumb_angle=-12,
+        finger_angle=-12,
         edge_radius=6.5,
         top_rise=4.5,
         height=99,
@@ -269,8 +269,8 @@ PRESETS = {
         BASE,
         width=83,
         depth=46,
-        thumb_angle=-2,
-        finger_angle=-2,
+        thumb_angle=-4,
+        finger_angle=-4,
         edge_radius=11,
         top_rise=9,
         height=121,
@@ -280,8 +280,8 @@ PRESETS = {
         shape="flat",
         width=44,
         depth=48,
-        thumb_angle=15,
-        finger_angle=15,
+        thumb_angle=13,
+        finger_angle=13,
         edge_radius=6.5,
         base_flare=0,
     ),
@@ -290,8 +290,8 @@ PRESETS = {
         shape="flat",
         width=62,
         depth=40,
-        thumb_angle=-22,
-        finger_angle=-22,
+        thumb_angle=-24,
+        finger_angle=-24,
         edge_radius=5.5,
         base_flare=9,
     ),
@@ -300,8 +300,8 @@ PRESETS = {
         shape="flat",
         width=53,
         depth=51,
-        thumb_angle=5,
-        finger_angle=-15,
+        thumb_angle=3,
+        finger_angle=-17,
         offset=40,
         edge_radius=7.5,
         base_flare=6.5,
@@ -311,8 +311,8 @@ PRESETS = {
         shape="ridged",
         width=42,
         depth=44,
-        thumb_angle=0,
-        finger_angle=0,
+        thumb_angle=-2,
+        finger_angle=-2,
         edge_radius=5.5,
         top_rise=13,
         height=132,

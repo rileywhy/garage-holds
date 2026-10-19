@@ -34,9 +34,9 @@ export const ARTWORK_FRAMING: Record<
     top: -5.18,
   },
   pinch: {
-    width: 98.54,
-    left: -0.85,
-    top: 0.54,
+    width: 97.36,
+    left: -0.28,
+    top: 1.03,
   },
   "custom-shape": {
     width: 91.05145413870245,
