@@ -3537,12 +3537,14 @@ svg {
   margin-bottom: 0;
 }
 .gear-item a,
+.gear-page .page-intro a,
 .small-note a {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .gear-item a:hover,
+.gear-page .page-intro a:hover,
 .small-note a:hover {
   color: var(--action-hover);
 }

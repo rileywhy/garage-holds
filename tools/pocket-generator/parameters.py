@@ -8,17 +8,17 @@ from dataclasses import asdict, dataclass, replace
 class Parameters:
     # The pocket. Width and height are the opening at the face; depth runs
     # into the hold along the floor; the floor angle tilts that axis.
-    opening_width: float = 45
+    opening_width: float = 42
     opening_height: float = 28
-    pocket_depth: float = 40
+    pocket_depth: float = 28
     incut: float = 14
     lip_radius: float = 12
-    through: bool = False
+    through: bool = True
     # The body, before overall scale.
     size: float = 100
-    width: float = 98
-    height: float = 98
-    depth: float = 50
+    width: float = 94
+    height: float = 94
+    depth: float = 30
     roundness: float = 100
     edge_rounding: float = 10
     crown: float = 15
@@ -60,7 +60,7 @@ CONTROLS = [
         80,
         1,
         "mm",
-        "About 22 mm per finger: 25 for a mono, 45 for two fingers, 66 for three.",
+        "About 20 mm per finger: 23 for a mono, 42 for two fingers, 61 for three.",
     ),
     control(
         "opening_height",
@@ -141,7 +141,7 @@ CONTROLS = [
         70,
         1,
         "mm",
-        "Stand-off from the wall at the middle, before overall scale. Grows to keep a 6 mm floor behind the pocket.",
+        "Stand-off from the wall at the middle, before overall scale. Open to the wall, this is how deep the pocket runs; closed, it grows to keep a 6 mm floor behind the pocket.",
     ),
     control(
         "roundness",
@@ -261,54 +261,59 @@ TOGGLES = [
         key="through",
         label="Open to the wall",
         group="Grip",
-        help="The pocket runs through the back, so the wall is its floor. The body keeps 6 mm around the opening.",
+        help="The pocket runs back to the wall, which is its floor: the roof and floor curl onto it. Off, the pocket is closed behind with at least 6 mm of floor.",
     ),
 ]
 
 BASE = Parameters()
+# Open to the wall and shallow by default. Openings are about 20 mm a
+# finger, and each body is sized to its opening and to screws either side
+# of it (and a third centred below).
 PRESETS = {
     "Two-finger pocket": BASE,
     "Mono": replace(
         BASE,
-        opening_width=26,
-        opening_height=26,
-        pocket_depth=36,
+        opening_width=24,
+        opening_height=24,
+        pocket_depth=26,
         incut=12,
-        width=84,
-        height=84,
-        depth=46,
+        width=78,
+        height=78,
+        depth=28,
     ),
     "Three-finger pocket": replace(
         BASE,
-        opening_width=66,
+        opening_width=61,
         opening_height=30,
-        pocket_depth=40,
+        pocket_depth=28,
         incut=14,
-        width=128,
+        width=122,
         height=100,
-        depth=50,
+        depth=32,
         screw_count=3,
     ),
-    "Deep two-finger": replace(BASE, pocket_depth=52, incut=10, depth=62),
+    "Deep two-finger": replace(
+        BASE, pocket_depth=36, incut=10, width=100, height=100, depth=40
+    ),
     "Slopey pocket": replace(
         BASE,
         opening_height=30,
-        pocket_depth=26,
+        pocket_depth=20,
         incut=-6,
         lip_radius=10,
         crown=25,
-        width=100,
-        height=100,
-        depth=42,
+        width=98,
+        height=98,
+        depth=26,
     ),
     "Pocket rail": replace(
         BASE,
         roundness=25,
-        width=124,
-        height=88,
-        depth=42,
+        width=115,
+        height=81,
+        depth=28,
         opening_height=26,
-        pocket_depth=32,
+        pocket_depth=24,
         incut=12,
     ),
 }

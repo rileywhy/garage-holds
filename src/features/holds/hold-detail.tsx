@@ -13,6 +13,7 @@ import { DownloadLink } from "./download-link";
 import { SaveButton } from "@/components/save-button";
 import { LicenseSummary } from "@/components/license-summary";
 import { FeedbackWidget } from "@/features/feedback/feedback-widget";
+import { SafetyNote } from "@/features/legal/safety-note";
 import { GRADE_BOARD_ANGLE, formatProblemGrade } from "./grades";
 import { formatBytes } from "./catalog";
 import { ReviewSection } from "@/features/reviews/review-section";
@@ -213,6 +214,7 @@ export function HoldDetail({
               Download links are valid for an hour; reload the page for fresh
               ones.
             </p>
+            <SafetyNote />
           </section>
           <section className="license-panel">
             <h3>Sharing & license</h3>

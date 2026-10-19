@@ -102,6 +102,8 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
           Share your design <ArrowUpRight size={15} />
         </Link>
         {CONTACT_EMAIL && <ContactAddress email={CONTACT_EMAIL} />}
+        <Link href="/privacy">Privacy</Link>
+        <Link href="/terms">Terms</Link>
       </nav>
       {amazonTag() && <p className="footer-disclosure">{AMAZON_DISCLOSURE}</p>}
     </footer>

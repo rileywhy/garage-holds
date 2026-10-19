@@ -23,7 +23,7 @@ export function sweepStorage(options: {
   );
 }
 
-// The one-off metadata scrub against the real database and bucket. See
+// The photo metadata scrub against the real database and bucket. See
 // photo-scrub.ts.
 export function scrubStoredPhotos(options: {
   dryRun?: boolean;
