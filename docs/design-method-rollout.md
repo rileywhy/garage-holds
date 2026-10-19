@@ -6,9 +6,10 @@ The migration marks all existing designs `human-shaped`, as requested by the
 site owner. It removes the temporary default so future inserts must provide
 `human-shaped` or `generated`; a check constraint rejects other values.
 
-Upload and edit both require a fresh choice, even if a design already has a
-stored value. Both client and server validate it. Owners save the value through
-their normal Supabase client and existing row-level security. The new column
+Upload requires a fresh choice. Edit starts from the design's stored value, so
+saving other changes keeps it (RIL-114). Both client and server validate it.
+Owners save the value through their normal Supabase client and existing
+row-level security. The new column
 has an explicit authenticated update grant; other design permissions are unchanged.
 
 Human-shaped cards show **HS**, explained as creator-reported. Generated cards

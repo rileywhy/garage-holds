@@ -5,6 +5,7 @@ from functools import lru_cache
 import numpy as np
 import manifold3d as m
 import trimesh
+from tools import hold_hardware as hardware
 from tools.hold_mounting import Hole, drill, _inside, _room
 from .profiles import apply_cuts, reference
 
@@ -97,6 +98,12 @@ def prepared_body(pixels,settings,preview,has_cuts):
                             parameters=settings['parameters']),has_cuts)
 
 
+_SHANK,_HEAD=hardware.CONTROLS['shank_diameter'],hardware.CONTROLS['head_diameter']
+# Each numeric setting as (key, default, low, high). The screw rows are the
+# hardware every lab shares (tools/hold_hardware.json).
+SETTINGS=[('scale',200,80,300),('depth',30,16,70),('incut',0,-60,60),('gripDepth',0,0,300),('lipRadius',10,1,20),('bodyRounding',4,0,30),('shankDiameter',hardware.SHANK_DIAMETER,_SHANK['min'],_SHANK['max']),('headDiameter',hardware.HEAD_DIAMETER,_HEAD['min'],_HEAD['max']),('seatDepth',12,2,68)]
+
+
 def _build_body(request,has_cuts):
     doc = request.get('document', {})
     size = doc.get('size')
@@ -108,7 +115,7 @@ def _build_body(request,has_cuts):
     outlines_pixels,occupied_height=prepare_mask(bytes(pixels))
     p = request.get('parameters', {})
     values = []
-    for key, default, low, high in [('scale',200,80,300),('depth',30,16,70),('incut',0,-60,60),('gripDepth',0,0,300),('lipRadius',10,1,20),('bodyRounding',4,0,30),('shankDiameter',5.5,3,8),('headDiameter',11,5,20),('seatDepth',12,2,68)]:
+    for key, default, low, high in SETTINGS:
         v = p.get(key,default)
         if type(v) not in (int,float) or not math.isfinite(v) or not low <= v <= high:
             raise ValueError(f'{key} must be between {low} and {high}.')
@@ -120,8 +127,8 @@ def _build_body(request,has_cuts):
     all_sides=p.get('gripAllSides',False)
     if type(all_sides) is not bool:
         raise ValueError('Apply grip edits to all sides must be true or false.')
-    if head < shank+2:
-        raise ValueError("Head recess diameter must exceed the shank by at least 2 mm.")
+    if head < shank+hardware.HEAD_OVER_SHANK:
+        raise ValueError(f"Head recess diameter must exceed the shank by at least {hardware.HEAD_OVER_SHANK:g} mm.")
     auto_seat=p.get("autoSeat",True)
     if type(auto_seat) is not bool:
         raise ValueError("Automatic seat must be true or false.")

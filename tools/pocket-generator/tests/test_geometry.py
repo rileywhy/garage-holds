@@ -629,10 +629,10 @@ class PocketTests(unittest.TestCase):
 
     def test_manual_seat_is_used_when_it_fits(self):
         model = build(
-            replace(PRESETS["Two-finger pocket"], auto_seat=False, seat_depth=5)
+            replace(PRESETS["Two-finger pocket"], auto_seat=False, seat_depth=3)
         )
-        self.assertEqual(model.holes[0].seat, 5)
-        self.assertEqual(model.parameters.seat_depth, 5)
+        self.assertEqual(model.holes[0].seat, 3)
+        self.assertEqual(model.parameters.seat_depth, 3)
 
     def test_margin_is_a_sensible_constant(self):
         self.assertGreaterEqual(MARGIN, 4)

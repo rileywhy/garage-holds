@@ -1,4 +1,5 @@
 // Both painting and a future importer produce this same semantic document.
+import hardware from "../../../tools/hold_hardware.json";
 import { cloneCut, type CutProfile } from "./cut-profiles";
 export const ARTWORK_COLORS = {
   material: "#A18BC9",
@@ -135,7 +136,7 @@ export function holeFits(
   y: number,
   scale: number,
   exclude?: string,
-  headDiameter = 11,
+  headDiameter = hardware.defaults.head_diameter,
 ) {
   const radius = ((headDiameter / 2 + 3.5) * doc.size) / scale;
   for (let yy = Math.floor(y - radius); yy <= Math.ceil(y + radius); yy++)

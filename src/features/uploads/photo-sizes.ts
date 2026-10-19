@@ -8,6 +8,7 @@ import {
   photoSizeKey,
 } from "@/features/holds/rows";
 import { stripPhotoMetadata } from "./photo-metadata";
+import { UnreadablePhotoError } from "./verification";
 
 // Display sizes of a stored photo. Browsers shrink a full phone photo into a
 // 300 px card with a cheap filter that turns chalk and texture into shimmer;
@@ -16,17 +17,8 @@ import { stripPhotoMetadata } from "./photo-metadata";
 // know about them: readers sign the derived key, deletes remove all of them,
 // and the sweep makes any that are missing.
 
-// Only the extension is checked before upload, so a renamed .zip can arrive
-// as x.jpg. Reading the stored bytes tells them apart: anything sharp cannot
-// decode as one of the served formats is refused with this error, and the
-// photo is dropped rather than marked ready (RIL-33).
-export class UnreadablePhotoError extends Error {
-  constructor(objectKey: string) {
-    super(`${objectKey} is not a readable image`);
-    this.name = "UnreadablePhotoError";
-  }
-}
-
+// Anything sharp cannot decode as one of these is refused with
+// UnreadablePhotoError (see verification.ts).
 const READABLE_FORMATS = new Set(["jpeg", "png", "webp"]);
 
 // Throws UnreadablePhotoError unless the stored object decodes as an image.
