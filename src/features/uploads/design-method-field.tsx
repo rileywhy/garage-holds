@@ -1,9 +1,13 @@
-import { DESIGN_METHODS } from "@/features/holds/types";
+import { DESIGN_METHODS, type DesignMethod } from "@/features/holds/types";
 import { DESIGN_METHOD_COPY } from "@/features/holds/design-method";
 
-// Both upload and edit require a fresh choice. An existing design's value
-// is deliberately not used as a default.
-export function DesignMethodField() {
+// Upload starts with neither option chosen, so every new design states how it
+// was shaped. Edit starts from the design's stored value.
+export function DesignMethodField({
+  defaultValue = "",
+}: {
+  defaultValue?: DesignMethod | "";
+}) {
   return (
     <fieldset className="design-method-field">
       <legend>How was this hold shaped? *</legend>
@@ -12,7 +16,13 @@ export function DesignMethodField() {
       </p>
       {DESIGN_METHODS.map((method) => (
         <label className="design-method-option" key={method}>
-          <input type="radio" name="designMethod" value={method} required />
+          <input
+            type="radio"
+            name="designMethod"
+            value={method}
+            defaultChecked={method === defaultValue}
+            required
+          />
           <span>
             <strong>{DESIGN_METHOD_COPY[method].label}</strong>
             <span>{DESIGN_METHOD_COPY[method].description}</span>
