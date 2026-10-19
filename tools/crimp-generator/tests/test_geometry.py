@@ -605,13 +605,19 @@ class GeometryTests(unittest.TestCase):
                 )
 
     def test_expanded_mounting_ranges_and_through_recesses(self):
+        # The smallest and largest screw every lab offers (hold_hardware.json).
+        shank, head = (
+            next(c for c in CONTROLS if c["key"] == key)
+            for key in ("shank_diameter", "head_diameter")
+        )
+        smallest = dict(shank_diameter=shank["min"], head_diameter=head["min"])
+        largest = dict(shank_diameter=shank["max"], head_diameter=head["max"])
         small = build(
             Parameters(
                 auto_spacing=False,
-                screw_spacing=6,
+                screw_spacing=7,
                 screw_count=2,
-                shank_diameter=1,
-                head_diameter=3,
+                **smallest,
                 auto_seat=False, seat_depth=0.5,
             )
         )
@@ -625,8 +631,7 @@ class GeometryTests(unittest.TestCase):
                 lip_radius=20,
                 auto_spacing=False,
                 screw_spacing=260,
-                shank_diameter=12,
-                head_diameter=25,
+                **largest,
                 auto_seat=False, seat_depth=30,
             )
         )
@@ -644,8 +649,7 @@ class GeometryTests(unittest.TestCase):
                 taper=80,
                 auto_spacing=False,
                 screw_spacing=260,
-                shank_diameter=1,
-                head_diameter=3,
+                **smallest,
                 auto_seat=False, seat_depth=0.5,
             )
         )

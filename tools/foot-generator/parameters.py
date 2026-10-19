@@ -3,6 +3,8 @@
 import math
 from dataclasses import asdict, dataclass, replace
 
+from tools import hold_hardware as hardware
+
 
 @dataclass(frozen=True)
 class Parameters:
@@ -23,11 +25,11 @@ class Parameters:
     screw_count: int = 2
     auto_seat: bool = True
     seat_depth: float = 3
-    shank_diameter: float = 4.5
-    head_diameter: float = 8.5
+    shank_diameter: float = hardware.SHANK_DIAMETER
+    head_diameter: float = hardware.HEAD_DIAMETER
     bolt_mount: bool = False
-    bolt_diameter: float = 10.5
-    bolt_head_diameter: float = 20
+    bolt_diameter: float = hardware.BOLT_DIAMETER
+    bolt_head_diameter: float = hardware.BOLT_HEAD_DIAMETER
 
 
 def control(key, label, group, low, high, step, unit, help):
@@ -155,46 +157,8 @@ CONTROLS = [
         "mm",
         "Material beneath the screw head. Automatically reduced to fit when necessary.",
     ),
-    control(
-        "shank_diameter",
-        "Screw hole",
-        "Mounting",
-        3,
-        6,
-        0.1,
-        "mm",
-        "Match your screw hardware.",
-    ),
-    control(
-        "head_diameter",
-        "Screw head recess",
-        "Mounting",
-        6,
-        12,
-        0.1,
-        "mm",
-        "Countersunk screw head diameter.",
-    ),
-    control(
-        "bolt_diameter",
-        "Bolt hole",
-        "Mounting",
-        8,
-        14,
-        0.1,
-        "mm",
-        "Centred bolt hole; hardware dimensions do not scale.",
-    ),
-    control(
-        "bolt_head_diameter",
-        "Bolt head recess",
-        "Mounting",
-        16,
-        30,
-        0.5,
-        "mm",
-        "Flat-bottom counterbore, with one anti-rotation screw.",
-    ),
+    *hardware.SCREW_CONTROLS,
+    *hardware.BOLT_CONTROLS,
 ]
 BASE = Parameters()
 PRESETS = {
@@ -293,7 +257,9 @@ def parse_parameters(values):
         if int(data[key]) != data[key]:
             raise ValueError(f"{key} must be a whole number.")
         data[key] = int(data[key])
-    data["head_diameter"] = max(data["head_diameter"], data["shank_diameter"] + 2)
+    data["head_diameter"] = max(
+        data["head_diameter"], data["shank_diameter"] + hardware.HEAD_OVER_SHANK
+    )
     return Parameters(**data)
 
 

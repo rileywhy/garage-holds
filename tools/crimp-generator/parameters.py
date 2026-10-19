@@ -1,7 +1,14 @@
 """The generator's shared parameter contract, in millimetres and degrees."""
 
 import math
+
+# Standalone GUI entry points also need the repository's shared hardware code.
+import sys
 from dataclasses import asdict, dataclass, fields, replace
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools import hold_hardware as hardware
 
 
 @dataclass(frozen=True)
@@ -19,13 +26,13 @@ class Parameters:
     seed: int = 21
     screws: bool = True
     bolt_mount: bool = False
-    bolt_diameter: float = 10.5
-    bolt_head_diameter: float = 20
+    bolt_diameter: float = hardware.BOLT_DIAMETER
+    bolt_head_diameter: float = hardware.BOLT_HEAD_DIAMETER
     screw_count: int = 3
     auto_spacing: bool = True
     screw_spacing: float = 60
-    shank_diameter: float = 5.5
-    head_diameter: float = 11
+    shank_diameter: float = hardware.SHANK_DIAMETER
+    head_diameter: float = hardware.HEAD_DIAMETER
     # The seat follows the edge depth (see seat_height) unless auto_seat is
     # off, in which case seat_depth is used as given.
     auto_seat: bool = True
@@ -168,26 +175,7 @@ CONTROLS = [
         unit="mm",
         help="Distance between the two outermost screw centres. Used only when automatic spacing is off.",
     ),
-    dict(
-        key="shank_diameter",
-        label="Screw hole diameter",
-        group="Mounting",
-        min=1,
-        max=12,
-        step=0.1,
-        unit="mm",
-        help="Through-hole diameter. Match this to your hardware and printer tolerances.",
-    ),
-    dict(
-        key="head_diameter",
-        label="Head recess diameter",
-        group="Mounting",
-        min=3,
-        max=25,
-        step=0.5,
-        unit="mm",
-        help="A 90° countersink transitions from the through hole into this straight recess.",
-    ),
+    *hardware.SCREW_CONTROLS,
     dict(
         key="seat_depth",
         label="Seat above the wall",
@@ -200,30 +188,7 @@ CONTROLS = [
     ),
 ]
 
-CONTROLS.extend(
-    [
-        dict(
-            key="bolt_diameter",
-            label="Bolt hole diameter",
-            group="Mounting",
-            min=8,
-            max=14,
-            step=0.1,
-            unit="mm",
-            help="Through-hole clearance. 10.5 mm is the default for an M10 bolt.",
-        ),
-        dict(
-            key="bolt_head_diameter",
-            label="Bolt head recess diameter",
-            group="Mounting",
-            min=16,
-            max=30,
-            step=0.5,
-            unit="mm",
-            help="Flat-bottom counterbore for the bolt head. Check against your hardware.",
-        ),
-    ]
-)
+CONTROLS.extend(hardware.BOLT_CONTROLS)
 
 # Jugs may be taller, deeper, and wide enough for two hands.
 JUG_MAXIMA = {
@@ -302,9 +267,9 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
             "Reduce rounded ends or increase width: each end must use less than half the width."
         )
     if p.screws:
-        if p.head_diameter <= p.shank_diameter + 1:
+        if p.head_diameter < p.shank_diameter + hardware.HEAD_OVER_SHANK:
             raise ValueError(
-                "The head recess must be at least 1 mm wider than the screw hole."
+                f"The head recess must be at least {hardware.HEAD_OVER_SHANK:g} mm wider than the screw hole."
             )
         if (
             not p.bolt_mount

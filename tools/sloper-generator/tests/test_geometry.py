@@ -328,61 +328,88 @@ class GeometryTests(unittest.TestCase):
                 )
 
     def test_small_large_and_extreme_shapes_adjust_instead_of_failing(self):
+        # Each shape with settings it cannot keep, which must be reported with
+        # the value used. An automatic seat landing somewhere is the feature
+        # and is never reported, so a shape that only moves its seat reports
+        # nothing.
         cases = [
-            Parameters(
-                width=40,
-                height=40,
-                projection=12,
-                screw_count=6,
-                head_diameter=25,
-                shank_diameter=12,
+            (
+                Parameters(
+                    width=40,
+                    height=40,
+                    projection=12,
+                    screw_count=6,
+                    head_diameter=25,
+                    shank_diameter=12,
+                ),
+                {"width", "height", "slope"},
             ),
-            Parameters(
-                width=40,
-                height=40,
-                projection=12,
-                slope=45,
-                taper=65,
-                character=1.5,
-                screw_count=6,
-                head_diameter=25,
-                shank_diameter=12,
+            (
+                Parameters(
+                    width=40,
+                    height=40,
+                    projection=12,
+                    slope=45,
+                    taper=65,
+                    character=1.5,
+                    screw_count=6,
+                    head_diameter=25,
+                    shank_diameter=12,
+                ),
+                {"width", "height", "slope"},
             ),
-            Parameters(
-                width=300,
-                height=240,
-                projection=12,
-                slope=-45,
-                taper=-65,
-                character=1.5,
-                seed=0,
+            (
+                Parameters(
+                    width=300,
+                    height=240,
+                    projection=12,
+                    slope=-45,
+                    taper=-65,
+                    character=1.5,
+                    seed=0,
+                ),
+                {"slope"},
             ),
-            Parameters(
-                width=40, height=40, projection=12, auto_seat=False, seat_depth=30
+            (
+                Parameters(
+                    width=40, height=40, projection=12, auto_seat=False, seat_depth=30
+                ),
+                {"seat_depth"},
             ),
-            Parameters(
-                width=300,
-                height=40,
-                projection=100,
-                palm_curve=100,
-                slope=45,
-                character=1.5,
+            (
+                Parameters(
+                    width=300,
+                    height=40,
+                    projection=100,
+                    palm_curve=100,
+                    slope=45,
+                    character=1.5,
+                ),
+                set(),
             ),
-            Parameters(
-                width=40, height=240, projection=12, screws=False, slope=45, taper=65
+            (
+                Parameters(
+                    width=40, height=240, projection=12, screws=False, slope=45, taper=65
+                ),
+                {"slope"},
             ),
-            Parameters(shank_diameter=12, head_diameter=3),
+            (Parameters(shank_diameter=12, head_diameter=3), {"head_diameter"}),
         ]
-        for p in cases:
+        for p, kept_back in cases:
             with self.subTest(parameters=p):
                 a = build(p)
                 self.assert_solid(a)
                 self.assertEqual(len(a.screws), p.screw_count if p.screws else 0)
                 if p.screws and p.auto_seat:
                     self.assertGreaterEqual(a.parameters.seat_depth, 3)
-                # Automatic values moving is the feature and is not reported
-                # as an adjustment; either way the fitted settings differ.
-                self.assertTrue(not p.screws or a.parameters != p)
+                self.assertLessEqual(kept_back, set(a.adjusted))
+                if not kept_back:
+                    self.assertEqual(a.adjusted, {})
+                for key, value in a.adjusted.items():
+                    self.assertEqual(getattr(a.parameters, key), value)
+                if p.auto_seat:
+                    self.assertNotEqual(a.parameters.seat_depth, p.seat_depth)
+                    self.assertNotIn("seat_depth", a.adjusted)
                 # Saved adjusted settings must reproduce exactly the same model.
                 rebuilt = build(a.parameters)
                 self.assertEqual(a.parameters, rebuilt.parameters)
