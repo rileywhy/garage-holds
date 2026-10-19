@@ -51,10 +51,11 @@ export interface Schema {
   // label, and what the menu is called when it is not the body's shape.
   shapes?: Record<string, string>;
   shapeLabel?: string;
-  // Foot Lab: the generator can pick the screw count from the body size.
+  // Foot and Pinch Labs: the generator can pick the screw count from the
+  // body size.
   autoScrewCount?: boolean;
-  // Pocket and Pinch Labs: switches the generator declares, beside the
-  // mounting ones every lab has.
+  // Pocket Lab: switches the generator declares, beside the mounting ones
+  // every lab has.
   toggles?: Toggle[];
 }
 // A settings file, as a lab or the local tool saves it.

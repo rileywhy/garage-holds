@@ -13,9 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import WAIST, build, loft, section
 from parameters import (
     BASE,
-    BOLT_SPAN,
     CONTROLS,
     PRESETS,
+    SCREW_SPAN,
+    SCREW_STEP,
     SHAPES,
     design_document,
     parse_parameters,
@@ -36,8 +37,16 @@ UNDERCUT = [
     replace(
         PRESETS["Lip pinch"], base_flare=15, depth=50, auto_seat=False, seat_depth=12
     ),
-    replace(PRESETS["Lip pinch"], bolt_mount=True, auto_mount=False, width=80),
-    replace(BASE, thumb_angle=-20, finger_angle=-8, offset=35, depth=55, screw_count=3),
+    replace(PRESETS["Lip pinch"], bolt_mount=True, width=80),
+    replace(
+        BASE,
+        thumb_angle=-20,
+        finger_angle=-8,
+        offset=35,
+        depth=55,
+        auto_screw_count=False,
+        screw_count=3,
+    ),
     replace(
         BASE,
         shape="ridged",
@@ -65,7 +74,7 @@ def random_settings(rng):
         shape=rng.choice(list(SHAPES)),
         screws=rng.random() < 0.85,
         bolt_mount=rng.random() < 0.3,
-        auto_mount=rng.random() < 0.5,
+        auto_screw_count=rng.random() < 0.5,
         auto_seat=rng.random() < 0.6,
         seed=rng.randint(0, 999999),
     )
@@ -116,7 +125,8 @@ class PinchTests(unittest.TestCase):
                 self.assertTrue(a.mesh.is_watertight and b.mesh.is_watertight)
                 self.assertTrue(a.mesh.is_winding_consistent)
                 self.assertEqual(
-                    len(a.holes), 2 if a.parameters.bolt_mount else p.screw_count
+                    len(a.holes),
+                    2 if a.parameters.bolt_mount else a.parameters.screw_count,
                 )
                 self.assertEqual(a.holes, b.holes)
                 self.assertGreater(a.mesh.volume, 0)
@@ -195,29 +205,36 @@ class PinchTests(unittest.TestCase):
             left, right = across(outline, height)
             self.assertGreaterEqual(right - left, WAIST - 0.01)
 
-    def test_wide_pinches_take_the_bolt(self):
-        # Over 60 mm across, after overall scale, automatic mounting takes
-        # the bolt and one anti-rotation screw; narrower, screws.
-        for p, bolt in (
-            (BASE, False),
-            (replace(BASE, width=BOLT_SPAN + 1), True),
-            (replace(BASE, size=130), True),
-            (replace(BASE, width=75, auto_mount=False), False),
-            (replace(BASE, width=40, auto_mount=False, bolt_mount=True), True),
+    def test_wider_pinches_take_more_screws(self):
+        # Chosen from the size, a pinch takes two screws, and one more for
+        # every SCREW_STEP its span runs past SCREW_SPAN after overall
+        # scale. It never takes a bolt it was not asked for.
+        for p, count in (
+            (BASE, 2),
+            (replace(BASE, width=SCREW_SPAN + 1, height=140), 3),
+            (replace(BASE, size=130, height=110), 3),
+            (replace(BASE, width=SCREW_SPAN + SCREW_STEP + 1, height=180), 4),
+            (replace(BASE, width=110, auto_screw_count=False, screw_count=2), 2),
         ):
-            with self.subTest(width=p.width, size=p.size, auto=p.auto_mount):
+            with self.subTest(width=p.width, size=p.size, auto=p.auto_screw_count):
                 model = build(p)
-                self.assertEqual(model.parameters.bolt_mount, bolt)
-                self.assertEqual(sum(h.bolt for h in model.holes), int(bolt))
-                self.assertNotIn("bolt_mount", model.adjusted)
-        # Where the bolt has no room, automatic mounting takes screws.
-        narrow_top = build(replace(BASE, width=62, edge_radius=20, top_rise=0))
-        self.assertTrue(narrow_top.mesh.is_watertight)
+                self.assertFalse(model.parameters.bolt_mount)
+                self.assertEqual(model.parameters.screw_count, count)
+                self.assertEqual(len(model.holes), count)
+                self.assertEqual(model.adjusted, {})
+        # A short pinch gives up screws it has no room for rather than
+        # growing taller for them, down to two.
+        short = build(replace(BASE, width=110, height=60))
+        self.assertEqual(short.parameters.screw_count, 2)
+        self.assertEqual(short.parameters.height, 60)
+        # The bolt is there when it is asked for.
+        bolted = build(replace(BASE, width=40, bolt_mount=True))
+        self.assertEqual(sum(h.bolt for h in bolted.holes), 1)
 
     def test_screws_run_up_the_middle(self):
-        for count in (1, 2, 3):
+        for count in (1, 2, 3, 4):
             with self.subTest(count=count):
-                p = replace(BASE, screw_count=count, height=120)
+                p = replace(BASE, auto_screw_count=False, screw_count=count, height=160)
                 holes = build(p).holes
                 self.assertEqual(len(holes), count)
                 xs, ys = [h.x for h in holes], sorted(h.y for h in holes)
@@ -225,28 +242,35 @@ class PinchTests(unittest.TestCase):
                 if count > 1:
                     self.assertAlmostEqual(ys[0], -ys[-1], delta=1.5)
                     self.assertGreater(ys[-1] - ys[0], p.height * 0.3)
+                    # Evenly spaced from one end of the line to the other,
+                    # to the step of the 51-point grid the layout snaps to.
+                    self.assertLessEqual(np.ptp(np.diff(ys)), p.height / 50 + 0.01)
 
     def test_recesses_open_on_the_level_top(self):
         # The hardware keeps to the level part of the top, in one line up
         # the pinch, with a bolt's anti-rotation screw below it: no recess
         # opens out through the slope of an end, and none is pushed to the
         # corner of one beside a side.
-        for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin"):
-            for count in (2, 3):
-                with self.subTest(name=name, count=count):
-                    model = build(replace(PRESETS[name], screw_count=count))
-                    solid = loft(model.parameters, "preview")[0]
-                    self.assertLess(np.ptp([h.x for h in model.holes]), 0.5)
-                    for hole in model.holes:
-                        rims = [
-                            max(crossings(solid, hole.x, hole.y + s * hole.head / 2))
-                            for s in (-1, 1)
-                        ]
-                        self.assertLess(abs(rims[0] - rims[1]), 0.5)
-                    bolts = [h for h in model.holes if h.bolt]
-                    if bolts:
-                        screw = next(h for h in model.holes if not h.bolt)
-                        self.assertLess(screw.y, bolts[0].y)
+        cases = [
+            (name, dict(auto_screw_count=False, screw_count=count))
+            for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin")
+            for count in (2, 3)
+        ] + [(name, dict(bolt_mount=True)) for name in ("Wide pinch", "Lip pinch")]
+        for name, change in cases:
+            with self.subTest(name=name, **change):
+                model = build(replace(PRESETS[name], **change))
+                solid = loft(model.parameters, "preview")[0]
+                self.assertLess(np.ptp([h.x for h in model.holes]), 0.5)
+                for hole in model.holes:
+                    rims = [
+                        max(crossings(solid, hole.x, hole.y + s * hole.head / 2))
+                        for s in (-1, 1)
+                    ]
+                    self.assertLess(abs(rims[0] - rims[1]), 0.5)
+                bolts = [h for h in model.holes if h.bolt]
+                if bolts:
+                    screw = next(h for h in model.holes if not h.bolt)
+                    self.assertLess(screw.y, bolts[0].y)
 
     def test_recesses_stay_enclosed_under_undercut_faces(self):
         # Every recess, its shank and its bore sit inside the body with
@@ -342,7 +366,9 @@ class PinchTests(unittest.TestCase):
         # Three screws up a short pinch: it grows taller for them, but never
         # past the height slider's maximum (RIL-78).
         limits = {control["key"]: control["max"] for control in CONTROLS}
-        model = build(replace(BASE, size=60, height=40, screw_count=3))
+        model = build(
+            replace(BASE, size=60, height=40, auto_screw_count=False, screw_count=3)
+        )
         self.assertEqual(len(model.holes), 3)
         self.assertLess(np.ptp([h.x for h in model.holes]), 0.5)
         self.assertGreater(model.parameters.height, 40)
@@ -356,7 +382,9 @@ class PinchTests(unittest.TestCase):
         rng = random.Random(78 + SEED)
         count = 60 if DEEP else 4
         cases = [
-            asdict(replace(BASE, size=60, height=40, screw_count=3)),
+            asdict(
+                replace(BASE, size=60, height=40, auto_screw_count=False, screw_count=3)
+            ),
             asdict(
                 replace(BASE, width=40, depth=70, thumb_angle=-20, finger_angle=-20)
             ),
@@ -402,7 +430,7 @@ class PinchTests(unittest.TestCase):
     def test_validation(self):
         for values in (
             {"width": float("nan")},
-            {"auto_mount": 1},
+            {"auto_screw_count": 1},
             {"screw_count": 1.5},
             {"shape": "round"},
             {"unknown": 0},

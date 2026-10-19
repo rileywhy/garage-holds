@@ -333,9 +333,6 @@ export function HoldLab({
         ...(key === "screw_count" && "auto_screw_count" in p
           ? { auto_screw_count: false }
           : {}),
-        ...(key === "bolt_mount" && "auto_mount" in p
-          ? { auto_mount: false }
-          : {}),
       })),
     [edit],
   );

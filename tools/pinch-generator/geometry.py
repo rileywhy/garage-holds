@@ -23,10 +23,10 @@ import trimesh
 
 if __package__:
     from .crimp_engine import geometry as crimp
-    from .parameters import BOLT_SPAN, CONTROLS, parse_parameters
+    from .parameters import CONTROLS, SCREW_SPAN, SCREW_STEP, parse_parameters
 else:
     from crimp_engine import geometry as crimp
-    from parameters import BOLT_SPAN, CONTROLS, parse_parameters
+    from parameters import CONTROLS, SCREW_SPAN, SCREW_STEP, parse_parameters
 
 from tools.hold_mounting import closed_mesh, drill, fit_bolt_and_screw, screw_layout
 
@@ -384,9 +384,9 @@ def mounting_proxy(solid, region):
 
 
 def screw_targets(p, proxy, count):
-    """One to three screws up the middle of the pinch, spread up the wall
-    where it levers: one in the middle, two toward the ends, and a third
-    between them. The outer two keep to the level part of the top, so each
+    """Screws in a line up the middle of the pinch, spread up the wall
+    where it levers: one in the middle, or evenly from one end of the line
+    to the other. The outer two keep to the level part of the top, so each
     recess opens flat instead of out through an end's slope; with long
     rounded ends they spread down onto them, never closer in than 40% of
     the way along the hardware region nor further out than 65%."""
@@ -397,7 +397,7 @@ def screw_targets(p, proxy, count):
     reach = float(np.clip(level, half * 0.4, half * 0.65))
     if count == 1:
         return [(x, y)]
-    return [(x, y - reach), (x, y + reach)] + ([(x, y)] if count == 3 else [])
+    return [(x, y + t) for t in np.linspace(-reach, reach, count)]
 
 
 class Model:
@@ -405,10 +405,10 @@ class Model:
         self.mesh, self.parameters, self.profile = mesh, p, profile
         self.holes, self.cap = holes, cap
         # Only report changes the person did not ask for: an automatic seat
-        # or mounting landing somewhere is the feature, not an adjustment.
+        # or screw count landing somewhere is the feature, not an adjustment.
         skipped = {"seat_depth"} if p.auto_seat else set()
-        if p.auto_mount:
-            skipped.add("bolt_mount")
+        if p.auto_screw_count:
+            skipped.add("screw_count")
         self.adjusted = {
             k: v
             for k, v in asdict(p).items()
@@ -443,35 +443,36 @@ def build(requested, quality="preview"):
         raise ValueError("Unknown mesh quality.")
     requested = parse_parameters(asdict(requested))
     p = fit_waist(requested)
+    # A wider pinch levers harder on the wall: chosen from the size, it
+    # takes one more screw for every SCREW_STEP its span runs past
+    # SCREW_SPAN, after overall scale. A bolt is only ever asked for.
+    automatic = p.auto_screw_count and not p.bolt_mount
+    if automatic:
+        past = p.width * p.size / 100 - SCREW_SPAN
+        count = 2 + max(0, math.ceil(past / SCREW_STEP))
+        p = replace(p, screw_count=min(LIMITS["screw_count"][1], count))
     holes = []
     # The body may grow for the hardware, but never past what the sliders
     # allow: the design carries the settings built, and a reopened design
     # is clamped to the sliders, so growth past them would export a
     # different hold from the one previewed (RIL-78).
-    bolt = p.bolt_mount
-    if p.auto_mount:
-        bolt = p.width * p.size / 100 > BOLT_SPAN
     for _ in range(120):
         solid, profile, region, widest, cap = loft(p, "preview")
         if not p.screws:
             break
-        p = replace(p, bolt_mount=bolt)
         # A taller pinch has no wider top: a recess that cannot fit across
         # it never will.
-        head = p.bolt_head_diameter if bolt else p.head_diameter
+        head = p.bolt_head_diameter if p.bolt_mount else p.head_diameter
         if widest < max(head + 3, p.shank_diameter + 4):
-            if bolt and p.auto_mount:
-                bolt = False
-                continue
             raise ValueError(
-                f"The {'bolt recess does' if bolt else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the edge rounding, ease the undercut, or turn holes off."
+                f"The {'bolt recess does' if p.bolt_mount else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the edge rounding, ease the undercut, or turn holes off."
             )
         depth = p.depth * p.size / 100
         target = min(8, depth * 0.25) if p.auto_seat else p.seat_depth
         proxy = mounting_proxy(solid, region)
         # The bolt's anti-rotation screw sits in line below it, where the
         # lower of two screws would.
-        targets = screw_targets(p, proxy, 2 if bolt else p.screw_count)
+        targets = screw_targets(p, proxy, 2 if p.bolt_mount else p.screw_count)
         holes = (
             fit_bolt_and_screw(
                 p,
@@ -480,21 +481,21 @@ def build(requested, quality="preview"):
                 target,
                 screw_target=np.array(targets[0]),
             )
-            if bolt
+            if p.bolt_mount
             else screw_layout(p, proxy, target, targets=targets)
         )
         grown = replace(p, height=min(LIMITS["height"][1], p.height + 4))
         # Screws belong in a line up the pinch. A layout that could only set
         # them side by side takes a taller pinch, as screws that do not fit
-        # at all would, until the sliders run out.
+        # at all would, until the sliders run out; a count chosen from the
+        # size gives up a screw first, down to two.
         rows = sorted(h.y for h in holes if not h.bolt)
         crowded = any(b - a < p.head_diameter + 2.99 for a, b in zip(rows, rows[1:]))
         if holes and (not crowded or grown == p):
             p = replace(p, seat_depth=holes[0].seat)
             break
-        if not holes and bolt and p.auto_mount:
-            # Automatic mounting takes screws where the bolt has no room.
-            bolt = False
+        if automatic and p.screw_count > 2:
+            p = replace(p, screw_count=p.screw_count - 1)
             continue
         if grown == p:
             raise ValueError(

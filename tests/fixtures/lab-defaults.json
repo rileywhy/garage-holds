@@ -192,7 +192,7 @@
       "base_flare": 0,
       "character": 0,
       "seed": 0,
-      "auto_mount": true,
+      "auto_screw_count": true,
       "screws": true,
       "screw_count": 2,
       "auto_seat": true,

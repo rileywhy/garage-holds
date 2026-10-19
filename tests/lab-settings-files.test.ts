@@ -91,7 +91,7 @@ test("Pocket Lab settings files round-trip as they are", () => {
 });
 
 test("Pinch Lab settings files round-trip as they are", () => {
-  const pinch = { width: 48, shape: "ridged", auto_mount: false };
+  const pinch = { width: 48, shape: "ridged", auto_screw_count: false };
   assert.deepEqual(
     parseDesignFile(file("garage-holds-pinch", 1, pinch), "pinch"),
     pinch,

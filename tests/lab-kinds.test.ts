@@ -293,19 +293,3 @@ test("pinch: its own colour, every view, and no pocket floor", () => {
     rows.some((r) => r.label === "Seat above wall" && r.value === "8 mm"),
   );
 });
-
-test("pinch: an automatic bolt the generator picked is not an edit", () => {
-  // Over 60 mm across the generator turns the bolt on by itself and builds
-  // with it. The checkbox follows, and the menu stays on the preset.
-  const outcome = followPreview(
-    "pinch",
-    { width: 75, auto_mount: true, bolt_mount: false },
-    preview({
-      parameters: { width: 75, auto_mount: true, bolt_mount: true },
-      adjusted: {},
-    }),
-    [],
-  );
-  assert.equal(outcome.parameters.bolt_mount, true);
-  assert.equal(outcome.custom, false);
-});

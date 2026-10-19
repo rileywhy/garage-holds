@@ -24,9 +24,9 @@ class Parameters:
     base_flare: float = 0
     character: float = 0
     seed: int = 0
-    # Mounting, shared with the other labs. Automatic mounting takes the
-    # bolt on a pinch over 60 mm across when it fits there.
-    auto_mount: bool = True
+    # Mounting, shared with the other labs. A wider pinch levers harder, so
+    # by default it takes more screws as it grows (see SCREW_SPAN).
+    auto_screw_count: bool = True
     screws: bool = True
     screw_count: int = 2
     auto_seat: bool = True
@@ -179,10 +179,10 @@ CONTROLS = [
         "Screw count",
         "Mounting",
         1,
-        3,
+        6,
         1,
         "",
-        "Screws run up the middle of the pinch: two by default, three on a tall one.",
+        "Screws run in a line up the middle of the pinch. Chosen from the size, there are two, and one more for every 30 mm the span runs past 60 mm after overall scale.",
     ),
     control(
         "seat_depth",
@@ -236,18 +236,10 @@ CONTROLS = [
     ),
 ]
 
-# Switches the lab shows as checkboxes above the sliders of their tab.
-TOGGLES = [
-    dict(
-        key="auto_mount",
-        label="Bolt on pinches over 60 mm",
-        group="Mounting",
-        help="A wide pinch levers hard on the wall, so over 60 mm across it takes the bolt and one anti-rotation screw where they fit, and screws otherwise. Ticking or clearing Bolt + one screw yourself turns this off.",
-    ),
-]
-
-# Over this span, after overall scale, automatic mounting takes the bolt.
-BOLT_SPAN = 60
+# Chosen from the size, the screw count is two up to 60 mm across, after
+# overall scale, and one more for every 30 mm past that, up to six.
+SCREW_SPAN = 60
+SCREW_STEP = 30
 
 SHAPES = {"flat": "Flat top", "domed": "Domed top", "ridged": "Ridged top"}
 
@@ -338,7 +330,7 @@ def parse_parameters(values):
     data = asdict(BASE) | values
     if data["shape"] not in SHAPES:
         raise ValueError("Unknown pinch top.")
-    for key in ("screws", "bolt_mount", "auto_seat", "auto_mount"):
+    for key in ("screws", "bolt_mount", "auto_seat", "auto_screw_count"):
         if not isinstance(data[key], bool):
             raise ValueError(f"{key} must be true or false.")
     for item in CONTROLS + [dict(key="seed", min=0, max=999999)]:
@@ -365,8 +357,8 @@ def schema():
         presets={key: asdict(value) for key, value in PRESETS.items()},
         shapes=SHAPES,
         shapeLabel="Top",
+        autoScrewCount=True,
         controls=CONTROLS,
-        toggles=TOGGLES,
     )
 
 
