@@ -315,6 +315,53 @@ describe("bookmarks", () => {
   });
 });
 
+describe("unpublishing", () => {
+  test("a design back in draft hides its files and reviews from everyone but its owner", async () => {
+    const unpublished = await owner.client
+      .from("designs")
+      .update({ status: "draft" })
+      .eq("id", designId)
+      .select("status, published_at")
+      .single();
+    assert.deepEqual(unpublished.data, { status: "draft", published_at: null });
+    try {
+      // The reviewer included: reviews are read through their design.
+      for (const client of [other.client, visitor]) {
+        const files = await client
+          .from("design_files")
+          .select("name")
+          .eq("design_id", designId);
+        assert.equal(files.error, null);
+        assert.deepEqual(files.data, []);
+        const reviews = await client
+          .from("reviews")
+          .select("body")
+          .eq("design_id", designId);
+        assert.equal(reviews.error, null);
+        assert.deepEqual(reviews.data, []);
+      }
+      const ownFiles = await owner.client
+        .from("design_files")
+        .select("name")
+        .eq("design_id", designId);
+      assert.deepEqual(ownFiles.data, [{ name: "mesa edge.stl" }]);
+      const ownReviews = await owner.client
+        .from("reviews")
+        .select("body")
+        .eq("design_id", designId);
+      assert.deepEqual(ownReviews.data, [
+        { body: "Printed well, holds up on a 40." },
+      ]);
+    } finally {
+      const { error } = await owner.client
+        .from("designs")
+        .update({ status: "published" })
+        .eq("id", designId);
+      assert.equal(error, null);
+    }
+  });
+});
+
 describe("deletion", () => {
   test("deleting one's own design takes its files, reviews, and bookmarks with it", async () => {
     const { data: design } = await owner.client

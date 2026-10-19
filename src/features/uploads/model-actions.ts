@@ -9,7 +9,6 @@ import {
 } from "@/lib/supabase/admin";
 import {
   deleteObject,
-  headObject,
   isR2Configured,
   MODEL_CONTENT_TYPE,
   signUpload,
@@ -25,6 +24,8 @@ import type { PendingUpload, UploadFileDescriptor } from "./actions";
 import { checkAllowance, limitMessage } from "./allowance";
 import { makeModelPreview } from "./model-previews";
 import { contactEmail, loadAllowance } from "./usage";
+import { bucket } from "./bucket";
+import { verifyPendingFiles, type PendingFile } from "./verification";
 
 // Replacing one of a design's model files (RIL-24): the same signed-PUT
 // round trip as a new upload. The new file gets a pending row beside the
@@ -121,29 +122,10 @@ export async function finishModelReplace(
     return { errors: ["This model file could not be found."] };
 
   const admin = createSupabaseAdminClient();
-  const object = await headObject(incoming.object_key);
-  if (!object.exists || object.bytes !== incoming.bytes) {
-    await admin.from("design_files").delete().eq("id", incoming.id);
-    if (object.exists) await deleteObject(incoming.object_key);
-    return {
-      errors: [
-        object.exists
-          ? `${incoming.name} arrived with an unexpected size.`
-          : `${incoming.name} did not finish uploading.`,
-      ],
-    };
-  }
-  const ready = await admin
-    .from("design_files")
-    .update({ status: "ready" })
-    .eq("id", incoming.id);
-  if (ready.error) {
-    console.error("model replace ready update failed", {
-      designId,
-      error: ready.error,
-    });
-    return { errors: ["The new file could not be saved. Try again."] };
-  }
+  const { errors } = await verifyPendingFiles(admin, bucket, [
+    incoming as PendingFile,
+  ]);
+  if (errors.length) return { errors };
   // The new file is live from here. The old row goes next; its objects
   // after, so a failure leaves orphans for the sweep rather than a card
   // pointing at nothing.
