@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FileBox, X } from "lucide-react";
+import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import { useModelViewer, type ModelSource } from "./use-model-viewer";
 import {
   DEFAULT_ORIENTATION,
@@ -45,7 +46,7 @@ export function OrientationPicker({
           ref={container}
           className="stl-viewer-canvas"
           role="img"
-          aria-label="The model on a 40° board. Drag to look around; scroll to zoom."
+          aria-label={`The model on a 40° board. ${VIEWER_CONTROLS}`}
           hidden={failed}
         />
         {ready ? (

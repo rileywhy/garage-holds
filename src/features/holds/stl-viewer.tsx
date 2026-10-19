@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileBox } from "lucide-react";
 import type { ViewName } from "@/features/model-viewer/viewer";
+import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -64,7 +65,7 @@ export function StlViewer({
           ref={container}
           className="stl-viewer-canvas"
           role="img"
-          aria-label={`Interactive 3D preview of ${title}. Drag to rotate; scroll to zoom.`}
+          aria-label={`Interactive 3D preview of ${title}. ${VIEWER_CONTROLS}`}
           hidden={failed}
         />
         {ready ? (

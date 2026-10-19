@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { BoardPanel, DEFAULT_BOARD_ANGLE, mountOnBoard } from "./board-preview";
+import { WheelGestures } from "./gestures";
 
 // The interactive preview shared by Crimp Lab and the design pages: an
 // orthographic camera around a hold, shown on a print bed or mounted on an
@@ -38,6 +39,17 @@ export const VIEW_LABELS: Record<ViewName, string> = {
   front: "Front",
 };
 
+// One arrow-key press moves the view as a short drag that way would: a turn
+// of 15°, or with Shift a pan of 40 pixels.
+const KEY_TURN = Math.PI / 12;
+const KEY_PAN = 40;
+const ARROWS: Partial<Record<string, [number, number]>> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
@@ -61,13 +73,48 @@ export class Viewer {
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
   private turning = 0;
+  private wheel = new WheelGestures();
+  // Safari's own pinch events, and whether it is sending the pinch as
+  // Ctrl + wheel too (which the controls already zoom on).
+  private pinchScale = 1;
+  private pinchAsWheel = false;
   private onKey = (event: KeyboardEvent) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const arrow = ARROWS[event.key];
     if (event.key === "+" || event.key === "=") this.zoom(1.25);
     else if (event.key === "-" || event.key === "_") this.zoom(0.8);
     else if (event.key === "0") this.fit();
+    else if (arrow) this.nudge(arrow, event.shiftKey);
     else return;
     event.preventDefault();
+  };
+  // Runs before the controls see the event (capture on the container): a
+  // trackpad's two-finger drag turns or pans here, and anything else goes on
+  // to the controls' zoom.
+  private onWheel = (event: WheelEvent) => {
+    if (event.ctrlKey) this.pinchAsWheel = true;
+    const intent = this.wheel.read(event, event.timeStamp);
+    if (intent === "zoom") return;
+    event.preventDefault();
+    event.stopPropagation();
+    // Scrolling deltas run against the fingers, so negate them: the hold
+    // moves with the fingers, as it does with a drag.
+    this.move(-event.deltaX, -event.deltaY, intent === "pan");
+  };
+  // Older Safari pinches only through these events, and zooms the page
+  // unless they are cancelled.
+  private onGesture = (event: Event) => {
+    event.preventDefault();
+    const scale = (event as Event & { scale: number }).scale;
+    if (event.type === "gesturestart") {
+      this.pinchScale = 1;
+      this.pinchAsWheel = false;
+    } else if (event.type === "gesturechange") {
+      // On touch screens the controls handle the same pinch from its touches.
+      if (!this.pinchAsWheel && navigator.maxTouchPoints === 0)
+        this.zoom(scale / this.pinchScale);
+      this.pinchScale = scale;
+    }
   };
 
   constructor(
@@ -87,13 +134,24 @@ export class Viewer {
     this.controls.addEventListener("change", () => this.render());
     // The first touch ends the slow turn; the hold is then where it was left.
     this.controls.addEventListener("start", () => this.setTurning(false));
-    // Zoom is also on the keyboard once the viewer has focus: + and - step
-    // in and out, 0 refits. Laptops without a wheel still have a way out,
-    // alongside the buttons the labs draw next to the viewer.
+    // Wheels and pinches zoom toward the pointer, so a detail can be looked
+    // at closely without panning to it first.
+    this.controls.zoomToCursor = true;
+    this.controls.cursorStyle = "grab";
+    // The view also moves from the keyboard once the viewer has focus:
+    // arrows turn (pan with Shift), + and - step in and out, 0 refits.
+    // Laptops without a wheel still have a way out, alongside the buttons
+    // the labs draw next to the viewer.
     this.controls.minZoom = 0.15;
     this.controls.maxZoom = 12;
     if (!container.hasAttribute("tabindex")) container.tabIndex = 0;
     container.addEventListener("keydown", this.onKey);
+    container.addEventListener("wheel", this.onWheel, {
+      capture: true,
+      passive: false,
+    });
+    container.addEventListener("gesturestart", this.onGesture);
+    container.addEventListener("gesturechange", this.onGesture);
     this.scene.add(new THREE.HemisphereLight(0xece8ff, 0x3f3a47, 2.2));
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
     key.position.set(-60, 130, 80);
@@ -184,6 +242,28 @@ export class Viewer {
     this.camera.lookAt(centre);
     this.controls.update();
     this.fit();
+  }
+
+  // Turn the view as a drag of (dx, dy) pixels would, or pan it, the hold
+  // following the pointer either way. The controls update and redraw.
+  private move(dx: number, dy: number, pan: boolean) {
+    // Both scale by the viewer's size, so a hidden viewer cannot move.
+    const height = this.container.clientHeight;
+    if (!height) return;
+    this.setTurning(false);
+    if (pan) this.controls.pan(dx, dy);
+    else {
+      // A drag the viewer's height is one full turn, as with the mouse.
+      this.controls.rotateLeft((2 * Math.PI * dx) / height);
+      this.controls.rotateUp((2 * Math.PI * dy) / height);
+    }
+  }
+
+  private nudge([x, y]: [number, number], pan: boolean) {
+    const step = pan
+      ? KEY_PAN
+      : (KEY_TURN * this.container.clientHeight) / (2 * Math.PI);
+    this.move(x * step, y * step, pan);
   }
 
   // Step the view in (factor above 1) or out, within the same limits the
@@ -291,6 +371,11 @@ export class Viewer {
   dispose() {
     this.setTurning(false);
     this.container.removeEventListener("keydown", this.onKey);
+    this.container.removeEventListener("wheel", this.onWheel, {
+      capture: true,
+    });
+    this.container.removeEventListener("gesturestart", this.onGesture);
+    this.container.removeEventListener("gesturechange", this.onGesture);
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.mesh?.geometry.dispose();
