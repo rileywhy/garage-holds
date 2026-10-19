@@ -5,6 +5,7 @@ import { useCanvasPalette } from "./canvas-palette";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
+import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -886,7 +887,7 @@ export function CustomShapeLab() {
           ref={container}
           className={`lab-viewer ${styles.viewer}`}
           role="img"
-          aria-label="Interactive 3D hold preview"
+          aria-label={`Interactive 3D hold preview. ${VIEWER_CONTROLS}`}
         >
           {viewerFailed && (
             <p>
@@ -896,7 +897,10 @@ export function CustomShapeLab() {
           )}
         </div>
         <p className="lab-caption">
-          <span>drag to rotate · scroll to zoom</span>
+          <span>
+            drag or two-finger swipe to turn · shift to pan · scroll or pinch to
+            zoom
+          </span>
           <span>
             {view === "board"
               ? `mounted on a ${boardAngle}° board`

@@ -26,6 +26,7 @@ import {
   isDarkTheme,
   type ViewName,
 } from "@/features/model-viewer/viewer";
+import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -880,7 +881,7 @@ export function HoldLab({
             ref={box}
             className="lab-viewer"
             role="img"
-            aria-label={`Interactive 3D ${kind} preview. Drag to rotate; scroll, pinch or press plus and minus to zoom; 0 fits the view.`}
+            aria-label={`Interactive 3D ${kind} preview. ${VIEWER_CONTROLS}`}
           >
             {viewerFailed ? (
               <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
@@ -892,7 +893,10 @@ export function HoldLab({
             )}
           </div>
           <p className="lab-caption">
-            <span>Drag to rotate · scroll or pinch to zoom · + − keys</span>
+            <span>
+              Drag or two-finger swipe to turn · Shift to pan · scroll or pinch
+              to zoom
+            </span>
             <span>
               {view === "board"
                 ? `Mounted on a ${boardAngle}° board`
