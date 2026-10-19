@@ -275,3 +275,21 @@ test("pocket: its own colour, every view, and a floor row under Your model", () 
   const foot = modelMetrics("foot", preview({ parameters: { seat_depth: 3 } }));
   assert.ok(!foot.some((r) => r.label === "Pocket floor"));
 });
+
+test("pinch: its own colour, every view, and no pocket floor", () => {
+  const others = (["jug", "foot", "pocket"] as const).map(
+    (kind) => LAB_KINDS[kind].color,
+  );
+  assert.ok(LAB_KINDS.pinch.color);
+  assert.ok(!others.includes(LAB_KINDS.pinch.color));
+  assert.equal(LAB_KINDS.pinch.views.length, 6);
+  assert.equal(LAB_KINDS.pinch.clampTyped, false);
+  const rows = modelMetrics(
+    "pinch",
+    preview({ floor: 12.5, parameters: { seat_depth: 8 } }),
+  );
+  assert.ok(!rows.some((r) => r.label === "Pocket floor"));
+  assert.ok(
+    rows.some((r) => r.label === "Seat above wall" && r.value === "8 mm"),
+  );
+});

@@ -83,11 +83,14 @@ def fit_bolt_and_screw(
     edge_clearance=None,
     layout_target=None,
     enclose_requested=True,
+    screw_target=None,
 ):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
 
     Every recess and shank is checked in inset slices before drilling. Manual
-    seats can lower to fit, matching the existing lab fitting behavior.
+    seats can lower to fit, matching the existing lab fitting behavior. A
+    caller can name where the screw belongs (screw_target); it then takes the
+    eligible spot nearest there instead of the longest lever arm.
     """
     lo, hi = bounds
     xs = np.unique(np.append(np.linspace(lo[0], hi[0], 41), 0))
@@ -135,14 +138,20 @@ def fit_bolt_and_screw(
             eligible = screws[distances >= separation]
             if not len(eligible):
                 continue
-            # Favor a right-hand screw and a long lever arm, below the bolt
-            # when the body has room. This is a layout, not a strength rating.
-            score = (
-                np.linalg.norm(eligible - bolt, axis=1)
-                + (eligible[:, 0] > bolt[0]) * 5
-                - np.maximum(0, eligible[:, 1] - bolt[1]) * 0.5
-            )
-            screw = eligible[np.argmax(score)]
+            if screw_target is not None:
+                screw = eligible[
+                    np.argmin(np.sum((eligible - screw_target) ** 2, axis=1))
+                ]
+            else:
+                # Favor a right-hand screw and a long lever arm, below the
+                # bolt when the body has room. This is a layout, not a
+                # strength rating.
+                score = (
+                    np.linalg.norm(eligible - bolt, axis=1)
+                    + (eligible[:, 0] > bolt[0]) * 5
+                    - np.maximum(0, eligible[:, 1] - bolt[1]) * 0.5
+                )
+                screw = eligible[np.argmax(score)]
             if layout_target is not None and not p.auto_seat:
                 # The layout was found at the automatic seat; the requested
                 # seat is used only as high as both recesses stay enclosed,
@@ -179,14 +188,21 @@ def fit_bolt_and_screw(
     return []
 
 
-def screw_layout(p, solid, target):
+def screw_layout(p, solid, target, targets=None):
     """One to three countersunk screws, each at the eligible spot nearest its
     target: centred for one, spread toward the sides for two, with a third
-    below the middle. The seat lowers in steps until every recess fits."""
+    below the middle, unless the caller places the targets itself. The seat
+    lowers in steps until every recess fits."""
     bounds = np.array(solid.bounding_box()).reshape(2, 3)
     lo, hi = bounds
     xx, yy = np.meshgrid(np.linspace(lo[0], hi[0], 51), np.linspace(lo[1], hi[1], 51))
     points = np.column_stack((xx.ravel(), yy.ravel()))
+    if targets is None:
+        targets = (
+            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
+        )
+        if p.screw_count == 3:
+            targets.append((0, lo[1] * 0.55))
     for seat in np.arange(max(2, target), 1.9, -0.5):
         eligible = points[
             _inside(
@@ -195,11 +211,6 @@ def screw_layout(p, solid, target):
         ]
         if not len(eligible):
             continue
-        targets = (
-            [(0, 0)] if p.screw_count == 1 else [(lo[0] * 0.65, 0), (hi[0] * 0.65, 0)]
-        )
-        if p.screw_count == 3:
-            targets.append((0, lo[1] * 0.55))
         chosen = []
         for x, y in targets:
             candidates = eligible

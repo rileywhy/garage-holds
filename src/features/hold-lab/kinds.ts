@@ -1,4 +1,4 @@
-// Where the five labs differ. Everything else about them is one shell,
+// Where the six labs differ. Everything else about them is one shell,
 // hold-lab.tsx: the same generator contract, controls, presets, links,
 // viewer and export.
 import { VIEW_ORDER, type ViewName } from "@/features/model-viewer/viewer";
@@ -52,6 +52,13 @@ export const LAB_KINDS: Record<Kind, LabKind> = {
     views: VIEW_ORDER,
     seedHint:
       "Seeds wobble the rim and drift the crown; the pocket stays put. Reset returns to the clean default.",
+  },
+  pinch: {
+    ...rounded,
+    color: 0xd8bd8e,
+    views: VIEW_ORDER,
+    seedHint:
+      "Seeds wave the sides in and out along the pinch; the back stays put. Reset returns to the clean default.",
   },
 };
 

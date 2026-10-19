@@ -32,6 +32,7 @@ jobs:
           - jug-generator
           - foot-generator
           - pocket-generator
+          - pinch-generator
           - mesh-preview
     env:
       HOLD_TESTS_DEEP: "1"
