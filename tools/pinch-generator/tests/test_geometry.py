@@ -182,7 +182,7 @@ class PinchTests(unittest.TestCase):
         # Undercut both sides of a narrow, deep pinch as far as they go:
         # the angles ease until the neck is WAIST wide, and the lab is told.
         p = replace(
-            BASE, width=40, depth=70, thumb_angle=-20, finger_angle=-20, screws=False
+            BASE, width=40, depth=70, thumb_angle=-30, finger_angle=-30, screws=False
         )
         model = build(p)
         self.assertIn("thumb_angle", model.adjusted)

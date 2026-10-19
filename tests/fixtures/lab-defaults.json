@@ -172,24 +172,24 @@
     "stlSha256": "9a63d919e27a116c67ad4564057754e83d862603c8023985aebb1daf32a3f54e"
   },
   "pinch": {
-    "dimensions": [65, 100, 46],
-    "triangles": 11400,
+    "dimensions": [56.3, 110, 50.47],
+    "triangles": 12298,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
-      "width": 50,
-      "depth": 40,
-      "thumb_angle": 5,
-      "finger_angle": 5,
+      "width": 55,
+      "depth": 44,
+      "thumb_angle": -5,
+      "finger_angle": -5,
       "offset": 0,
-      "edge_radius": 8,
+      "edge_radius": 9,
       "shape": "domed",
-      "top_rise": 6,
+      "top_rise": 6.5,
       "size": 100,
-      "height": 100,
+      "height": 110,
       "end_rounding": 60,
-      "base_flare": 4,
+      "base_flare": 4.5,
       "character": 0,
       "seed": 0,
       "auto_mount": true,
@@ -203,7 +203,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 2070384,
-    "stlSha256": "653c6357308f377c544e4c2ccd6c62babaf0ff17e67ef6e1b20344f044bcb59f"
+    "stlBytes": 2240284,
+    "stlSha256": "587448db00f593b9644df2c1a8d3148ffab6821f16d28691cfeb7cbad0216528"
   }
 }

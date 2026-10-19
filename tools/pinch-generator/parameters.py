@@ -9,19 +9,19 @@ class Parameters:
     # The grip: the span across the top edges, how far the finger side
     # stands off the wall, each side's lean, and how much lower the thumb
     # side stands than the finger side.
-    width: float = 50
-    depth: float = 40
-    thumb_angle: float = 5
-    finger_angle: float = 5
+    width: float = 55
+    depth: float = 44
+    thumb_angle: float = -5
+    finger_angle: float = -5
     offset: float = 0
-    edge_radius: float = 8
+    edge_radius: float = 9
     # The body, before overall scale.
     shape: str = "domed"
-    top_rise: float = 6
+    top_rise: float = 6.5
     size: float = 100
-    height: float = 100
+    height: float = 110
     end_rounding: float = 60
-    base_flare: float = 4
+    base_flare: float = 4.5
     character: float = 0
     seed: int = 0
     # Mounting, shared with the other labs. Automatic mounting takes the
@@ -77,21 +77,21 @@ CONTROLS = [
         "thumb_angle",
         "Thumb side angle",
         "Grip",
-        -20,
+        -30,
         40,
         1,
         "°",
-        "Positive leans the side in toward the top, a wedge that is easier to hold. Negative undercuts it, a lip to pinch behind. Relative to the wall's normal, not a grade.",
+        "Negative undercuts the side, a lip to pinch behind: the more undercut, the better it holds. Positive leans it in toward the top, a wedge that slips. Relative to the wall's normal, not a grade.",
     ),
     control(
         "finger_angle",
         "Finger side angle",
         "Grip",
-        -20,
+        -30,
         40,
         1,
         "°",
-        "The same for the side your fingers wrap: positive leans in, negative undercuts.",
+        "The same for the side your fingers wrap: negative undercuts, positive leans in.",
     ),
     control(
         "offset",
@@ -257,65 +257,65 @@ PRESETS = {
     "Block pinch": BASE,
     "Narrow pinch": replace(
         BASE,
-        width=32,
-        depth=34,
-        thumb_angle=0,
-        finger_angle=0,
-        edge_radius=6,
-        top_rise=4,
-        height=90,
+        width=35,
+        depth=37,
+        thumb_angle=-10,
+        finger_angle=-10,
+        edge_radius=6.5,
+        top_rise=4.5,
+        height=99,
     ),
     "Wide pinch": replace(
         BASE,
-        width=75,
-        depth=42,
-        thumb_angle=8,
-        finger_angle=8,
-        edge_radius=10,
-        top_rise=8,
-        height=110,
+        width=83,
+        depth=46,
+        thumb_angle=-2,
+        finger_angle=-2,
+        edge_radius=11,
+        top_rise=9,
+        height=121,
     ),
     "Wedge": replace(
         BASE,
         shape="flat",
-        width=40,
-        depth=44,
-        thumb_angle=25,
-        finger_angle=25,
-        edge_radius=6,
+        width=44,
+        depth=48,
+        thumb_angle=15,
+        finger_angle=15,
+        edge_radius=6.5,
         base_flare=0,
     ),
     "Lip pinch": replace(
         BASE,
         shape="flat",
-        width=56,
-        depth=36,
-        thumb_angle=-12,
-        finger_angle=-12,
-        edge_radius=5,
-        base_flare=8,
+        width=62,
+        depth=40,
+        thumb_angle=-22,
+        finger_angle=-22,
+        edge_radius=5.5,
+        base_flare=9,
     ),
     "Offset pinch": replace(
         BASE,
         shape="flat",
-        width=48,
-        depth=46,
-        thumb_angle=15,
-        finger_angle=-5,
+        width=53,
+        depth=51,
+        thumb_angle=5,
+        finger_angle=-15,
         offset=40,
-        edge_radius=7,
-        base_flare=6,
+        edge_radius=7.5,
+        base_flare=6.5,
     ),
     "Ridged fin": replace(
         BASE,
         shape="ridged",
-        width=38,
-        depth=40,
-        thumb_angle=10,
-        finger_angle=10,
-        edge_radius=5,
-        top_rise=12,
-        height=120,
+        width=42,
+        depth=44,
+        thumb_angle=0,
+        finger_angle=0,
+        edge_radius=5.5,
+        top_rise=13,
+        height=132,
         end_rounding=45,
     ),
 }
