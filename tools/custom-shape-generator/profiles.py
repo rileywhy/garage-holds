@@ -3,6 +3,7 @@ import math
 import numpy as np
 import manifold3d as m
 import trimesh
+from tools import hold_hardware as hardware
 from tools.hold_mounting import _inside, _room
 from .profile_paint import validate_paint, subtract_paint
 from .blending import blend_cut,cut_extrusion
@@ -138,7 +139,7 @@ def section_outlines(lines):
         if len(ring)>2:outlines.append(ring)
     return outlines
 
-def reference(mesh,cut,polygons,center,scale,holes=(),shank=5.5,head=11,seat=12):
+def reference(mesh,cut,polygons,center,scale,holes=(),shank=hardware.SHANK_DIAMETER,head=hardware.HEAD_DIAMETER,seat=12):
     rotation,along,edge,anchor=placement(cut,polygons,center,scale)
     lines=section(mesh,rotation,along)
     if not len(lines):raise ValueError('This region has no usable cross-section. Choose another position.')
