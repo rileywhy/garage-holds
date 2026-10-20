@@ -255,6 +255,18 @@ PRESETS = {
         finger_angle=-32,
         edge_radius=9,
     ),
+    # As undercut as the lip pinch, but rounded all over: deep edges, a
+    # high dome and fully oval ends.
+    "Round pinch": replace(
+        BASE,
+        width=70,
+        depth=40,
+        thumb_angle=-32,
+        finger_angle=-32,
+        edge_radius=19,
+        top_rise=12,
+        end_rounding=100,
+    ),
     "Offset pinch": replace(
         BASE,
         shape="flat",
