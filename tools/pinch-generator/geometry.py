@@ -487,13 +487,21 @@ def screw_targets(p, proxy, count):
     rounded ends they spread down onto them, never closer in than 40% of
     the way along the hardware region nor further out than 65%. On an
     hourglass they sit on the crowns of its bulbs instead, where it stops
-    swelling and its ends start to round, so the top is level there too."""
+    swelling and its ends start to round, found by measuring the top
+    either side of each recess, so the top is level there too."""
     lo, hi = np.array(proxy.bounding_box()).reshape(2, 3)
     x, y, half = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (hi[1] - lo[1]) / 2
     length, end = lengths(p)
     if p.hourglass > 0:
+        r = p.head_diameter / 2
+
+        def top(at):
+            hits = proxy.ray_cast((x, y + at, 0.01), (x, y + at, hi[2] + 1))
+            return max((hit.position[2] for hit in hits), default=0.0)
+
         crown = max(length / 2 - end, length / 4)
-        reach = float(np.clip(crown, half * 0.4, half - p.head_diameter / 2))
+        nearby = np.clip(np.linspace(crown - r, crown + r, 23), half * 0.4, half - r)
+        reach = float(min(nearby, key=lambda t: abs(top(t - r) - top(t + r))))
     else:
         level = length / 2 - end - p.head_diameter / 2
         reach = float(np.clip(level, half * 0.4, half * 0.65))

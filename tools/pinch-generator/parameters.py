@@ -11,7 +11,7 @@ class Parameters:
     # The grip: the span across the top edges, how far the finger side
     # stands off the wall, each side's lean, and how much lower the thumb
     # side stands than the finger side.
-    width: float = 55
+    width: float = 66
     depth: float = 44
     thumb_angle: float = -15
     finger_angle: float = -15
@@ -252,7 +252,7 @@ PRESETS = {
     "Block pinch": BASE,
     "Wide pinch": replace(
         BASE,
-        width=83,
+        width=100,
         depth=46,
         thumb_angle=-12,
         finger_angle=-12,
@@ -263,7 +263,7 @@ PRESETS = {
     "Lip pinch": replace(
         BASE,
         shape="flat",
-        width=67,
+        width=80,
         depth=40,
         thumb_angle=-32,
         finger_angle=-32,
@@ -273,7 +273,7 @@ PRESETS = {
     # high dome and fully oval ends.
     "Round pinch": replace(
         BASE,
-        width=70,
+        width=84,
         depth=40,
         thumb_angle=-32,
         finger_angle=-32,
@@ -287,7 +287,7 @@ PRESETS = {
     # at the waist.
     "Hour glass": replace(
         BASE,
-        width=80,
+        width=96,
         hourglass=45,
         height=150,
         end_rounding=40,
@@ -296,7 +296,7 @@ PRESETS = {
     # to a trapezoid: pinch it wide low down, narrow higher up.
     "Triangle pinch": replace(
         BASE,
-        width=80,
+        width=96,
         depth=48,
         taper=45,
         height=130,
@@ -305,7 +305,7 @@ PRESETS = {
     "Offset pinch": replace(
         BASE,
         shape="flat",
-        width=53,
+        width=64,
         depth=51,
         thumb_angle=-5,
         finger_angle=-25,

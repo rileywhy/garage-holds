@@ -333,7 +333,7 @@ class PinchTests(unittest.TestCase):
         # every SCREW_STEP its span runs past SCREW_SPAN after overall
         # scale. It never takes a bolt it was not asked for.
         for p, count in (
-            (BASE, 2),
+            (replace(BASE, width=SCREW_SPAN), 2),
             (replace(BASE, width=SCREW_SPAN + 1, height=140), 3),
             (replace(BASE, size=130, height=110), 3),
             (replace(BASE, width=SCREW_SPAN + SCREW_STEP + 1, height=180), 4),
