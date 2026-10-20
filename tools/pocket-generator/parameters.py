@@ -12,15 +12,15 @@ class Parameters:
     # into the hold along the floor; the floor angle tilts that axis.
     opening_width: float = 42
     opening_height: float = 28
-    pocket_depth: float = 28
+    pocket_depth: float = 42
     incut: float = 14
     lip_radius: float = 12
     through: bool = True
     # The body, before overall scale.
     size: float = 100
-    width: float = 94
-    height: float = 94
-    depth: float = 30
+    width: float = 100
+    height: float = 100
+    depth: float = 45
     roundness: float = 100
     edge_rounding: float = 10
     crown: float = 15
@@ -230,54 +230,54 @@ TOGGLES = [
 ]
 
 BASE = Parameters()
-# Open to the wall and shallow by default. Openings are about 20 mm a
-# finger, and each body is sized to its opening and to screws either side
-# of it (and a third centred below).
+# Open to the wall by default, and deep enough to sink the fingers past the
+# first pad. Openings are about 20 mm a finger, and each body is sized to
+# its opening and to screws either side of it (and a third centred below).
 PRESETS = {
     "Two-finger pocket": BASE,
     "Mono": replace(
         BASE,
         opening_width=24,
         opening_height=24,
-        pocket_depth=26,
+        pocket_depth=39,
         incut=12,
-        width=78,
-        height=78,
-        depth=28,
+        width=79,
+        height=79,
+        depth=42,
     ),
     "Three-finger pocket": replace(
         BASE,
         opening_width=61,
         opening_height=30,
-        pocket_depth=28,
+        pocket_depth=42,
         incut=14,
         width=124,
         height=102,
-        depth=32,
+        depth=48,
         screw_count=3,
     ),
     "Deep two-finger": replace(
-        BASE, pocket_depth=36, incut=10, width=104, height=104, depth=40
+        BASE, pocket_depth=54, incut=10, width=104, height=104, depth=60
     ),
     "Slopey pocket": replace(
         BASE,
         opening_height=30,
-        pocket_depth=20,
+        pocket_depth=30,
         incut=-6,
         lip_radius=10,
         crown=25,
         width=98,
         height=98,
-        depth=26,
+        depth=39,
     ),
     "Pocket rail": replace(
         BASE,
         roundness=25,
         width=115,
         height=81,
-        depth=28,
+        depth=42,
         opening_height=26,
-        pocket_depth=24,
+        pocket_depth=36,
         incut=12,
     ),
 }

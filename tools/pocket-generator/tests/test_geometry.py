@@ -334,12 +334,14 @@ class PocketTests(unittest.TestCase):
         self.assertEqual(model.adjusted, {})
         self.assertEqual(model.floor, 0)
         self.assertEqual(contours_at(model.mesh, 0.5), 2 + len(model.holes))
-        # The open pocket is as deep as the body, and both are shallow: the
-        # old closed default stood 50 mm off the wall around a 40 mm pocket
-        # and came to 218 cm3. A closed pocket starts shallow too.
-        self.assertLessEqual(BASE.depth, 32)
-        self.assertLessEqual(BASE.pocket_depth, 28)
-        self.assertLess(model.mesh.volume, 0.6 * 218_000)
+        # The open pocket is as deep as the body: 45 mm, past a finger pad.
+        # The first open default stood only 30 mm off the wall and was too
+        # shallow to use; the old closed default stood 50 mm off the wall
+        # around a 40 mm pocket and came to 218 cm3, which the open one,
+        # hollow to the wall, stays well under.
+        self.assertGreaterEqual(BASE.depth, 45)
+        self.assertGreaterEqual(BASE.pocket_depth, 42)
+        self.assertLess(model.mesh.volume, 218_000)
         for name, p in PRESETS.items():
             with self.subTest(name=name):
                 self.assertTrue(p.through)
