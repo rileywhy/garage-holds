@@ -326,7 +326,7 @@ class PocketTests(unittest.TestCase):
                     worst, limit, f"a {worst:.0f} degree bend in the lip band"
                 )
 
-    def test_default_opens_to_the_wall_with_far_less_material(self):
+    def test_default_opens_to_the_wall_two_pads_deep(self):
         # The default pocket runs all the way back: the wall is its back, so
         # the back face is a ring and nothing is left behind the pocket.
         self.assertTrue(BASE.through)
@@ -334,15 +334,23 @@ class PocketTests(unittest.TestCase):
         self.assertEqual(model.adjusted, {})
         self.assertEqual(model.floor, 0)
         self.assertEqual(contours_at(model.mesh, 0.5), 2 + len(model.holes))
-        # The open pocket is as deep as the body, and both are shallow: the
-        # old closed default stood 50 mm off the wall around a 40 mm pocket
-        # and came to 218 cm3. A closed pocket starts shallow too.
-        self.assertLessEqual(BASE.depth, 32)
-        self.assertLessEqual(BASE.pocket_depth, 28)
-        self.assertLess(model.mesh.volume, 0.6 * 218_000)
         for name, p in PRESETS.items():
             with self.subTest(name=name):
                 self.assertTrue(p.through)
+        # Open, the pocket is as deep as the face over the mouth stands off
+        # the wall. The first open default gave about 1.3 finger pads (20 mm
+        # each) there, too shallow to use; the standard pockets give about
+        # 2.3, while the deep and slopey presets go further and less far.
+        standard = ("Two-finger pocket", "Mono", "Three-finger pocket", "Pocket rail")
+        for name in standard:
+            with self.subTest(name=name):
+                p = PRESETS[name]
+                v = build(p).mesh.vertices
+                near = np.abs(v[:, 1]) < p.opening_height / 2 + 6
+                over = v[(np.abs(v[:, 0]) < 3) & near]
+                self.assertAlmostEqual(over[:, 2].max() / 20, 2.3, delta=0.1)
+        # Closed, the pocket depth is measured along the floor itself.
+        self.assertEqual(BASE.pocket_depth, 46)
 
     def test_open_section_is_the_drawn_c(self):
         # Riley's second drawing, the open default: the roof runs level from
