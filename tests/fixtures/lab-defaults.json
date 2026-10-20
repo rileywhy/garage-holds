@@ -136,22 +136,22 @@
     "stlSha256": "a673f903a863113f3f4af6f485ebecf2c2bfe19dd2f27fe300d87eb7aeefe830"
   },
   "pocket": {
-    "dimensions": [93.98, 93.98, 26.84],
-    "triangles": 6236,
+    "dimensions": [99.98, 99.98, 48.48],
+    "triangles": 6132,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
       "opening_width": 42,
       "opening_height": 28,
-      "pocket_depth": 28,
+      "pocket_depth": 46,
       "incut": 14,
       "lip_radius": 12,
       "through": true,
       "size": 100,
-      "width": 94,
-      "height": 94,
-      "depth": 30,
+      "width": 100,
+      "height": 100,
+      "depth": 53,
       "roundness": 100,
       "edge_rounding": 10,
       "crown": 15,
@@ -161,15 +161,15 @@
       "screws": true,
       "screw_count": 2,
       "auto_seat": true,
-      "seat_depth": 3.5,
+      "seat_depth": 8,
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "bolt_mount": false,
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 622984,
-    "stlSha256": "4f1aca7b687eced0fe6b185bf5139a14477efeb4b787985f97546232038de945"
+    "stlBytes": 622184,
+    "stlSha256": "c373cc63dfe35af0108e5c42154abe687300198de290283730705f255e2fefe5"
   },
   "pinch": {
     "dimensions": [53.38, 110, 50.47],
