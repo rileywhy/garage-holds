@@ -276,6 +276,11 @@ class PinchTests(unittest.TestCase):
         self.assertLess(b, a * 0.8)
         self.assertAlmostEqual(b_top, a_top, delta=0.5)
         self.assertGreater(width(waisted, outer)[0], b + 5)
+        # Each end is back to its full width where it starts to round off,
+        # so the rounding does not take the bulbs' volume.
+        core = p.height / 2 * (1 - p.end_rounding / 100)
+        start = ys[np.argmin(np.abs(ys - core))]
+        self.assertAlmostEqual(width(waisted, start)[0], width(straight, start)[0], delta=0.5)
         # The waist rule holds where the hourglass is narrowest.
         tight = replace(p, width=40, thumb_angle=-30, finger_angle=-30, swoop=0)
         model = build(tight)

@@ -78,8 +78,10 @@ def bow(s):
 
 def narrowing(p, u):
     """How much of the span the pinch keeps at u along its length, from
-    -1 at one end to 1 at the other: the hourglass narrows it most at the
-    middle and not at all at the ends, levelling out at both."""
+    -1 to 1 where its ends start to round off (see loft): the hourglass
+    narrows it most at the middle and not at all from there out, levelling
+    out at both, so each end keeps its full width before it rounds off."""
+    u = min(1.0, abs(u))
     return 1 - p.hourglass / 100 * math.cos(math.pi * u / 2) ** 2
 
 
@@ -338,9 +340,13 @@ def loft(p, quality):
     finger = off_wall & (index >= last)
     outlines = {(1.0, 1.0): contour}
 
+    # The hourglass is back to full width where the ends start to round,
+    # or halfway out along ends that round the whole way.
+    flare = max(core, length / 4)
+
     def ring(y, share):
         u = y / (length / 2)
-        key = (share, round(narrowing(p, u), 9))
+        key = (share, round(narrowing(p, y / flare), 9))
         if key not in outlines:
             outlines[key] = section(p, q["segments"], share, arcs, key[1])[0]
         outline = outlines[key]

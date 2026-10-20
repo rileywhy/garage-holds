@@ -173,7 +173,7 @@ CONTROLS = [
         "Hourglass",
         "Shape",
         0,
-        40,
+        60,
         1,
         "%",
         "Narrows the span toward the middle of the pinch's length, so it pinches in at the waist and flares out to each end. Zero keeps the span the same all the way up.",
@@ -276,10 +276,10 @@ PRESETS = {
     # at the waist.
     "Hour glass": replace(
         BASE,
-        width=64,
-        hourglass=30,
-        height=140,
-        end_rounding=50,
+        width=80,
+        hourglass=45,
+        height=150,
+        end_rounding=40,
     ),
     "Offset pinch": replace(
         BASE,
