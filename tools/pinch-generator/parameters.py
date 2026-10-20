@@ -25,6 +25,7 @@ class Parameters:
     height: float = 110
     end_rounding: float = 60
     hourglass: float = 0
+    taper: float = 0
     base_flare: float = 0
     character: float = 0
     seed: int = 0
@@ -179,6 +180,16 @@ CONTROLS = [
         "Narrows the span toward the middle of the pinch's length, so it pinches in at the waist and flares out to each end. Zero keeps the span the same all the way up.",
     ),
     control(
+        "taper",
+        "Taper",
+        "Shape",
+        0,
+        70,
+        1,
+        "%",
+        "Narrows the span steadily from the bottom end to the top one, for a triangular pinch. Zero keeps the span the same all the way up.",
+    ),
+    control(
         "base_flare",
         "Base flare",
         "Shape",
@@ -280,6 +291,16 @@ PRESETS = {
         hourglass=45,
         height=150,
         end_rounding=40,
+    ),
+    # Wide at the bottom and narrowing to the top, like a block of wood cut
+    # to a trapezoid: pinch it wide low down, narrow higher up.
+    "Triangle pinch": replace(
+        BASE,
+        width=80,
+        depth=48,
+        taper=45,
+        height=130,
+        end_rounding=30,
     ),
     "Offset pinch": replace(
         BASE,

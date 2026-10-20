@@ -57,6 +57,8 @@ FLARE_REACH = 0.4
 # this many millimetres.
 WAVE = 0.08
 WAVE_MAX = 4.0
+# The taper shrinks the depth by this share of how much it narrows the span.
+TAPER_DEPTH = 0.5
 # Hardware sits only where the section stands at least this share of its
 # full size, clear of the ends' slopes.
 HARDWARE_SHARE = 0.7
@@ -76,13 +78,36 @@ def bow(s):
     return 27 / 4 * s * (1 - s) ** 2
 
 
-def narrowing(p, u):
-    """How much of the span the pinch keeps at u along its length, from
-    -1 to 1 where its ends start to round off (see loft): the hourglass
-    narrows it most at the middle and not at all from there out, levelling
-    out at both, so each end keeps its full width before it rounds off."""
-    u = min(1.0, abs(u))
-    return 1 - p.hourglass / 100 * math.cos(math.pi * u / 2) ** 2
+def lengths(p):
+    """The pinch's length up the wall and the half of it its ends take to
+    round off, after overall scale."""
+    length = p.height * p.size / 100
+    return length, p.end_rounding / 100 * length / 2
+
+
+def lengthwise(p, y):
+    """The shares of its span and of its depth the pinch keeps at y up the
+    wall from its middle. The hourglass shrinks the section most at the
+    middle, so the ends stand out as bulbs from the front and the side,
+    and not at all from where the ends start to round off (or halfway
+    along ends that round the whole way), levelling out there so each
+    end keeps its full size. The taper shrinks it steadily from the
+    bottom end to the top one, the span fully and the depth by
+    TAPER_DEPTH of that, so the narrow end stays in proportion."""
+    length, end = lengths(p)
+    flare = max(length / 2 - end, length / 4)
+    u = min(1.0, abs(y) / flare)
+    waist = p.hourglass / 100 * math.cos(math.pi * u / 2) ** 2
+    taper = p.taper / 100 * (y / length + 0.5)
+    return (1 - waist) * (1 - taper), (1 - waist) * (1 - TAPER_DEPTH * taper)
+
+
+def stations(p):
+    """Where up the wall the pinch is checked for its waist and its edge
+    rounding: along the part that stands at full size, between its
+    rounded ends."""
+    length, end = lengths(p)
+    return np.linspace(-1, 1, 21) * (length / 2 - end)
 
 
 def _unit(v):
@@ -147,7 +172,7 @@ def rounded_outline(points, radii, arcs, segments):
     return np.asarray(contour)
 
 
-def section(p, segments=8, share=1.0, arcs=None, narrow=1.0):
+def section(p, segments=8, share=1.0, arcs=None, narrow=(1.0, 1.0)):
     """A section across the pinch, in (x, z) after overall scale: the
     outline, the indices where its top begins and ends (the tangent points
     of the two edge fillets), the middle of its back, and the largest edge
@@ -155,9 +180,11 @@ def section(p, segments=8, share=1.0, arcs=None, narrow=1.0):
     ends the section shrinks to a share of its size about the middle of
     the top at the wall; its edges keep their rounding where it fits, so
     the ends round off smoothly instead of drawing the edges to points.
-    The hourglass narrows the span alone, to the given share of it."""
+    The hourglass and taper narrow it further, to the given shares of its
+    span and depth."""
     scale = p.size / 100
-    span, depth = p.width * scale * share * narrow, p.depth * scale * share
+    span = p.width * scale * share * narrow[0]
+    depth = p.depth * scale * share * narrow[1]
     half = span / 2
     thumb = depth * (1 - p.offset / 100)
     thumb_angle, finger_angle = map(math.radians, (p.thumb_angle, p.finger_angle))
@@ -338,17 +365,14 @@ def loft(p, quality):
     off_wall = z > 1e-6
     thumb = off_wall & (index <= first)
     finger = off_wall & (index >= last)
-    outlines = {(1.0, 1.0): contour}
-
-    # The hourglass is back to full width where the ends start to round,
-    # or halfway out along ends that round the whole way.
-    flare = max(core, length / 4)
+    outlines = {(1.0, 1.0, 1.0): contour}
 
     def ring(y, share):
         u = y / (length / 2)
-        key = (share, round(narrowing(p, y / flare), 9))
+        narrow = tuple(round(n, 9) for n in lengthwise(p, y))
+        key = (share, *narrow)
         if key not in outlines:
-            outlines[key] = section(p, q["segments"], share, arcs, key[1])[0]
+            outlines[key] = section(p, q["segments"], share, arcs, narrow)[0]
         outline = outlines[key]
         shift = (1 + blend) / 2 * wave(1, u) - (1 - blend) / 2 * wave(0, u)
         return np.column_stack(
@@ -395,30 +419,42 @@ def loft(p, quality):
             "The pinch could not form a closed solid. Try less extreme shape settings."
         )
     centre = ring(0.0, 1.0)[:, [0, 2]]
-    if p.hourglass > 0:
-        # The waist is the narrowest section, with the least room to round.
-        cap = min(cap, section(p, q["segments"], 1.0, arcs, narrowing(p, 0))[3])
+    if p.hourglass > 0 or p.taper > 0:
+        # The narrowest sections have the least room to round.
+        cap = min(
+            [cap]
+            + [section(p, q["segments"], 1.0, arcs, lengthwise(p, y))[3] for y in stations(p)]
+        )
     widest = max((b - a for a, b in zip(left, right)), default=0.0)
     return solid, centre, np.array(region), widest, cap
+
+
+def neck(p, y):
+    """The width between the sides of the section at y up the pinch (see
+    lengthwise), from the wall up to its lower edge, and the least that
+    width must be: WAIST, or the section's own span when that is
+    narrower."""
+    scale = p.size / 100
+    narrow_span, narrow_depth = lengthwise(p, y)
+    span, depth = p.width * scale * narrow_span, p.depth * scale * narrow_depth
+    thumb = depth * (1 - p.offset / 100)
+    z = np.linspace(0, thumb, 61)
+    t, f = map(math.radians, (p.thumb_angle, p.finger_angle))
+    sag = p.swoop * scale
+    feet = (-span / 2 - thumb * math.tan(t), span / 2 + depth * math.tan(f))
+    left = feet[0] + (-span / 2 - feet[0]) * z / thumb + sag * bow(z / thumb)
+    right = feet[1] + (span / 2 - feet[1]) * z / depth - sag * bow(z / depth)
+    return right - left, min(WAIST, span)
 
 
 def fit_waist(requested):
     """Ease any swoop, then any undercut, until the pinch keeps WAIST
     between its sides (or its own span, when that is narrower) everywhere
-    below its edges, where the hourglass leaves it narrowest."""
+    below its edges, all along its length."""
     p = requested
-    scale = p.size / 100
-    span, depth = p.width * scale * narrowing(p, 0), p.depth * scale
-    thumb = depth * (1 - p.offset / 100)
-    least = min(WAIST, span)
-    z = np.linspace(0, thumb, 61)
     for _ in range(300):
-        t, f = map(math.radians, (p.thumb_angle, p.finger_angle))
-        sag = p.swoop * scale
-        feet = (-span / 2 - thumb * math.tan(t), span / 2 + depth * math.tan(f))
-        left = feet[0] + (-span / 2 - feet[0]) * z / thumb + sag * bow(z / thumb)
-        right = feet[1] + (span / 2 - feet[1]) * z / depth - sag * bow(z / depth)
-        between = right - left
+        necks = [neck(p, y) for y in stations(p)]
+        between, least = min(necks, key=lambda n: n[0].min() - n[1])
         if between.min() >= least - 1e-9:
             return p
         if p.swoop > 0:
@@ -449,12 +485,18 @@ def screw_targets(p, proxy, count):
     to the other. The outer two keep to the level part of the top, so each
     recess opens flat instead of out through an end's slope; with long
     rounded ends they spread down onto them, never closer in than 40% of
-    the way along the hardware region nor further out than 65%."""
+    the way along the hardware region nor further out than 65%. On an
+    hourglass they sit on the crowns of its bulbs instead, where it stops
+    swelling and its ends start to round, so the top is level there too."""
     lo, hi = np.array(proxy.bounding_box()).reshape(2, 3)
     x, y, half = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (hi[1] - lo[1]) / 2
-    length = p.height * p.size / 100
-    level = length / 2 * (1 - p.end_rounding / 100) - p.head_diameter / 2
-    reach = float(np.clip(level, half * 0.4, half * 0.65))
+    length, end = lengths(p)
+    if p.hourglass > 0:
+        crown = max(length / 2 - end, length / 4)
+        reach = float(np.clip(crown, half * 0.4, half - p.head_diameter / 2))
+    else:
+        level = length / 2 - end - p.head_diameter / 2
+        reach = float(np.clip(level, half * 0.4, half * 0.65))
     if count == 1:
         return [(x, y)]
     return [(x, y + t) for t in np.linspace(-reach, reach, count)]
@@ -555,12 +597,18 @@ def build(requested, quality="preview"):
         # size gives up a screw first, down to two.
         rows = sorted(h.y for h in holes if not h.bolt)
         crowded = any(b - a < p.head_diameter + 2.99 for a, b in zip(rows, rows[1:]))
-        if holes and (not crowded or grown == p):
+        # Even at the tallest, it gives up a screw before settling for a
+        # crowded layout, so a reopened design, already that tall, chooses
+        # the same count.
+        if holes and not crowded:
             p = replace(p, seat_depth=holes[0].seat)
             break
         if automatic and p.screw_count > 2:
             p = replace(p, screw_count=p.screw_count - 1)
             continue
+        if holes and grown == p:
+            p = replace(p, seat_depth=holes[0].seat)
+            break
         if grown == p:
             raise ValueError(
                 "Hardware could not fit this pinch, even at the tallest the sliders allow. Use fewer or smaller holes, widen the span, ease the undercut, or turn holes off."

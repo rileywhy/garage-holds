@@ -258,8 +258,9 @@ class PinchTests(unittest.TestCase):
             self.assertGreaterEqual(right - left, WAIST - 0.01)
 
     def test_hourglass_narrows_the_middle(self):
-        # The span narrows toward the middle of the length and flares back
-        # out to the ends; the depth stays the same all the way up.
+        # The section shrinks toward the middle of the length and swells
+        # back out to the ends, so they stand out as bulbs from the front
+        # and from the side.
         p = replace(BASE, hourglass=30, height=140, end_rounding=20, screws=False)
         straight = loft(replace(p, hourglass=0), "preview")[0].to_mesh()
         waisted = loft(p, "preview")[0].to_mesh()
@@ -274,7 +275,7 @@ class PinchTests(unittest.TestCase):
         outer = ys[np.argmin(np.abs(ys - 0.35 * p.height))]
         (a, a_top), (b, b_top) = width(straight, middle), width(waisted, middle)
         self.assertLess(b, a * 0.8)
-        self.assertAlmostEqual(b_top, a_top, delta=0.5)
+        self.assertLess(b_top, a_top - 0.2 * p.depth)
         self.assertGreater(width(waisted, outer)[0], b + 5)
         # Each end is back to its full width where it starts to round off,
         # so the rounding does not take the bulbs' volume.
@@ -286,9 +287,29 @@ class PinchTests(unittest.TestCase):
         model = build(tight)
         self.assertIn("thumb_angle", model.adjusted)
         outline = model.profile
-        for height in np.arange(0.5, model.parameters.depth - 12, 1):
+        for height in np.arange(0.5, outline[:, 1].max() - 15, 1):
             left, right = across(outline, height)
             self.assertGreaterEqual(right - left, WAIST - 0.01)
+
+    def test_taper_narrows_toward_the_top(self):
+        # The span narrows steadily from the bottom end to the top one, the
+        # depth by half as much, with no step where the ends start to round.
+        p = replace(BASE, taper=45, height=130, end_rounding=30, screws=False)
+        mesh = loft(p, "preview")[0].to_mesh()
+        v = mesh.vert_properties[:, :3]
+        core = p.height / 2 * (1 - p.end_rounding / 100)
+        ys = np.unique(np.round(v[:, 1], 6))
+        ys = ys[np.abs(ys) <= core + 1e-6]
+        rings = [v[np.abs(v[:, 1] - y) < 1e-6] for y in ys]
+        spans = np.array([np.ptp(r[:, 0]) for r in rings])
+        tops = np.array([r[:, 2].max() for r in rings])
+        self.assertTrue((np.diff(spans) < 0).all())
+        self.assertTrue((np.diff(tops) < 0).all())
+        # Evenly: no kink anywhere along the way.
+        steps = np.diff(spans) / np.diff(ys)
+        self.assertLess(np.ptp(steps), 0.1)
+        drop = p.width * 0.45 * (ys[-1] - ys[0]) / p.height
+        self.assertAlmostEqual(spans[0] - spans[-1], drop, delta=1.5)
 
     def test_undercut_keeps_a_waist(self):
         # Undercut both sides of a narrow, deep pinch as far as they go:
@@ -352,10 +373,17 @@ class PinchTests(unittest.TestCase):
         # The hardware keeps to the level part of the top, in one line up
         # the pinch, with a bolt's anti-rotation screw below it: no recess
         # opens out through the slope of an end, and none is pushed to the
-        # corner of one beside a side.
+        # corner of one beside a side. The triangle's whole top slopes
+        # gently with its taper, so its recesses open on that slope.
         cases = [
             (name, dict(auto_screw_count=False, screw_count=count))
-            for name in ("Block pinch", "Wide pinch", "Lip pinch", "Hour glass")
+            for name in (
+                "Block pinch",
+                "Wide pinch",
+                "Lip pinch",
+                "Hour glass",
+                "Triangle pinch",
+            )
             for count in (2, 3)
         ] + [
             ("Wide pinch", dict(bolt_mount=True)),
@@ -373,7 +401,8 @@ class PinchTests(unittest.TestCase):
                         max(crossings(solid, hole.x, hole.y + s * hole.head / 2))
                         for s in (-1, 1)
                     ]
-                    self.assertLess(abs(rims[0] - rims[1]), 0.5)
+                    slope = 1.5 if model.parameters.taper else 0.5
+                    self.assertLess(abs(rims[0] - rims[1]), slope)
                 bolts = [h for h in model.holes if h.bolt]
                 if bolts:
                     screw = next(h for h in model.holes if not h.bolt)
