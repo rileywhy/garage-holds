@@ -76,6 +76,13 @@ def bow(s):
     return 27 / 4 * s * (1 - s) ** 2
 
 
+def narrowing(p, u):
+    """How much of the span the pinch keeps at u along its length, from
+    -1 at one end to 1 at the other: the hourglass narrows it most at the
+    middle and not at all at the ends, levelling out at both."""
+    return 1 - p.hourglass / 100 * math.cos(math.pi * u / 2) ** 2
+
+
 def _unit(v):
     return v / np.linalg.norm(v)
 
@@ -138,16 +145,17 @@ def rounded_outline(points, radii, arcs, segments):
     return np.asarray(contour)
 
 
-def section(p, segments=8, share=1.0, arcs=None):
+def section(p, segments=8, share=1.0, arcs=None, narrow=1.0):
     """A section across the pinch, in (x, z) after overall scale: the
     outline, the indices where its top begins and ends (the tangent points
     of the two edge fillets), the middle of its back, and the largest edge
     rounding the sides and top have room for, before scale. Toward the
     ends the section shrinks to a share of its size about the middle of
     the top at the wall; its edges keep their rounding where it fits, so
-    the ends round off smoothly instead of drawing the edges to points."""
+    the ends round off smoothly instead of drawing the edges to points.
+    The hourglass narrows the span alone, to the given share of it."""
     scale = p.size / 100
-    span, depth = p.width * scale * share, p.depth * scale * share
+    span, depth = p.width * scale * share * narrow, p.depth * scale * share
     half = span / 2
     thumb = depth * (1 - p.offset / 100)
     thumb_angle, finger_angle = map(math.radians, (p.thumb_angle, p.finger_angle))
@@ -328,13 +336,14 @@ def loft(p, quality):
     off_wall = z > 1e-6
     thumb = off_wall & (index <= first)
     finger = off_wall & (index >= last)
-    outlines = {1.0: contour}
+    outlines = {(1.0, 1.0): contour}
 
     def ring(y, share):
-        if share not in outlines:
-            outlines[share] = section(p, q["segments"], share, arcs)[0]
-        outline = outlines[share]
         u = y / (length / 2)
+        key = (share, round(narrowing(p, u), 9))
+        if key not in outlines:
+            outlines[key] = section(p, q["segments"], share, arcs, key[1])[0]
+        outline = outlines[key]
         shift = (1 + blend) / 2 * wave(1, u) - (1 - blend) / 2 * wave(0, u)
         return np.column_stack(
             (
@@ -380,6 +389,9 @@ def loft(p, quality):
             "The pinch could not form a closed solid. Try less extreme shape settings."
         )
     centre = ring(0.0, 1.0)[:, [0, 2]]
+    if p.hourglass > 0:
+        # The waist is the narrowest section, with the least room to round.
+        cap = min(cap, section(p, q["segments"], 1.0, arcs, narrowing(p, 0))[3])
     widest = max((b - a for a, b in zip(left, right)), default=0.0)
     return solid, centre, np.array(region), widest, cap
 
@@ -387,10 +399,10 @@ def loft(p, quality):
 def fit_waist(requested):
     """Ease any swoop, then any undercut, until the pinch keeps WAIST
     between its sides (or its own span, when that is narrower) everywhere
-    below its edges."""
+    below its edges, where the hourglass leaves it narrowest."""
     p = requested
     scale = p.size / 100
-    span, depth = p.width * scale, p.depth * scale
+    span, depth = p.width * scale * narrowing(p, 0), p.depth * scale
     thumb = depth * (1 - p.offset / 100)
     least = min(WAIST, span)
     z = np.linspace(0, thumb, 61)

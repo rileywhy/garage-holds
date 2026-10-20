@@ -24,6 +24,7 @@ class Parameters:
     size: float = 100
     height: float = 110
     end_rounding: float = 60
+    hourglass: float = 0
     base_flare: float = 0
     character: float = 0
     seed: int = 0
@@ -168,6 +169,16 @@ CONTROLS = [
         "How much of each end rounds off toward the wall: squarer ends at 20, a full oval at 100.",
     ),
     control(
+        "hourglass",
+        "Hourglass",
+        "Shape",
+        0,
+        40,
+        1,
+        "%",
+        "Narrows the span toward the middle of the pinch's length, so it pinches in at the waist and flares out to each end. Zero keeps the span the same all the way up.",
+    ),
+    control(
         "base_flare",
         "Base flare",
         "Shape",
@@ -228,17 +239,6 @@ BASE = Parameters()
 # Each preset fits as written: nothing has to grow or give.
 PRESETS = {
     "Block pinch": BASE,
-    "Narrow pinch": replace(
-        BASE,
-        width=38,
-        depth=30,
-        thumb_angle=-20,
-        finger_angle=-20,
-        edge_radius=10,
-        swoop=2,
-        top_rise=4.5,
-        height=99,
-    ),
     "Wide pinch": replace(
         BASE,
         width=83,
@@ -248,15 +248,6 @@ PRESETS = {
         edge_radius=14.5,
         top_rise=9,
         height=121,
-    ),
-    "Wedge": replace(
-        BASE,
-        shape="flat",
-        width=44,
-        depth=48,
-        thumb_angle=5,
-        finger_angle=5,
-        edge_radius=10,
     ),
     "Lip pinch": replace(
         BASE,
@@ -280,6 +271,16 @@ PRESETS = {
         top_rise=12,
         end_rounding=100,
     ),
+    # Pinched in at the middle and flaring to each end, so it pinches the
+    # same up and down its length: grab it wide at either end, or narrow
+    # at the waist.
+    "Hour glass": replace(
+        BASE,
+        width=64,
+        hourglass=30,
+        height=140,
+        end_rounding=50,
+    ),
     "Offset pinch": replace(
         BASE,
         shape="flat",
@@ -289,18 +290,6 @@ PRESETS = {
         finger_angle=-25,
         offset=40,
         edge_radius=10,
-    ),
-    "Ridged fin": replace(
-        BASE,
-        shape="ridged",
-        width=42,
-        depth=44,
-        thumb_angle=-10,
-        finger_angle=-10,
-        edge_radius=9,
-        top_rise=13,
-        height=132,
-        end_rounding=45,
     ),
 }
 

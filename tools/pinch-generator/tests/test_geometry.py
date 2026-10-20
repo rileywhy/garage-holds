@@ -63,6 +63,20 @@ UNDERCUT = [
 ]
 
 
+# A tall, narrow pinch with a ridged top.
+RIDGED = replace(
+    BASE,
+    shape="ridged",
+    width=42,
+    thumb_angle=-10,
+    finger_angle=-10,
+    edge_radius=9,
+    top_rise=13,
+    height=132,
+    end_rounding=45,
+)
+
+
 def random_settings(rng):
     """One setting per control, on its step, anywhere in its range."""
     values = {}
@@ -225,13 +239,49 @@ class PinchTests(unittest.TestCase):
     def test_swoop_eases_before_the_undercut(self):
         # Too much swoop for a narrow pinch: the swoop gives way first and
         # the sides keep their angles, and the neck stays WAIST wide.
-        p = replace(PRESETS["Narrow pinch"], swoop=10, screws=False)
+        p = replace(
+            BASE,
+            width=38,
+            depth=30,
+            thumb_angle=-20,
+            finger_angle=-20,
+            swoop=10,
+            screws=False,
+        )
         model = build(p)
         self.assertEqual(set(model.adjusted), {"swoop"})
         b = model.parameters
         self.assertLess(b.swoop, 10)
         outline = section(b, 16)[0]
         for height in np.arange(0.5, b.depth - b.edge_radius, 1):
+            left, right = across(outline, height)
+            self.assertGreaterEqual(right - left, WAIST - 0.01)
+
+    def test_hourglass_narrows_the_middle(self):
+        # The span narrows toward the middle of the length and flares back
+        # out to the ends; the depth stays the same all the way up.
+        p = replace(BASE, hourglass=30, height=140, end_rounding=20, screws=False)
+        straight = loft(replace(p, hourglass=0), "preview")[0].to_mesh()
+        waisted = loft(p, "preview")[0].to_mesh()
+
+        def width(mesh, y):
+            v = mesh.vert_properties[:, :3]
+            ring = v[np.abs(v[:, 1] - y) < 1e-6]
+            return np.ptp(ring[:, 0]), ring[:, 2].max()
+
+        ys = np.unique(np.round(waisted.vert_properties[:, 1], 6))
+        middle = ys[np.argmin(np.abs(ys))]
+        outer = ys[np.argmin(np.abs(ys - 0.35 * p.height))]
+        (a, a_top), (b, b_top) = width(straight, middle), width(waisted, middle)
+        self.assertLess(b, a * 0.8)
+        self.assertAlmostEqual(b_top, a_top, delta=0.5)
+        self.assertGreater(width(waisted, outer)[0], b + 5)
+        # The waist rule holds where the hourglass is narrowest.
+        tight = replace(p, width=40, thumb_angle=-30, finger_angle=-30, swoop=0)
+        model = build(tight)
+        self.assertIn("thumb_angle", model.adjusted)
+        outline = model.profile
+        for height in np.arange(0.5, model.parameters.depth - 12, 1):
             left, right = across(outline, height)
             self.assertGreaterEqual(right - left, WAIST - 0.01)
 
@@ -300,7 +350,7 @@ class PinchTests(unittest.TestCase):
         # corner of one beside a side.
         cases = [
             (name, dict(auto_screw_count=False, screw_count=count))
-            for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin")
+            for name in ("Block pinch", "Wide pinch", "Lip pinch", "Hour glass")
             for count in (2, 3)
         ] + [
             ("Wide pinch", dict(bolt_mount=True)),
@@ -364,10 +414,10 @@ class PinchTests(unittest.TestCase):
         # crease angle, so they shade smooth.
         for p, most in (
             (replace(BASE, swoop=0), 15),
-            (replace(PRESETS["Ridged fin"], swoop=0), 15),
+            (replace(RIDGED, swoop=0), 15),
             (replace(BASE, character=1, seed=9, swoop=0), 15),
             (BASE, 20),
-            (PRESETS["Ridged fin"], 20),
+            (RIDGED, 20),
             (replace(BASE, character=1, seed=9), 20),
         ):
             with self.subTest(shape=p.shape, character=p.character, swoop=p.swoop):
