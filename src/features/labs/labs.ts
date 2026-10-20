@@ -2,7 +2,14 @@
 // by LabSlug, like the carousel's artwork framing, then needs its entry
 // before the type checker is satisfied.
 export type LabSlug =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "crack"
+  | "custom-shape";
 
 export interface LabInfo {
   slug: LabSlug;
@@ -75,6 +82,16 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/pinch.webp",
     description:
       "A block to squeeze between thumb and fingers. Set the span, lean or undercut each side, offset the top, then export an STL.",
+    status: "experimental",
+  },
+  {
+    slug: "crack",
+    name: "Crack Lab",
+    short: "crack",
+    href: "/make/crack",
+    image: "/images/hold-labs/crack.webp",
+    description:
+      "A crack to jam fingers, hands or fists in. Set its width and depth, flare it or add a constriction for locks, then export an STL.",
     status: "experimental",
   },
   {

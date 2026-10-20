@@ -1,7 +1,7 @@
 # Local Windows sandbox
 
 A checkout of this repository on a Windows machine, with the app and the
-six hold-lab generators running on loopback addresses and no production
+seven hold-lab generators running on loopback addresses and no production
 credentials anywhere near it.
 
 ## Start and stop
@@ -12,7 +12,7 @@ From PowerShell in the repository:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sandbox.ps1
 ```
 
-Open http://127.0.0.1:3000. The command starts the six Python API services
+Open http://127.0.0.1:3000. The command starts the seven Python API services
 and the Next.js development server. Source edits reload automatically.
 Press Ctrl+C in that terminal to stop; the script cleans up its Python processes.
 Stop the existing sandbox before starting another copy.
@@ -29,6 +29,7 @@ lines at the end of `.env.example` are these):
 | Foot API   | http://127.0.0.1:8785/api/foot   |
 | Pocket API | http://127.0.0.1:8795/api/pocket |
 | Pinch API  | http://127.0.0.1:8796/api/pinch  |
+| Crack API  | http://127.0.0.1:8797/api/crack  |
 
 The Custom Shape Lab's generator is a Next.js route (`/api/custom-shape`)
 that runs the Python in `tools/custom-shape-generator`; its own GUI starts
@@ -45,7 +46,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r tools/crimp-generator/requirements.txt
 ```
 
-All six hold generators share the same pinned Python dependencies.
+All seven hold generators share the same pinned Python dependencies.
 
 ## What you can test
 
@@ -85,7 +86,7 @@ Passed on initial setup:
 - `npm run format:check`, `npm run lint`, `npm run typecheck`.
 - `npm test`: 59 tests.
 - `npm run build`.
-- `npm run test:e2e`: each parametric lab's default output (preview, slider settings, link, STL) against `tests/fixtures/lab-defaults.json`; needs the six generators up.
+- `npm run test:e2e`: each parametric lab's default output (preview, slider settings, link, STL) against `tests/fixtures/lab-defaults.json`; needs the seven generators up.
 - Python unittest discovery: crimp 29, sloper 21, jug 18 tests.
 - HTTP 200 responses for `/`, all three lab pages, `/sign-in`, `/upload`, and
   all three API schemas; all three default geometry preview POSTs succeeded.
@@ -107,4 +108,5 @@ Run the Python checks with:
 .\.venv\Scripts\python.exe -m unittest discover -s tools/foot-generator/tests
 .\.venv\Scripts\python.exe -m unittest discover -s tools/pocket-generator/tests
 .\.venv\Scripts\python.exe -m unittest discover -s tools/pinch-generator/tests
+.\.venv\Scripts\python.exe -m unittest discover -s tools/crack-generator/tests
 ```

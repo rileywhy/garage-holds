@@ -159,3 +159,14 @@ test("pocket presets name themselves by opening and depth, or open to the wall",
     "26 mm opening · open to the wall",
   );
 });
+
+test("crack presets name themselves by width and depth, or as one side", () => {
+  assert.equal(
+    defaultPresetName("crack", { shape: "block", width: 22, depth: 50 }),
+    "22 mm crack · 50 mm deep",
+  );
+  assert.equal(
+    defaultPresetName("crack", { shape: "half", width: 60, depth: 100 }),
+    "One side · 100 mm deep",
+  );
+});

@@ -3,8 +3,9 @@ import type { Kind, Parameters, Preview } from "./api";
 // The centre cross-section with the wall on the left, as a plain SVG. The
 // crimp's drawing marks the edge depth between the grip points its
 // generator reports; the others show the body with a caption. The pinch's
-// section runs across the hold, so its two gripping sides are the top and
-// bottom of the drawing.
+// and the crack's sections run across the hold, so the pinch's two
+// gripping sides, and the crack's two faces, are the top and bottom of the
+// drawing.
 export function Profile({
   data,
   kind,
@@ -28,6 +29,7 @@ const NOUNS: Record<Kind, string> = {
   foot: "foothold",
   pocket: "pocket hold",
   pinch: "pinch",
+  crack: "crack",
 };
 
 function outline(
@@ -142,6 +144,14 @@ function caption(kind: Kind, p: Parameters) {
     } · ${p.incut} mm incut`;
   if (kind === "pinch")
     return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
+  if (kind === "crack") {
+    const flare = Number(p.flare);
+    return `${p.shape === "half" ? "One side" : `${p.width} mm crack`} · ${p.depth} mm deep · ${
+      flare === 0
+        ? "parallel"
+        : `flared ${flare > 0 ? "out" : "in"} ${Math.abs(flare)}°`
+    }`;
+  }
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
 }
 

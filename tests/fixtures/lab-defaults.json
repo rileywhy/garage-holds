@@ -208,5 +208,38 @@
     },
     "stlBytes": 1671884,
     "stlSha256": "36cc0ca4692481935a5d6a71dfb112b7ad6c55760525c04146a48783c8d75b43"
+  },
+  "crack": {
+    "dimensions": [72, 160, 60],
+    "triangles": 14638,
+    "screws": 4,
+    "status": "Preview is current. Export builds a finer version of this shape.",
+    "search": "",
+    "sliders": {
+      "width": 22,
+      "depth": 50,
+      "flare": 0,
+      "constriction": 0,
+      "constriction_height": 40,
+      "edge_radius": 4,
+      "shape": "block",
+      "length": 160,
+      "side": 25,
+      "back": 10,
+      "character": 0,
+      "seed": 0,
+      "auto_screw_count": true,
+      "screws": true,
+      "screw_count": 2,
+      "auto_seat": true,
+      "seat_depth": 18,
+      "shank_diameter": 5.5,
+      "head_diameter": 11,
+      "bolt_mount": false,
+      "bolt_diameter": 10.5,
+      "bolt_head_diameter": 20
+    },
+    "stlBytes": 3039984,
+    "stlSha256": "791e9e143a503e41bf75be1cfe86bf814d70761b07876a6451bec25cb9060519"
   }
 }

@@ -33,6 +33,7 @@ jobs:
           - foot-generator
           - pocket-generator
           - pinch-generator
+          - crack-generator
           - mesh-preview
     env:
       HOLD_TESTS_DEEP: "1"

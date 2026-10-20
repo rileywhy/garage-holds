@@ -293,3 +293,46 @@ test("pinch: its own colour, every view, and no pocket floor", () => {
     rows.some((r) => r.label === "Seat above wall" && r.value === "8 mm"),
   );
 });
+
+test("crack: its own colour, every view, and the seat it built with", () => {
+  const others = (["jug", "foot", "pocket", "pinch"] as const).map(
+    (kind) => LAB_KINDS[kind].color,
+  );
+  assert.ok(LAB_KINDS.crack.color);
+  assert.ok(!others.includes(LAB_KINDS.crack.color));
+  assert.equal(LAB_KINDS.crack.views.length, 6);
+  assert.equal(LAB_KINDS.crack.clampTyped, false);
+  const rows = modelMetrics(
+    "crack",
+    preview({ parameters: { seat_depth: 18 } }),
+  );
+  assert.ok(!rows.some((r) => r.label === "Pocket floor"));
+  assert.ok(
+    rows.some((r) => r.label === "Seat above wall" && r.value === "18 mm"),
+  );
+});
+
+test("crack: an eased flare is reported and the sliders follow it", () => {
+  const outcome = followPreview(
+    "crack",
+    { width: 15, depth: 60, flare: 20 },
+    preview({
+      parameters: { width: 15, depth: 60, flare: 12 },
+      adjusted: { flare: 12 },
+    }),
+    [
+      {
+        key: "flare",
+        label: "Flare",
+        group: "Grip",
+        min: -15,
+        max: 20,
+        step: 0.5,
+        unit: "°",
+        help: "",
+      },
+    ],
+  );
+  assert.equal(outcome.parameters.flare, 12);
+  assert.match(outcome.text, /Flare 12°/);
+});
