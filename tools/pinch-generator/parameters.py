@@ -13,10 +13,10 @@ class Parameters:
     # side stands than the finger side.
     width: float = 55
     depth: float = 44
-    thumb_angle: float = -7
-    finger_angle: float = -7
+    thumb_angle: float = -15
+    finger_angle: float = -15
     offset: float = 0
-    edge_radius: float = 9
+    edge_radius: float = 12.5
     # The body, before overall scale.
     shape: str = "domed"
     top_rise: float = 6.5
@@ -32,7 +32,7 @@ class Parameters:
     screws: bool = True
     screw_count: int = 2
     auto_seat: bool = True
-    seat_depth: float = 3
+    seat_depth: float = 16
     shank_diameter: float = hardware.SHANK_DIAMETER
     head_diameter: float = hardware.HEAD_DIAMETER
     bolt_mount: bool = False
@@ -79,7 +79,7 @@ CONTROLS = [
         "thumb_angle",
         "Thumb side angle",
         "Grip",
-        -30,
+        -40,
         40,
         1,
         "°",
@@ -89,7 +89,7 @@ CONTROLS = [
         "finger_angle",
         "Finger side angle",
         "Grip",
-        -30,
+        -40,
         40,
         1,
         "°",
@@ -191,10 +191,10 @@ CONTROLS = [
         "Screw seat",
         "Mounting",
         2,
-        12,
+        30,
         0.5,
         "mm",
-        "Material beneath the screw head. Automatically reduced to fit when necessary.",
+        "Material beneath the screw head. Automatic follows the depth; reduced to fit when necessary.",
     ),
     *hardware.SCREW_CONTROLS,
     *hardware.BOLT_CONTROLS,
@@ -204,6 +204,12 @@ CONTROLS = [
 # overall scale, and one more for every 30 mm past that, up to six.
 SCREW_SPAN = 60
 SCREW_STEP = 30
+# The automatic seat stands this share of the depth off the wall, after
+# overall scale, as the Crimp and Sloper Labs seat theirs: a thick floor
+# under each screw head and a short recess above it. 16 mm on the block
+# pinch, and never more than SEAT_MAX.
+SEAT_SHARE = 0.36
+SEAT_MAX = 20
 
 SHAPES = {"flat": "Flat top", "domed": "Domed top", "ridged": "Ridged top"}
 
@@ -213,11 +219,11 @@ PRESETS = {
     "Block pinch": BASE,
     "Narrow pinch": replace(
         BASE,
-        width=35,
-        depth=37,
-        thumb_angle=-12,
-        finger_angle=-12,
-        edge_radius=6.5,
+        width=38,
+        depth=30,
+        thumb_angle=-20,
+        finger_angle=-20,
+        edge_radius=10,
         top_rise=4.5,
         height=99,
     ),
@@ -225,9 +231,9 @@ PRESETS = {
         BASE,
         width=83,
         depth=46,
-        thumb_angle=-4,
-        finger_angle=-4,
-        edge_radius=11,
+        thumb_angle=-12,
+        finger_angle=-12,
+        edge_radius=14.5,
         top_rise=9,
         height=121,
     ),
@@ -236,37 +242,37 @@ PRESETS = {
         shape="flat",
         width=44,
         depth=48,
-        thumb_angle=13,
-        finger_angle=13,
-        edge_radius=6.5,
+        thumb_angle=5,
+        finger_angle=5,
+        edge_radius=10,
     ),
     "Lip pinch": replace(
         BASE,
         shape="flat",
-        width=62,
+        width=67,
         depth=40,
-        thumb_angle=-24,
-        finger_angle=-24,
-        edge_radius=5.5,
+        thumb_angle=-32,
+        finger_angle=-32,
+        edge_radius=9,
     ),
     "Offset pinch": replace(
         BASE,
         shape="flat",
         width=53,
         depth=51,
-        thumb_angle=3,
-        finger_angle=-17,
+        thumb_angle=-5,
+        finger_angle=-25,
         offset=40,
-        edge_radius=7.5,
+        edge_radius=10,
     ),
     "Ridged fin": replace(
         BASE,
         shape="ridged",
         width=42,
         depth=44,
-        thumb_angle=-2,
-        finger_angle=-2,
-        edge_radius=5.5,
+        thumb_angle=-10,
+        finger_angle=-10,
+        edge_radius=9,
         top_rise=13,
         height=132,
         end_rounding=45,

@@ -23,10 +23,24 @@ import trimesh
 
 if __package__:
     from .crimp_engine import geometry as crimp
-    from .parameters import CONTROLS, SCREW_SPAN, SCREW_STEP, parse_parameters
+    from .parameters import (
+        CONTROLS,
+        SCREW_SPAN,
+        SCREW_STEP,
+        SEAT_MAX,
+        SEAT_SHARE,
+        parse_parameters,
+    )
 else:
     from crimp_engine import geometry as crimp
-    from parameters import CONTROLS, SCREW_SPAN, SCREW_STEP, parse_parameters
+    from parameters import (
+        CONTROLS,
+        SCREW_SPAN,
+        SCREW_STEP,
+        SEAT_MAX,
+        SEAT_SHARE,
+        parse_parameters,
+    )
 
 from tools.hold_mounting import closed_mesh, drill, fit_bolt_and_screw, screw_layout
 
@@ -266,9 +280,12 @@ def loft(p, quality):
     # Each end rounds off as a quarter ellipse, sampled at even steps of its
     # slope rather than of its angle: a deep pinch with short ends turns
     # fastest where the end leaves the body, and even angle steps bent the
-    # surface there past the viewer's smooth shading.
+    # surface there past the viewer's smooth shading. One more section sits
+    # halfway into the last step, where an undercut side meets the tip of
+    # the end at a grazing angle and bent the last facets past it too.
     stand = max(p.depth, p.width / 2) * scale
     slope = np.linspace(0, math.pi / 2, q["cap"] + 2)[1:-1]
+    slope = np.append(slope, (slope[-1] + math.pi / 2) / 2)
     theta = np.arctan(np.tan(slope) * end / stand) if end > 0 else slope
     steps = max(1, round(q["along"] * core / (length / 2)))
     ys = np.concatenate(
@@ -468,7 +485,11 @@ def build(requested, quality="preview"):
                 f"The {'bolt recess does' if p.bolt_mount else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the edge rounding, ease the undercut, or turn holes off."
             )
         depth = p.depth * p.size / 100
-        target = min(8, depth * 0.25) if p.auto_seat else p.seat_depth
+        target = (
+            min(SEAT_MAX, round(SEAT_SHARE * depth * 2) / 2)
+            if p.auto_seat
+            else p.seat_depth
+        )
         proxy = mounting_proxy(solid, region)
         # The bolt's anti-rotation screw sits in line below it, where the
         # lower of two screws would.

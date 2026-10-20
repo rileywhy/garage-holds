@@ -17,6 +17,8 @@ from parameters import (
     PRESETS,
     SCREW_SPAN,
     SCREW_STEP,
+    SEAT_MAX,
+    SEAT_SHARE,
     SHAPES,
     design_document,
     parse_parameters,
@@ -173,7 +175,12 @@ class PinchTests(unittest.TestCase):
         for offset in (0, 40):
             with self.subTest(offset=offset):
                 p = replace(
-                    BASE, shape="flat", offset=offset, thumb_angle=0, finger_angle=0
+                    BASE,
+                    shape="flat",
+                    offset=offset,
+                    thumb_angle=0,
+                    finger_angle=0,
+                    edge_radius=9,
                 )
                 outline = section(p, 16)[0]
                 x, z = outline[:, 0], outline[:, 1]
@@ -228,7 +235,7 @@ class PinchTests(unittest.TestCase):
         self.assertEqual(short.parameters.screw_count, 2)
         self.assertEqual(short.parameters.height, 60)
         # The bolt is there when it is asked for.
-        bolted = build(replace(BASE, width=40, bolt_mount=True))
+        bolted = build(replace(BASE, bolt_mount=True))
         self.assertEqual(sum(h.bolt for h in bolted.holes), 1)
 
     def test_screws_run_up_the_middle(self):
@@ -255,7 +262,12 @@ class PinchTests(unittest.TestCase):
             (name, dict(auto_screw_count=False, screw_count=count))
             for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin")
             for count in (2, 3)
-        ] + [(name, dict(bolt_mount=True)) for name in ("Wide pinch", "Lip pinch")]
+        ] + [
+            ("Wide pinch", dict(bolt_mount=True)),
+            # The lip pinch's neck is too narrow for a bolt head until it
+            # is widened.
+            ("Lip pinch", dict(bolt_mount=True, width=80)),
+        ]
         for name, change in cases:
             with self.subTest(name=name, **change):
                 model = build(replace(PRESETS[name], **change))
@@ -414,6 +426,16 @@ class PinchTests(unittest.TestCase):
             self.assertTrue(model.mesh.is_watertight)
             self.assertEqual(model.holes, [])
 
+    def test_automatic_seat_follows_the_depth(self):
+        # Each screw head sits SEAT_SHARE of the depth off the wall, with a
+        # thick floor of plastic under it: 16 mm on the block pinch, where
+        # it once sat 8 mm up.
+        self.assertEqual({h.seat for h in build(BASE).holes}, {16})
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                seat = min(SEAT_MAX, round(SEAT_SHARE * p.depth * p.size / 100 * 2) / 2)
+                self.assertEqual({h.seat for h in build(p).holes}, {seat})
+
     def test_manual_seat_is_used_when_it_fits(self):
         model = build(replace(BASE, auto_seat=False, seat_depth=5))
         self.assertEqual(model.holes[0].seat, 5)
@@ -425,7 +447,12 @@ class PinchTests(unittest.TestCase):
         p = replace(BASE, depth=20, offset=60, edge_radius=20)
         preview = build(p).preview()
         self.assertLess(preview["control_limits"]["edge_radius"], 20)
-        self.assertEqual(build(BASE).preview()["control_limits"], {})
+        self.assertEqual(build(PRESETS["Wide pinch"]).preview()["control_limits"], {})
+        # Every preset's rounding is built as written.
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                limits = build(p).preview()["control_limits"]
+                self.assertGreaterEqual(limits.get("edge_radius", 20), p.edge_radius)
 
     def test_validation(self):
         for values in (
