@@ -17,6 +17,8 @@ from parameters import (
     PRESETS,
     SCREW_SPAN,
     SCREW_STEP,
+    SEAT_MAX,
+    SEAT_SHARE,
     SHAPES,
     design_document,
     parse_parameters,
@@ -59,6 +61,20 @@ UNDERCUT = [
         seed=4,
     ),
 ]
+
+
+# A tall, narrow pinch with a ridged top.
+RIDGED = replace(
+    BASE,
+    shape="ridged",
+    width=42,
+    thumb_angle=-10,
+    finger_angle=-10,
+    edge_radius=9,
+    top_rise=13,
+    height=132,
+    end_rounding=45,
+)
 
 
 def random_settings(rng):
@@ -141,7 +157,12 @@ class PinchTests(unittest.TestCase):
         for thumb, finger in ((0, 0), (25, -10), (-15, 35)):
             with self.subTest(thumb=thumb, finger=finger):
                 p = replace(
-                    BASE, shape="flat", thumb_angle=thumb, finger_angle=finger, depth=60
+                    BASE,
+                    shape="flat",
+                    thumb_angle=thumb,
+                    finger_angle=finger,
+                    depth=60,
+                    swoop=0,
                 )
                 outline = section(p, 16)[0]
                 self.assertAlmostEqual(
@@ -173,7 +194,12 @@ class PinchTests(unittest.TestCase):
         for offset in (0, 40):
             with self.subTest(offset=offset):
                 p = replace(
-                    BASE, shape="flat", offset=offset, thumb_angle=0, finger_angle=0
+                    BASE,
+                    shape="flat",
+                    offset=offset,
+                    thumb_angle=0,
+                    finger_angle=0,
+                    edge_radius=9,
                 )
                 outline = section(p, 16)[0]
                 x, z = outline[:, 0], outline[:, 1]
@@ -187,6 +213,103 @@ class PinchTests(unittest.TestCase):
                 self.assertAlmostEqual(
                     middle + slope * p.width / 2, p.depth, delta=0.01
                 )
+
+    def test_swoop_bows_the_sides_in(self):
+        # Each side bows in by the swoop a third of the way up its edge's
+        # height, and keeps its foot on the wall and its edge where they
+        # were: the side curves in under the edge instead of running
+        # straight to the wall.
+        p = replace(BASE, shape="flat", offset=30)
+        straight = section(replace(p, swoop=0), 16)[0]
+        bowed = section(p, 16)[0]
+        thumb = p.depth * (1 - p.offset / 100)
+        for z, (thumb_in, finger_in) in (
+            (0.01, (0, 0)),
+            (thumb / 3, (p.swoop, None)),
+            (p.depth / 3, (None, p.swoop)),
+        ):
+            (a, b), (c, d) = across(straight, z), across(bowed, z)
+            if thumb_in is not None:
+                self.assertAlmostEqual(c - a, thumb_in, delta=0.2)
+            if finger_in is not None:
+                self.assertAlmostEqual(b - d, finger_in, delta=0.2)
+        top = straight[:, 1] > p.depth - 0.5
+        np.testing.assert_allclose(bowed[top], straight[top], atol=1e-6)
+
+    def test_swoop_eases_before_the_undercut(self):
+        # Too much swoop for a narrow pinch: the swoop gives way first and
+        # the sides keep their angles, and the neck stays WAIST wide.
+        p = replace(
+            BASE,
+            width=38,
+            depth=30,
+            thumb_angle=-20,
+            finger_angle=-20,
+            swoop=10,
+            screws=False,
+        )
+        model = build(p)
+        self.assertEqual(set(model.adjusted), {"swoop"})
+        b = model.parameters
+        self.assertLess(b.swoop, 10)
+        outline = section(b, 16)[0]
+        for height in np.arange(0.5, b.depth - b.edge_radius, 1):
+            left, right = across(outline, height)
+            self.assertGreaterEqual(right - left, WAIST - 0.01)
+
+    def test_hourglass_narrows_the_middle(self):
+        # The section shrinks toward the middle of the length and swells
+        # back out to the ends, so they stand out as bulbs from the front
+        # and from the side.
+        p = replace(BASE, hourglass=30, height=140, end_rounding=20, screws=False)
+        straight = loft(replace(p, hourglass=0), "preview")[0].to_mesh()
+        waisted = loft(p, "preview")[0].to_mesh()
+
+        def width(mesh, y):
+            v = mesh.vert_properties[:, :3]
+            ring = v[np.abs(v[:, 1] - y) < 1e-6]
+            return np.ptp(ring[:, 0]), ring[:, 2].max()
+
+        ys = np.unique(np.round(waisted.vert_properties[:, 1], 6))
+        middle = ys[np.argmin(np.abs(ys))]
+        outer = ys[np.argmin(np.abs(ys - 0.35 * p.height))]
+        (a, a_top), (b, b_top) = width(straight, middle), width(waisted, middle)
+        self.assertLess(b, a * 0.8)
+        self.assertLess(b_top, a_top - 0.2 * p.depth)
+        self.assertGreater(width(waisted, outer)[0], b + 5)
+        # Each end is back to its full width where it starts to round off,
+        # so the rounding does not take the bulbs' volume.
+        core = p.height / 2 * (1 - p.end_rounding / 100)
+        start = ys[np.argmin(np.abs(ys - core))]
+        self.assertAlmostEqual(width(waisted, start)[0], width(straight, start)[0], delta=0.5)
+        # The waist rule holds where the hourglass is narrowest.
+        tight = replace(p, width=40, thumb_angle=-30, finger_angle=-30, swoop=0)
+        model = build(tight)
+        self.assertIn("thumb_angle", model.adjusted)
+        outline = model.profile
+        for height in np.arange(0.5, outline[:, 1].max() - 15, 1):
+            left, right = across(outline, height)
+            self.assertGreaterEqual(right - left, WAIST - 0.01)
+
+    def test_taper_narrows_toward_the_top(self):
+        # The span narrows steadily from the bottom end to the top one, the
+        # depth by half as much, with no step where the ends start to round.
+        p = replace(BASE, taper=45, height=130, end_rounding=30, screws=False)
+        mesh = loft(p, "preview")[0].to_mesh()
+        v = mesh.vert_properties[:, :3]
+        core = p.height / 2 * (1 - p.end_rounding / 100)
+        ys = np.unique(np.round(v[:, 1], 6))
+        ys = ys[np.abs(ys) <= core + 1e-6]
+        rings = [v[np.abs(v[:, 1] - y) < 1e-6] for y in ys]
+        spans = np.array([np.ptp(r[:, 0]) for r in rings])
+        tops = np.array([r[:, 2].max() for r in rings])
+        self.assertTrue((np.diff(spans) < 0).all())
+        self.assertTrue((np.diff(tops) < 0).all())
+        # Evenly: no kink anywhere along the way.
+        steps = np.diff(spans) / np.diff(ys)
+        self.assertLess(np.ptp(steps), 0.1)
+        drop = p.width * 0.45 * (ys[-1] - ys[0]) / p.height
+        self.assertAlmostEqual(spans[0] - spans[-1], drop, delta=1.5)
 
     def test_undercut_keeps_a_waist(self):
         # Undercut both sides of a narrow, deep pinch as far as they go:
@@ -210,7 +333,7 @@ class PinchTests(unittest.TestCase):
         # every SCREW_STEP its span runs past SCREW_SPAN after overall
         # scale. It never takes a bolt it was not asked for.
         for p, count in (
-            (BASE, 2),
+            (replace(BASE, width=SCREW_SPAN), 2),
             (replace(BASE, width=SCREW_SPAN + 1, height=140), 3),
             (replace(BASE, size=130, height=110), 3),
             (replace(BASE, width=SCREW_SPAN + SCREW_STEP + 1, height=180), 4),
@@ -228,7 +351,7 @@ class PinchTests(unittest.TestCase):
         self.assertEqual(short.parameters.screw_count, 2)
         self.assertEqual(short.parameters.height, 60)
         # The bolt is there when it is asked for.
-        bolted = build(replace(BASE, width=40, bolt_mount=True))
+        bolted = build(replace(BASE, bolt_mount=True))
         self.assertEqual(sum(h.bolt for h in bolted.holes), 1)
 
     def test_screws_run_up_the_middle(self):
@@ -250,12 +373,24 @@ class PinchTests(unittest.TestCase):
         # The hardware keeps to the level part of the top, in one line up
         # the pinch, with a bolt's anti-rotation screw below it: no recess
         # opens out through the slope of an end, and none is pushed to the
-        # corner of one beside a side.
+        # corner of one beside a side. The triangle's whole top slopes
+        # gently with its taper, so its recesses open on that slope.
         cases = [
             (name, dict(auto_screw_count=False, screw_count=count))
-            for name in ("Block pinch", "Wide pinch", "Lip pinch", "Ridged fin")
+            for name in (
+                "Block pinch",
+                "Wide pinch",
+                "Lip pinch",
+                "Hour glass",
+                "Triangle pinch",
+            )
             for count in (2, 3)
-        ] + [(name, dict(bolt_mount=True)) for name in ("Wide pinch", "Lip pinch")]
+        ] + [
+            ("Wide pinch", dict(bolt_mount=True)),
+            # The lip pinch's neck is too narrow for a bolt head until it
+            # is widened.
+            ("Lip pinch", dict(bolt_mount=True, width=80)),
+        ]
         for name, change in cases:
             with self.subTest(name=name, **change):
                 model = build(replace(PRESETS[name], **change))
@@ -266,7 +401,8 @@ class PinchTests(unittest.TestCase):
                         max(crossings(solid, hole.x, hole.y + s * hole.head / 2))
                         for s in (-1, 1)
                     ]
-                    self.assertLess(abs(rims[0] - rims[1]), 0.5)
+                    slope = 1.5 if model.parameters.taper else 0.5
+                    self.assertLess(abs(rims[0] - rims[1]), slope)
                 bolts = [h for h in model.holes if h.bolt]
                 if bolts:
                     screw = next(h for h in model.holes if not h.bolt)
@@ -306,9 +442,19 @@ class PinchTests(unittest.TestCase):
 
     def test_body_has_no_facet_creases(self):
         # The lofted body is sampled finely enough that the preview shades
-        # no creases: no two faces bend more than 15 degrees, off the wall.
-        for p in (BASE, PRESETS["Ridged fin"], replace(BASE, character=1, seed=9)):
-            with self.subTest(shape=p.shape, character=p.character):
+        # no creases: no two faces bend more than 15 degrees, off the wall,
+        # with straight sides. A swoop bends the end tips' last few facets
+        # further, up to 20 degrees, still far below the viewer's 60 degree
+        # crease angle, so they shade smooth.
+        for p, most in (
+            (replace(BASE, swoop=0), 15),
+            (replace(RIDGED, swoop=0), 15),
+            (replace(BASE, character=1, seed=9, swoop=0), 15),
+            (BASE, 20),
+            (RIDGED, 20),
+            (replace(BASE, character=1, seed=9), 20),
+        ):
+            with self.subTest(shape=p.shape, character=p.character, swoop=p.swoop):
                 solid = loft(build(replace(p, screws=False)).parameters, "preview")[0]
                 mesh = solid.to_mesh()
                 faces = trimesh.Trimesh(
@@ -317,7 +463,7 @@ class PinchTests(unittest.TestCase):
                 ends = faces.vertices[faces.face_adjacency_edges]
                 off_wall = ends[:, :, 2].min(axis=1) > 0.05
                 self.assertLess(
-                    np.degrees(faces.face_adjacency_angles[off_wall]).max(), 15
+                    np.degrees(faces.face_adjacency_angles[off_wall]).max(), most
                 )
 
     def test_character_waves_the_sides_and_keeps_the_back(self):
@@ -414,6 +560,16 @@ class PinchTests(unittest.TestCase):
             self.assertTrue(model.mesh.is_watertight)
             self.assertEqual(model.holes, [])
 
+    def test_automatic_seat_follows_the_depth(self):
+        # Each screw head sits SEAT_SHARE of the depth off the wall, with a
+        # thick floor of plastic under it: 16 mm on the block pinch, where
+        # it once sat 8 mm up.
+        self.assertEqual({h.seat for h in build(BASE).holes}, {16})
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                seat = min(SEAT_MAX, round(SEAT_SHARE * p.depth * p.size / 100 * 2) / 2)
+                self.assertEqual({h.seat for h in build(p).holes}, {seat})
+
     def test_manual_seat_is_used_when_it_fits(self):
         model = build(replace(BASE, auto_seat=False, seat_depth=5))
         self.assertEqual(model.holes[0].seat, 5)
@@ -425,7 +581,12 @@ class PinchTests(unittest.TestCase):
         p = replace(BASE, depth=20, offset=60, edge_radius=20)
         preview = build(p).preview()
         self.assertLess(preview["control_limits"]["edge_radius"], 20)
-        self.assertEqual(build(BASE).preview()["control_limits"], {})
+        self.assertEqual(build(PRESETS["Wide pinch"]).preview()["control_limits"], {})
+        # Every preset's rounding is built as written.
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                limits = build(p).preview()["control_limits"]
+                self.assertGreaterEqual(limits.get("edge_radius", 20), p.edge_radius)
 
     def test_validation(self):
         for values in (

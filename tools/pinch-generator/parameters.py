@@ -11,18 +11,21 @@ class Parameters:
     # The grip: the span across the top edges, how far the finger side
     # stands off the wall, each side's lean, and how much lower the thumb
     # side stands than the finger side.
-    width: float = 55
+    width: float = 66
     depth: float = 44
-    thumb_angle: float = -7
-    finger_angle: float = -7
+    thumb_angle: float = -15
+    finger_angle: float = -15
     offset: float = 0
-    edge_radius: float = 9
+    edge_radius: float = 12.5
+    swoop: float = 5
     # The body, before overall scale.
     shape: str = "domed"
     top_rise: float = 6.5
     size: float = 100
     height: float = 110
     end_rounding: float = 60
+    hourglass: float = 0
+    taper: float = 0
     base_flare: float = 0
     character: float = 0
     seed: int = 0
@@ -32,7 +35,7 @@ class Parameters:
     screws: bool = True
     screw_count: int = 2
     auto_seat: bool = True
-    seat_depth: float = 3
+    seat_depth: float = 16
     shank_diameter: float = hardware.SHANK_DIAMETER
     head_diameter: float = hardware.HEAD_DIAMETER
     bolt_mount: bool = False
@@ -79,7 +82,7 @@ CONTROLS = [
         "thumb_angle",
         "Thumb side angle",
         "Grip",
-        -30,
+        -40,
         40,
         1,
         "°",
@@ -89,7 +92,7 @@ CONTROLS = [
         "finger_angle",
         "Finger side angle",
         "Grip",
-        -30,
+        -40,
         40,
         1,
         "°",
@@ -104,6 +107,16 @@ CONTROLS = [
         1,
         "%",
         "Lowers the thumb side against the finger side, so the top slopes across: an offset pinch. Zero is symmetric.",
+    ),
+    control(
+        "swoop",
+        "Swoop",
+        "Grip",
+        0,
+        15,
+        0.5,
+        "mm",
+        "Bows each side in, deepest a third of the way up from the wall, so it curves in under the edge instead of running straight. Before overall scale; eased when the pinch would get too thin.",
     ),
     control(
         "edge_radius",
@@ -157,6 +170,26 @@ CONTROLS = [
         "How much of each end rounds off toward the wall: squarer ends at 20, a full oval at 100.",
     ),
     control(
+        "hourglass",
+        "Hourglass",
+        "Shape",
+        0,
+        60,
+        1,
+        "%",
+        "Narrows the span toward the middle of the pinch's length, so it pinches in at the waist and flares out to each end. Zero keeps the span the same all the way up.",
+    ),
+    control(
+        "taper",
+        "Taper",
+        "Shape",
+        0,
+        70,
+        1,
+        "%",
+        "Narrows the span steadily from the bottom end to the top one, for a triangular pinch. Zero keeps the span the same all the way up.",
+    ),
+    control(
         "base_flare",
         "Base flare",
         "Shape",
@@ -191,10 +224,10 @@ CONTROLS = [
         "Screw seat",
         "Mounting",
         2,
-        12,
+        30,
         0.5,
         "mm",
-        "Material beneath the screw head. Automatically reduced to fit when necessary.",
+        "Material beneath the screw head. Automatic follows the depth; reduced to fit when necessary.",
     ),
     *hardware.SCREW_CONTROLS,
     *hardware.BOLT_CONTROLS,
@@ -204,6 +237,12 @@ CONTROLS = [
 # overall scale, and one more for every 30 mm past that, up to six.
 SCREW_SPAN = 60
 SCREW_STEP = 30
+# The automatic seat stands this share of the depth off the wall, after
+# overall scale, as the Crimp and Sloper Labs seat theirs: a thick floor
+# under each screw head and a short recess above it. 16 mm on the block
+# pinch, and never more than SEAT_MAX.
+SEAT_SHARE = 0.36
+SEAT_MAX = 20
 
 SHAPES = {"flat": "Flat top", "domed": "Domed top", "ridged": "Ridged top"}
 
@@ -211,65 +250,67 @@ BASE = Parameters()
 # Each preset fits as written: nothing has to grow or give.
 PRESETS = {
     "Block pinch": BASE,
-    "Narrow pinch": replace(
-        BASE,
-        width=35,
-        depth=37,
-        thumb_angle=-12,
-        finger_angle=-12,
-        edge_radius=6.5,
-        top_rise=4.5,
-        height=99,
-    ),
     "Wide pinch": replace(
         BASE,
-        width=83,
+        width=100,
         depth=46,
-        thumb_angle=-4,
-        finger_angle=-4,
-        edge_radius=11,
+        thumb_angle=-12,
+        finger_angle=-12,
+        edge_radius=14.5,
         top_rise=9,
         height=121,
-    ),
-    "Wedge": replace(
-        BASE,
-        shape="flat",
-        width=44,
-        depth=48,
-        thumb_angle=13,
-        finger_angle=13,
-        edge_radius=6.5,
     ),
     "Lip pinch": replace(
         BASE,
         shape="flat",
-        width=62,
+        width=80,
         depth=40,
-        thumb_angle=-24,
-        finger_angle=-24,
-        edge_radius=5.5,
+        thumb_angle=-32,
+        finger_angle=-32,
+        edge_radius=9,
+    ),
+    # As undercut as the lip pinch, but rounded all over: deep edges, a
+    # high dome and fully oval ends.
+    "Round pinch": replace(
+        BASE,
+        width=84,
+        depth=40,
+        thumb_angle=-32,
+        finger_angle=-32,
+        edge_radius=19,
+        swoop=7,
+        top_rise=12,
+        end_rounding=100,
+    ),
+    # Pinched in at the middle and flaring to each end, so it pinches the
+    # same up and down its length: grab it wide at either end, or narrow
+    # at the waist.
+    "Hour glass": replace(
+        BASE,
+        width=96,
+        hourglass=45,
+        height=150,
+        end_rounding=40,
+    ),
+    # Wide at the bottom and narrowing to the top, like a block of wood cut
+    # to a trapezoid: pinch it wide low down, narrow higher up.
+    "Triangle pinch": replace(
+        BASE,
+        width=96,
+        depth=48,
+        taper=45,
+        height=130,
+        end_rounding=30,
     ),
     "Offset pinch": replace(
         BASE,
         shape="flat",
-        width=53,
+        width=64,
         depth=51,
-        thumb_angle=3,
-        finger_angle=-17,
+        thumb_angle=-5,
+        finger_angle=-25,
         offset=40,
-        edge_radius=7.5,
-    ),
-    "Ridged fin": replace(
-        BASE,
-        shape="ridged",
-        width=42,
-        depth=44,
-        thumb_angle=-2,
-        finger_angle=-2,
-        edge_radius=5.5,
-        top_rise=13,
-        height=132,
-        end_rounding=45,
+        edge_radius=10,
     ),
 }
 
