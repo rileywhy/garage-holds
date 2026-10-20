@@ -17,6 +17,7 @@ class Parameters:
     finger_angle: float = -15
     offset: float = 0
     edge_radius: float = 12.5
+    swoop: float = 5
     # The body, before overall scale.
     shape: str = "domed"
     top_rise: float = 6.5
@@ -104,6 +105,16 @@ CONTROLS = [
         1,
         "%",
         "Lowers the thumb side against the finger side, so the top slopes across: an offset pinch. Zero is symmetric.",
+    ),
+    control(
+        "swoop",
+        "Swoop",
+        "Grip",
+        0,
+        15,
+        0.5,
+        "mm",
+        "Bows each side in, deepest a third of the way up from the wall, so it curves in under the edge instead of running straight. Before overall scale; eased when the pinch would get too thin.",
     ),
     control(
         "edge_radius",
@@ -224,6 +235,7 @@ PRESETS = {
         thumb_angle=-20,
         finger_angle=-20,
         edge_radius=10,
+        swoop=2,
         top_rise=4.5,
         height=99,
     ),
@@ -264,6 +276,7 @@ PRESETS = {
         thumb_angle=-32,
         finger_angle=-32,
         edge_radius=19,
+        swoop=7,
         top_rise=12,
         end_rounding=100,
     ),

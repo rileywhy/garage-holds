@@ -4,8 +4,8 @@ sides the gripping faces, then drilled.
 X runs across the hold, thumb side at -X and finger side at +X; Y runs up
 the wall, Z out of it, and the back sits on Z=0. The section is a polygon
 with filleted corners, as the Crimp Lab builds its profile: each side a
-straight face at its own angle, a flare into the wall at its foot, and a
-flat, domed or ridged top between the two edges. The section is lofted
+face at its own angle, bowed in by the swoop, a flare into the wall at its
+foot, and a flat, domed or ridged top between the two edges. The section is lofted
 along Y and shrinks toward the middle of the top at the wall at each end,
 so the ends round down onto the wall. Hardware sits where a vertical line
 runs from the wall straight out through the top, clear of both sides and
@@ -65,6 +65,15 @@ QUALITY = {
     "export": dict(segments=16, along=80, cap=24),
 }
 LIMITS = {control["key"]: (control["min"], control["max"]) for control in CONTROLS}
+
+
+def bow(s):
+    """How far a side bows in at a share s of its edge's height, as a share
+    of the swoop: nothing at the wall, the most a third of the way up, and
+    back to nothing, level, at the edge, so the rounding over the edge
+    stays smooth."""
+    s = np.clip(s, 0, 1)
+    return 27 / 4 * s * (1 - s) ** 2
 
 
 def _unit(v):
@@ -243,6 +252,15 @@ def section(p, segments=8, share=1.0, arcs=None):
     )
     top = [int(np.argmin(np.linalg.norm(contour - s, axis=1))) for s in starts]
     middle = (points[0][0] + points[-1][0]) / 2
+    # The swoop bows each side in toward the middle, up to its edge's
+    # rounding; the top and the wall stay put.
+    sag = p.swoop * scale * share**2
+    if sag > 0:
+        index, z = np.arange(len(contour)), contour[:, 1]
+        contour = contour.copy()
+        thumb_side, finger_side = index <= top[0], index >= top[1]
+        contour[thumb_side, 0] += sag * bow(z[thumb_side] / thumb)
+        contour[finger_side, 0] -= sag * bow(z[finger_side] / depth)
     return contour, top, middle, cap, arcs
 
 
@@ -367,21 +385,28 @@ def loft(p, quality):
 
 
 def fit_waist(requested):
-    """Ease any undercut until the pinch keeps WAIST between its sides (or
-    its own span, when that is narrower) everywhere below its edges."""
+    """Ease any swoop, then any undercut, until the pinch keeps WAIST
+    between its sides (or its own span, when that is narrower) everywhere
+    below its edges."""
     p = requested
     scale = p.size / 100
     span, depth = p.width * scale, p.depth * scale
     thumb = depth * (1 - p.offset / 100)
     least = min(WAIST, span)
-    for _ in range(200):
+    z = np.linspace(0, thumb, 61)
+    for _ in range(300):
         t, f = map(math.radians, (p.thumb_angle, p.finger_angle))
-        # The sides are straight, so the narrowest point is at the wall or
-        # at the lower edge's height.
-        at_wall = span + thumb * math.tan(t) + depth * math.tan(f)
-        at_edge = span + (depth - thumb) * math.tan(f)
-        if min(at_wall, at_edge) >= least - 1e-9:
+        sag = p.swoop * scale
+        feet = (-span / 2 - thumb * math.tan(t), span / 2 + depth * math.tan(f))
+        left = feet[0] + (-span / 2 - feet[0]) * z / thumb + sag * bow(z / thumb)
+        right = feet[1] + (span / 2 - feet[1]) * z / depth - sag * bow(z / depth)
+        between = right - left
+        if between.min() >= least - 1e-9:
             return p
+        if p.swoop > 0:
+            p = replace(p, swoop=max(0.0, p.swoop - 0.5))
+            continue
+        at_edge = between[-1]
         key = "thumb_angle" if p.thumb_angle <= p.finger_angle else "finger_angle"
         if at_edge < least - 1e-9:
             key = "finger_angle"

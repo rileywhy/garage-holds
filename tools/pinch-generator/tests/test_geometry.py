@@ -143,7 +143,12 @@ class PinchTests(unittest.TestCase):
         for thumb, finger in ((0, 0), (25, -10), (-15, 35)):
             with self.subTest(thumb=thumb, finger=finger):
                 p = replace(
-                    BASE, shape="flat", thumb_angle=thumb, finger_angle=finger, depth=60
+                    BASE,
+                    shape="flat",
+                    thumb_angle=thumb,
+                    finger_angle=finger,
+                    depth=60,
+                    swoop=0,
                 )
                 outline = section(p, 16)[0]
                 self.assertAlmostEqual(
@@ -194,6 +199,41 @@ class PinchTests(unittest.TestCase):
                 self.assertAlmostEqual(
                     middle + slope * p.width / 2, p.depth, delta=0.01
                 )
+
+    def test_swoop_bows_the_sides_in(self):
+        # Each side bows in by the swoop a third of the way up its edge's
+        # height, and keeps its foot on the wall and its edge where they
+        # were: the side curves in under the edge instead of running
+        # straight to the wall.
+        p = replace(BASE, shape="flat", offset=30)
+        straight = section(replace(p, swoop=0), 16)[0]
+        bowed = section(p, 16)[0]
+        thumb = p.depth * (1 - p.offset / 100)
+        for z, (thumb_in, finger_in) in (
+            (0.01, (0, 0)),
+            (thumb / 3, (p.swoop, None)),
+            (p.depth / 3, (None, p.swoop)),
+        ):
+            (a, b), (c, d) = across(straight, z), across(bowed, z)
+            if thumb_in is not None:
+                self.assertAlmostEqual(c - a, thumb_in, delta=0.2)
+            if finger_in is not None:
+                self.assertAlmostEqual(b - d, finger_in, delta=0.2)
+        top = straight[:, 1] > p.depth - 0.5
+        np.testing.assert_allclose(bowed[top], straight[top], atol=1e-6)
+
+    def test_swoop_eases_before_the_undercut(self):
+        # Too much swoop for a narrow pinch: the swoop gives way first and
+        # the sides keep their angles, and the neck stays WAIST wide.
+        p = replace(PRESETS["Narrow pinch"], swoop=10, screws=False)
+        model = build(p)
+        self.assertEqual(set(model.adjusted), {"swoop"})
+        b = model.parameters
+        self.assertLess(b.swoop, 10)
+        outline = section(b, 16)[0]
+        for height in np.arange(0.5, b.depth - b.edge_radius, 1):
+            left, right = across(outline, height)
+            self.assertGreaterEqual(right - left, WAIST - 0.01)
 
     def test_undercut_keeps_a_waist(self):
         # Undercut both sides of a narrow, deep pinch as far as they go:
@@ -318,9 +358,19 @@ class PinchTests(unittest.TestCase):
 
     def test_body_has_no_facet_creases(self):
         # The lofted body is sampled finely enough that the preview shades
-        # no creases: no two faces bend more than 15 degrees, off the wall.
-        for p in (BASE, PRESETS["Ridged fin"], replace(BASE, character=1, seed=9)):
-            with self.subTest(shape=p.shape, character=p.character):
+        # no creases: no two faces bend more than 15 degrees, off the wall,
+        # with straight sides. A swoop bends the end tips' last few facets
+        # further, up to 20 degrees, still far below the viewer's 60 degree
+        # crease angle, so they shade smooth.
+        for p, most in (
+            (replace(BASE, swoop=0), 15),
+            (replace(PRESETS["Ridged fin"], swoop=0), 15),
+            (replace(BASE, character=1, seed=9, swoop=0), 15),
+            (BASE, 20),
+            (PRESETS["Ridged fin"], 20),
+            (replace(BASE, character=1, seed=9), 20),
+        ):
+            with self.subTest(shape=p.shape, character=p.character, swoop=p.swoop):
                 solid = loft(build(replace(p, screws=False)).parameters, "preview")[0]
                 mesh = solid.to_mesh()
                 faces = trimesh.Trimesh(
@@ -329,7 +379,7 @@ class PinchTests(unittest.TestCase):
                 ends = faces.vertices[faces.face_adjacency_edges]
                 off_wall = ends[:, :, 2].min(axis=1) > 0.05
                 self.assertLess(
-                    np.degrees(faces.face_adjacency_angles[off_wall]).max(), 15
+                    np.degrees(faces.face_adjacency_angles[off_wall]).max(), most
                 )
 
     def test_character_waves_the_sides_and_keeps_the_back(self):
