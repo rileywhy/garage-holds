@@ -6,6 +6,7 @@ import {
   followPreview,
   modelMetrics,
 } from "../src/features/hold-lab/kinds";
+import { camalot } from "../src/features/hold-lab/cams";
 import { LAB_COPY } from "../src/features/labs/conventions";
 
 // A generator's answer with only the parts the lab reads filled in, and
@@ -335,4 +336,39 @@ test("crack: an eased flare is reported and the sliders follow it", () => {
   );
   assert.equal(outcome.parameters.flare, 12);
   assert.match(outcome.text, /Flare 12°/);
+});
+
+test("cracks are named by the Camalot that sits mid-range in them", () => {
+  // A cam sits well a quarter to three quarters open; where two do, both
+  // are named, and past the chart's ends the note says so.
+  assert.equal(camalot(22), "#0.4");
+  assert.equal(camalot(39), "#1");
+  assert.equal(camalot(16), "#0.3");
+  assert.equal(camalot(19), "#0.3 or #0.4");
+  assert.equal(camalot(60), "#3");
+  assert.equal(camalot(100), "#4");
+  assert.equal(camalot(12), "under #0.3");
+});
+
+test("crack: a block shows its cam size, past a constriction too", () => {
+  const size = (parameters: Record<string, number | string>) =>
+    modelMetrics("crack", preview({ parameters })).find(
+      (r) => r.label === "Cam size",
+    )?.value;
+  assert.equal(
+    size({ shape: "block", width: 22, constriction: 0 }),
+    "#0.4 Camalot",
+  );
+  assert.equal(
+    size({ shape: "block", width: 39, constriction: 23 }),
+    "#1 Camalot · #0.3 at the constriction",
+  );
+  // One side of a crack has no width until it is mounted.
+  assert.equal(size({ shape: "half", width: 60, constriction: 0 }), undefined);
+  assert.equal(
+    modelMetrics("pinch", preview({ parameters: { width: 50 } })).some(
+      (r) => r.label === "Cam size",
+    ),
+    false,
+  );
 });

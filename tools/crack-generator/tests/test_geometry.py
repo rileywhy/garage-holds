@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import BED, GAP, build, loft
 from parameters import (
     BASE,
+    STRAIGHT,
     CONTROLS,
     PRESETS,
     SCREW_LENGTH,
@@ -35,15 +36,15 @@ SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
 # flared in so its faces lean over the screws, a wandering crack, a
 # constriction beside a screw, a lowered seat, and the bolt in a floor.
 CLOSE = [
-    replace(BASE, side=17, flare=-12, depth=60, edge_radius=2),
+    replace(STRAIGHT, side=17, flare=-12, depth=60, edge_radius=2),
     replace(
         PRESETS["Finger locks"], character=1, seed=5, auto_seat=False, seat_depth=8
     ),
     replace(PRESETS["Hand crack"], bolt_mount=True),
     replace(PRESETS["Hand crack, one side"], flare=-10, side=40, bolt_mount=True),
-    replace(BASE, flare=12, width=40, depth=60),
+    replace(STRAIGHT, flare=12, width=40, depth=60),
     replace(
-        BASE,
+        STRAIGHT,
         side=20,
         flare=-12,
         character=1,
@@ -138,7 +139,7 @@ class CrackTests(unittest.TestCase):
                 np.testing.assert_allclose(a.mesh.extents, c.mesh.extents)
 
     def test_block_is_as_wide_deep_and_long_as_asked(self):
-        for p in (BASE, PRESETS["Hand crack"], replace(BASE, back=25, side=40)):
+        for p in (STRAIGHT, PRESETS["Hand crack"], replace(STRAIGHT, back=25, side=40)):
             with self.subTest(width=p.width, side=p.side, back=p.back):
                 extents = build(replace(p, screws=False)).mesh.extents
                 self.assertAlmostEqual(extents[0], p.width + 2 * p.side, delta=0.01)
@@ -148,7 +149,7 @@ class CrackTests(unittest.TestCase):
     def test_crack_is_as_wide_and_deep_as_asked(self):
         # Between its lips and its floor, a parallel crack is its width
         # all the way in, and its floor stands the back off the wall.
-        p = replace(BASE, width=40, depth=70, back=14)
+        p = replace(STRAIGHT, width=40, depth=70, back=14)
         solid = body(p)
         for z in (p.back + 10, p.back + p.depth / 2, p.back + p.depth - 10):
             self.assertAlmostEqual(gap(solid, 0, z), p.width, delta=0.01)
@@ -163,7 +164,7 @@ class CrackTests(unittest.TestCase):
         # crack is widest.
         for flare in (10, -8):
             with self.subTest(flare=flare):
-                p = replace(BASE, width=36, depth=60, flare=flare, side=30)
+                p = replace(STRAIGHT, width=36, depth=60, flare=flare, side=30)
                 solid = body(p)
                 mouth = p.back + p.depth
                 for inward in (10, 30, 45):
@@ -179,6 +180,20 @@ class CrackTests(unittest.TestCase):
                 self.assertAlmostEqual(
                     xs[1] - xs[0], p.side + (10 if flare < 0 else 50) * tan, delta=0.02
                 )
+
+    def test_default_is_a_short_finger_lock_block(self):
+        # The lab opens on an 80 mm block whose 39 mm crack narrows to
+        # 16 mm near its bottom end, so fingers slot in above the narrowing
+        # and pull down into it.
+        model = build(BASE)
+        np.testing.assert_allclose(model.mesh.extents, (89, 80, 60), atol=0.01)
+        self.assertEqual(len(model.holes), 4)
+        self.assertEqual(model.adjusted, {})
+        solid = body(BASE)
+        z = BASE.back + BASE.depth / 2
+        lowest = BASE.length * (BASE.constriction_height / 100 - 0.5)
+        self.assertAlmostEqual(gap(solid, lowest, z), 16, delta=0.05)
+        self.assertGreater(gap(solid, BASE.length / 2 - 8, z), 30)
 
     def test_constriction_narrows_a_stretch(self):
         # The crack narrows by the constriction at its height and is back
@@ -202,11 +217,11 @@ class CrackTests(unittest.TestCase):
         # fits, and a constriction eases to what is left. The lab is told
         # each.
         for p, keys in (
-            (replace(BASE, width=15, depth=60, flare=20), {"flare"}),
-            (replace(BASE, width=120, side=55, depth=140, flare=-15), {"flare"}),
-            (replace(BASE, width=20, constriction=30), {"constriction"}),
+            (replace(STRAIGHT, width=15, depth=60, flare=20), {"flare"}),
+            (replace(STRAIGHT, width=120, side=55, depth=140, flare=-15), {"flare"}),
+            (replace(STRAIGHT, width=20, constriction=30), {"constriction"}),
             (
-                replace(BASE, width=20, depth=40, flare=10, constriction=10),
+                replace(STRAIGHT, width=20, depth=40, flare=10, constriction=10),
                 {"flare", "constriction"},
             ),
         ):
@@ -221,22 +236,24 @@ class CrackTests(unittest.TestCase):
                 )
                 self.assertLessEqual(model.mesh.extents[0], BED + 1e-6)
         # Eased flares and constrictions keep the slider steps.
-        b = build(replace(BASE, width=15, depth=60, flare=20, screws=False)).parameters
+        b = build(
+            replace(STRAIGHT, width=15, depth=60, flare=20, screws=False)
+        ).parameters
         self.assertEqual(b.flare * 2, round(b.flare * 2))
 
     def test_wander_keeps_the_width_and_the_back(self):
         # The wander moves the crack from side to side along its length and
         # keeps it as wide as asked; the back stays as built.
-        plain = body(BASE)
-        wavy = body(replace(BASE, character=1, seed=3))
-        z = BASE.back + BASE.depth / 2
+        plain = body(STRAIGHT)
+        wavy = body(replace(STRAIGHT, character=1, seed=3))
+        z = STRAIGHT.back + STRAIGHT.depth / 2
         middles = []
         for y in np.linspace(-60, 60, 7):
-            self.assertAlmostEqual(gap(wavy, y, z), BASE.width, delta=0.05)
+            self.assertAlmostEqual(gap(wavy, y, z), STRAIGHT.width, delta=0.05)
             xs = across(wavy, y, z)
             middles.append((xs[1] + xs[2]) / 2)
         self.assertGreater(np.ptp(middles), 2)
-        self.assertLess(np.max(np.abs(middles)), BASE.side * 0.15 + 1e-6)
+        self.assertLess(np.max(np.abs(middles)), STRAIGHT.side * 0.15 + 1e-6)
         self.assertAlmostEqual(
             plain.slice(0.001).area(), wavy.slice(0.001).area(), delta=1
         )
@@ -245,7 +262,7 @@ class CrackTests(unittest.TestCase):
         # Toward each end every surface but the back rounds in, so the
         # front, the lips and the outer corners curve down to the end; the
         # back still reaches it.
-        p = replace(BASE, edge_radius=6, screws=False)
+        p = replace(STRAIGHT, edge_radius=6, screws=False)
         model = build(p)
         mesh = model.mesh
         tip = mesh.vertices[np.abs(mesh.vertices[:, 1]) > p.length / 2 - 1e-6]
@@ -278,7 +295,9 @@ class CrackTests(unittest.TestCase):
     def test_screws_run_up_each_side(self):
         for count in (1, 2, 3):
             with self.subTest(count=count):
-                p = replace(BASE, auto_screw_count=False, screw_count=count, length=200)
+                p = replace(
+                    STRAIGHT, auto_screw_count=False, screw_count=count, length=200
+                )
                 holes = build(p).holes
                 self.assertEqual(len(holes), 2 * count)
                 left = sorted((h for h in holes if h.x < 0), key=lambda h: h.y)
@@ -301,10 +320,10 @@ class CrackTests(unittest.TestCase):
         # Chosen from the size, each side takes two screws, and three once
         # the crack runs past SCREW_LENGTH.
         for p, count in (
-            (replace(BASE, length=SCREW_LENGTH), 2),
-            (replace(BASE, length=SCREW_LENGTH + 1), 3),
-            (replace(BASE, length=240), 3),
-            (replace(BASE, length=240, auto_screw_count=False, screw_count=1), 1),
+            (replace(STRAIGHT, length=SCREW_LENGTH), 2),
+            (replace(STRAIGHT, length=SCREW_LENGTH + 1), 3),
+            (replace(STRAIGHT, length=240), 3),
+            (replace(STRAIGHT, length=240, auto_screw_count=False, screw_count=1), 1),
         ):
             with self.subTest(length=p.length, auto=p.auto_screw_count):
                 model = build(p)
@@ -313,11 +332,13 @@ class CrackTests(unittest.TestCase):
                 self.assertEqual(model.adjusted, {})
         # A short crack gives up screws it has no room for, down to one a
         # side; asked for by hand, they are refused in words.
-        short = build(replace(BASE, length=80, side=18, edge_radius=1))
+        short = build(replace(STRAIGHT, length=80, side=18, edge_radius=1))
         self.assertGreaterEqual(short.parameters.screw_count, 1)
         with self.assertRaisesRegex(ValueError, "fit"):
             build(
-                replace(BASE, length=80, auto_screw_count=False, screw_count=4, side=15)
+                replace(
+                    STRAIGHT, length=80, auto_screw_count=False, screw_count=4, side=15
+                )
             )
 
     def test_bolt_goes_through_the_floor(self):
@@ -333,7 +354,7 @@ class CrackTests(unittest.TestCase):
         self.assertGreater(abs(screw.x), p.width / 2)
         self.assertLess(screw.y, bolt.y)
         with self.assertRaisesRegex(ValueError, "fit"):
-            build(replace(BASE, bolt_mount=True))
+            build(replace(STRAIGHT, bolt_mount=True))
         # One side takes its bolt in its middle.
         one = build(replace(PRESETS["Fist crack, one side"], side=45, bolt_mount=True))
         self.assertEqual(sum(h.bolt for h in one.holes), 1)
@@ -375,9 +396,9 @@ class CrackTests(unittest.TestCase):
         # no creases off the wall: no two faces bend more than 15 degrees,
         # far below the viewer's 60 degree crease angle.
         for p in (
-            BASE,
+            STRAIGHT,
             PRESETS["Finger locks"],
-            replace(BASE, character=1, seed=9, flare=8, width=30),
+            replace(STRAIGHT, character=1, seed=9, flare=8, width=30),
             PRESETS["Hand crack, one side"],
         ):
             with self.subTest(values=asdict(p)):
@@ -396,7 +417,7 @@ class CrackTests(unittest.TestCase):
         # stays within a 256 mm bed with 5% to spare.
         limits = {control["key"]: control["max"] for control in CONTROLS}
         p = replace(
-            BASE,
+            STRAIGHT,
             width=limits["width"],
             side=limits["side"],
             length=limits["length"],
@@ -434,8 +455,8 @@ class CrackTests(unittest.TestCase):
         rng = random.Random(78 + SEED)
         count = 60 if DEEP else 4
         cases = [
-            asdict(replace(BASE, width=15, depth=60, flare=20)),
-            asdict(replace(BASE, auto_seat=False, seat_depth=30)),
+            asdict(replace(STRAIGHT, width=15, depth=60, flare=20)),
+            asdict(replace(STRAIGHT, auto_seat=False, seat_depth=30)),
         ] + [random_settings(rng) for _ in range(count)]
         rebuilt = 0
         for values in cases:
@@ -473,7 +494,7 @@ class CrackTests(unittest.TestCase):
                 self.assertEqual({h.seat for h in build(p).holes}, {seat})
 
     def test_manual_seat_is_used_when_it_fits(self):
-        model = build(replace(BASE, auto_seat=False, seat_depth=5))
+        model = build(replace(STRAIGHT, auto_seat=False, seat_depth=5))
         self.assertEqual({h.seat for h in model.holes}, {5})
         self.assertEqual(model.parameters.seat_depth, 5)
         self.assertEqual(model.adjusted, {})
@@ -481,15 +502,15 @@ class CrackTests(unittest.TestCase):
     def test_edge_rounding_is_capped_to_what_fits(self):
         # Thin sides have room for less rounding: the lab is told the most
         # that fits, and the edges are built with it.
-        p = replace(BASE, side=12, edge_radius=15, screws=False)
+        p = replace(STRAIGHT, side=12, edge_radius=15, screws=False)
         limits = build(p).preview()["control_limits"]
         self.assertLess(limits["edge_radius"], 15)
         self.assertEqual(
-            build(replace(BASE, side=50, depth=80)).preview()["control_limits"], {}
+            build(replace(STRAIGHT, side=50, depth=80)).preview()["control_limits"], {}
         )
         # With holes on it also leaves each side room for its screws, so
         # rounding the edges never turns them away.
-        rounded = build(replace(BASE, edge_radius=15))
+        rounded = build(replace(STRAIGHT, edge_radius=15))
         self.assertEqual(len(rounded.holes), 4)
         self.assertLess(rounded.preview()["control_limits"]["edge_radius"], 6)
         self.assertEqual(rounded.adjusted, {})

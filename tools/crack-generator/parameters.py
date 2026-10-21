@@ -10,17 +10,19 @@ from tools import hold_hardware as hardware
 class Parameters:
     # The crack: its width at the mouth, how far it runs into the block,
     # each face's lean, a narrowing partway along it for locks, and the
-    # rounding of its lips.
-    width: float = 22
+    # rounding of its lips. By default a short finger-lock block: the crack
+    # narrows from 39 mm to 16 mm near its bottom end, so fingers slot in
+    # above the narrowing and pull down into it.
+    width: float = 39
     depth: float = 50
     flare: float = 0
-    constriction: float = 0
-    constriction_height: float = 40
-    edge_radius: float = 4
+    constriction: float = 23
+    constriction_height: float = 15
+    edge_radius: float = 5
     # The block: one piece with the crack through it, or one side of a
     # crack to print twice.
     shape: str = "block"
-    length: float = 160
+    length: float = 80
     side: float = 25
     back: float = 10
     character: float = 0
@@ -62,7 +64,7 @@ CONTROLS = [
         120,
         1,
         "mm",
-        "Across the mouth of the crack. Thin fingers jam around 15 mm, fingers 20–25, hands 55–70 and fists 90–110.",
+        "Across the mouth of the crack. Thin fingers jam around 15 mm (a #0.3 Camalot), fingers 20–25 (#0.4 to #0.5), hands 55–70 (#2 to #3) and fists 90–110 (#4).",
         shapes=["block"],
     ),
     control(
@@ -192,18 +194,23 @@ SEAT_MAX = 20
 SHAPES = {"block": "One block", "half": "One side (print two)"}
 
 BASE = Parameters()
+# A plain finger crack, parallel and the same width all the way along: the
+# start of the other presets.
+STRAIGHT = replace(
+    BASE, width=22, constriction=0, constriction_height=40, edge_radius=4, length=160
+)
 # Each preset fits as written: nothing has to ease.
 PRESETS = {
     "Finger crack": BASE,
-    "Thin fingers": replace(BASE, width=15, depth=45, edge_radius=3),
-    # A constriction a little below the middle: slot your fingers above it
-    # and pull down into it.
+    "Parallel fingers": STRAIGHT,
+    "Thin fingers": replace(STRAIGHT, width=15, depth=45, edge_radius=3),
+    # A gentler constriction a little below the middle of a longer crack.
     "Finger locks": replace(
-        BASE, width=24, constriction=9, constriction_height=45, length=180
+        STRAIGHT, width=24, constriction=9, constriction_height=45, length=180
     ),
-    "Flared fingers": replace(BASE, width=32, depth=45, flare=10, edge_radius=5),
+    "Flared fingers": replace(STRAIGHT, width=32, depth=45, flare=10, edge_radius=5),
     "Hand crack": replace(
-        BASE,
+        STRAIGHT,
         width=60,
         depth=100,
         edge_radius=7,
@@ -214,7 +221,7 @@ PRESETS = {
     # Wide cracks make a big block; two printed sides, mounted apart, make
     # the same crack from less plastic and fit a smaller bed.
     "Hand crack, one side": replace(
-        BASE,
+        STRAIGHT,
         shape="half",
         width=60,
         depth=100,
@@ -223,7 +230,7 @@ PRESETS = {
         side=30,
     ),
     "Fist crack, one side": replace(
-        BASE,
+        STRAIGHT,
         shape="half",
         width=100,
         depth=110,
