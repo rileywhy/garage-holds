@@ -7,7 +7,14 @@ import type { LabErrorReason } from "@/features/labs/lab-request";
 // on by itself; the properties say which thing was clicked. Names and
 // properties are listed here so the Analytics tab stays readable.
 type Lab =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "crack"
+  | "custom-shape";
 
 type Event =
   // The labs: an export is the conversion, an error says a generator call

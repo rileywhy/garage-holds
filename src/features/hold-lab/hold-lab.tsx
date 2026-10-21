@@ -105,7 +105,7 @@ function reportError(
   trackEvent({ name: "lab_error", lab, stage, reason: errorReason(error) });
 }
 
-// The one lab behind the parametric labs, Crimp to Pinch: sliders on the
+// The one lab behind the parametric labs, Crimp to Crack: sliders on the
 // left, the generated hold on the right; on a phone the hold stays pinned
 // above the sliders. Every change asks /api/<kind> for a fresh preview and
 // export asks for a finer STL. What differs between them is in kinds.ts.

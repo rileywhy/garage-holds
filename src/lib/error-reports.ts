@@ -107,6 +107,7 @@ export const CLIENT_ROUTES = [
   "/how-to-3d-print-climbing-holds",
   "/make",
   "/make/crimp",
+  "/make/crack",
   "/make/custom-shape",
   "/make/foot",
   "/make/jug",

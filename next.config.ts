@@ -31,6 +31,7 @@ const config: NextConfig = {
       ["foot", process.env.FOOT_API_URL],
       ["pocket", process.env.POCKET_API_URL],
       ["pinch", process.env.PINCH_API_URL],
+      ["crack", process.env.CRACK_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

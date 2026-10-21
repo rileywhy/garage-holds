@@ -101,3 +101,15 @@ test("Pinch Lab settings files round-trip as they are", () => {
     /Pocket Lab settings file/,
   );
 });
+
+test("Crack Lab settings files round-trip as they are", () => {
+  const crack = { width: 24, shape: "half", constriction: 9 };
+  assert.deepEqual(
+    parseDesignFile(file("garage-holds-crack", 1, crack), "crack"),
+    crack,
+  );
+  assert.throws(
+    () => parseDesignFile(file("garage-holds-crack", 1, crack), "pinch"),
+    /Pinch Lab settings file/,
+  );
+});
