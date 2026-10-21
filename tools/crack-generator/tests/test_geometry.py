@@ -205,7 +205,7 @@ class CrackTests(unittest.TestCase):
         self.assertAlmostEqual(
             gap(solid, middle, z), p.width - p.constriction, delta=0.05
         )
-        for y in (middle - 40, middle + 40):
+        for y in (middle - 30, middle + 30):
             self.assertAlmostEqual(gap(solid, y, z), p.width, delta=0.01)
         between = gap(solid, middle + 12, z)
         self.assertGreater(between, p.width - p.constriction + 0.5)
@@ -248,7 +248,7 @@ class CrackTests(unittest.TestCase):
         wavy = body(replace(STRAIGHT, character=1, seed=3))
         z = STRAIGHT.back + STRAIGHT.depth / 2
         middles = []
-        for y in np.linspace(-60, 60, 7):
+        for y in np.linspace(-30, 30, 7):
             self.assertAlmostEqual(gap(wavy, y, z), STRAIGHT.width, delta=0.05)
             xs = across(wavy, y, z)
             middles.append((xs[1] + xs[2]) / 2)

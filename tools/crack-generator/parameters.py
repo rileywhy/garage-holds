@@ -195,19 +195,18 @@ SHAPES = {"block": "One block", "half": "One side (print two)"}
 
 BASE = Parameters()
 # A plain finger crack, parallel and the same width all the way along: the
-# start of the other presets.
+# start of the other presets. Finger cracks stay short, as the default is;
+# only hand and fist cracks need the length and depth a hand goes into.
 STRAIGHT = replace(
-    BASE, width=22, constriction=0, constriction_height=40, edge_radius=4, length=160
+    BASE, width=22, constriction=0, constriction_height=40, edge_radius=4
 )
 # Each preset fits as written: nothing has to ease.
 PRESETS = {
     "Finger crack": BASE,
     "Parallel fingers": STRAIGHT,
     "Thin fingers": replace(STRAIGHT, width=15, depth=45, edge_radius=3),
-    # A gentler constriction a little below the middle of a longer crack.
-    "Finger locks": replace(
-        STRAIGHT, width=24, constriction=9, constriction_height=45, length=180
-    ),
+    # A gentler constriction, a little below the middle.
+    "Finger locks": replace(STRAIGHT, width=24, constriction=9, constriction_height=45),
     "Flared fingers": replace(STRAIGHT, width=32, depth=45, flare=10, edge_radius=5),
     "Hand crack": replace(
         STRAIGHT,
