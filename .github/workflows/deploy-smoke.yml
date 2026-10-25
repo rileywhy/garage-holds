@@ -74,9 +74,10 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           subject=$(git log -1 --format=%s "$SHA")
-          # The first few failing tests name the broken routes: "not ok" lines
-          # from the TAP reporter Node 22 uses when piped, ✖ lines from spec.
-          failures=$(grep -E '^not ok|✖' smoke.log | grep -v 'failing tests' | head -5 | sed 's/^ *//')
+          # The first few failing tests name the broken routes: ✖ lines from
+          # the spec reporter Node 24 uses even when piped, "not ok" from TAP.
+          # Spec lists each failure twice (as it runs and in its summary).
+          failures=$(grep -E '^not ok|✖' smoke.log | grep -v 'failing tests' | sed 's/^ *//' | awk '!seen[$0]++' | head -5)
           content=$(printf '🔴 garageholds.com failed its smoke test after deploying %s "%s"\n%s\n%s' \
             "${SHA:0:7}" "$subject" "$failures" "$RUN_URL" | head -c 1900)
           echo "$content"
