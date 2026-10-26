@@ -272,6 +272,24 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(len(model.screws), 3)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)
 
+    def test_deep_jug_is_deeper_and_more_incut_than_the_board_jug(self):
+        def grip(name):
+            # Measured on the built centre section: the lip rounding and arc
+            # rise both change what the reach and bite settings promise.
+            model = build(PRESETS[name])
+            y, z = model.profile.T
+            top = int(np.argmax(y))
+            wall = top + int(np.argmax(z[top:] < 1e-6))
+            incut = np.degrees(np.arctan2(y[wall - 1] - y[wall], z[wall - 1]))
+            return y[top] - y[wall], model.mesh.extents[2], incut, model.adjusted
+
+        board, deep = grip("Board jug"), grip("Deep jug")
+        # The trough behind the lip, the projection and the shelf's incut.
+        self.assertGreater(deep[0], 1.5 * board[0])
+        self.assertGreater(deep[1], board[1] + 15)
+        self.assertGreater(deep[2], board[2] + 2)
+        self.assertEqual(deep[3], {})
+
     def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
         widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
         for name in ("Board jug", "Deep jug"):

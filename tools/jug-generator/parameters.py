@@ -109,11 +109,23 @@ CONTROLS.append(
 )
 PRESETS = {
     "Board jug": Parameters(),
+    # About 12% larger than before, with a much longer reach and more bite:
+    # the trough behind the lip is twice as deep. Arc rise stretches the
+    # middle away from the wall, flattening its incut, so it stays low.
+    # 135% bite is 58° exactly, and the body is the height the fit lands
+    # on, so loading the preset reports no adjustment.
     "Deep jug": Parameters(
-        width=142,
-        lip_radius=12.5,
+        width=158,
+        edge_depth=87.5,
+        grip_quality=135,
+        incut=58,
+        lip_radius=14,
+        body_height=180,
+        body_rounding=28,
+        end_rounding=21,
+        bow=12,
         end_wrap=145,
-        arc_rise=12.5,
+        arc_rise=5.5,
     ),
     # Wide enough for both hands and still 5% inside a 256 mm printer bed,
     # with a gentler arch so four screws spread across the body instead of
