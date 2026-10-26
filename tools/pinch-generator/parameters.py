@@ -12,15 +12,15 @@ class Parameters:
     # stands off the wall, each side's lean, and how much lower the thumb
     # side stands than the finger side.
     width: float = 66
-    depth: float = 44
-    thumb_angle: float = -15
-    finger_angle: float = -15
+    depth: float = 48
+    thumb_angle: float = -13
+    finger_angle: float = -13
     offset: float = 0
-    edge_radius: float = 12.5
+    edge_radius: float = 14
     swoop: float = 5
     # The body, before overall scale.
     shape: str = "domed"
-    top_rise: float = 6.5
+    top_rise: float = 7
     size: float = 100
     height: float = 110
     end_rounding: float = 60
@@ -246,43 +246,44 @@ PRESETS = {
     "Wide pinch": replace(
         BASE,
         width=100,
-        depth=46,
-        thumb_angle=-12,
-        finger_angle=-12,
-        edge_radius=14.5,
-        top_rise=9,
+        depth=51,
+        thumb_angle=-11,
+        finger_angle=-11,
+        edge_radius=16,
+        top_rise=10,
         height=121,
     ),
     "Lip pinch": replace(
         BASE,
         shape="flat",
         width=80,
-        depth=40,
-        thumb_angle=-32,
-        finger_angle=-32,
-        edge_radius=9,
+        depth=44,
+        thumb_angle=-29,
+        finger_angle=-29,
+        edge_radius=10,
     ),
-    # As undercut as the lip pinch, but rounded all over: deep edges, a
-    # high dome and fully oval ends.
+    # Plump and rounded all over, like the Tension Board 2's pinch: a deep,
+    # high-domed oval standing well off the wall, its edges rounded almost
+    # to the wall, narrowing a little toward the top.
     "Round pinch": replace(
         BASE,
-        width=84,
-        depth=40,
-        thumb_angle=-32,
-        finger_angle=-32,
-        edge_radius=19,
-        swoop=7,
-        top_rise=12,
-        end_rounding=100,
+        width=76,
+        depth=54,
+        thumb_angle=-18,
+        finger_angle=-18,
+        edge_radius=20,
+        top_rise=16,
+        height=105,
+        end_rounding=90,
+        taper=20,
     ),
-    # Pinched in at the middle and flaring to each end, so it pinches the
-    # same up and down its length: grab it wide at either end, or narrow
-    # at the waist.
+    # Pinched in gently at the middle and full at each end: grab it wide
+    # at either end, or a little narrower at the waist.
     "Hour glass": replace(
         BASE,
         width=96,
-        hourglass=45,
-        height=150,
+        hourglass=25,
+        height=140,
         end_rounding=40,
     ),
     # Wide at the bottom and narrowing to the top, like a block of wood cut
@@ -290,7 +291,7 @@ PRESETS = {
     "Triangle pinch": replace(
         BASE,
         width=96,
-        depth=48,
+        depth=53,
         taper=45,
         height=130,
         end_rounding=30,
@@ -299,11 +300,11 @@ PRESETS = {
         BASE,
         shape="flat",
         width=64,
-        depth=51,
-        thumb_angle=-5,
-        finger_angle=-25,
+        depth=56,
+        thumb_angle=-4,
+        finger_angle=-22,
         offset=40,
-        edge_radius=10,
+        edge_radius=11,
     ),
 }
 
