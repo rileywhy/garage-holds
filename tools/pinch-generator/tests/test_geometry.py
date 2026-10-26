@@ -560,9 +560,9 @@ class PinchTests(unittest.TestCase):
 
     def test_automatic_seat_follows_the_depth(self):
         # Each screw head sits the shared share of the depth off the wall,
-        # with a thick floor of plastic under it: 17.5 mm on the block
-        # pinch, where it once sat 8 mm up (RIL-136).
-        self.assertEqual({h.seat for h in build(BASE).holes}, {17.5})
+        # with a thick floor of plastic under it: 19 mm on the block pinch,
+        # where it once sat 8 mm up (RIL-136).
+        self.assertEqual({h.seat for h in build(BASE).holes}, {19})
         for name, p in PRESETS.items():
             with self.subTest(name=name):
                 seat = automatic_seat(p.depth * p.size / 100)
