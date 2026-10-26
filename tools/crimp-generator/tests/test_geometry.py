@@ -173,16 +173,17 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(exported.screws, steep.screws)
 
     def test_seat_follows_the_depth_unless_set_by_hand(self):
-        self.assertEqual(seat_height(Parameters()), 10)
-        self.assertEqual(seat_height(Parameters(edge_depth=10)), 6)
-        self.assertEqual(seat_height(Parameters(edge_depth=60)), 24)
+        # 40% of the projection (edge depth + 6), at most 20 mm (RIL-136).
+        self.assertEqual(seat_height(Parameters()), 11)
+        self.assertEqual(seat_height(Parameters(edge_depth=10)), 6.5)
+        self.assertEqual(seat_height(Parameters(edge_depth=60)), 20)
         self.assertEqual(seat_height(Parameters(auto_seat=False, seat_depth=4)), 4)
-        self.assertEqual(build(Parameters()).seat_depth, 10)
-        self.assertEqual(build(Parameters()).preview()["seat_depth"], 10)
+        self.assertEqual(build(Parameters()).seat_depth, 11)
+        self.assertEqual(build(Parameters()).preview()["seat_depth"], 11)
         by_hand = build(Parameters(auto_seat=False, seat_depth=4))
         self.assertEqual(by_hand.seat_depth, 4)
         # A higher seat leaves more body under the head: the drilled solid
-        # with the seat at 10 keeps more volume than with it at 4.
+        # with the seat at 11 keeps more volume than with it at 4.
         self.assertGreater(build(Parameters()).mesh.volume, by_hand.mesh.volume)
         for name, preset in PRESETS.items():
             with self.subTest(preset=name):

@@ -17,7 +17,15 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.hold_mounting import assert_closed, closed_mesh, drill, fit_bolt_and_screw
+from tools.hold_mounting import (
+    MIN_SEAT,
+    assert_closed,
+    automatic_seat,
+    closed_mesh,
+    drill,
+    fit_bolt_and_screw,
+    lowest_seat,
+)
 
 if __package__:
     from .parameters import (
@@ -173,7 +181,7 @@ def _inside(points, polygons):
     return inside
 
 
-def _mounting(p, solid):
+def _mounting(p, solid, relaxed=False):
     # Evenly spaced around an oval; two holes stay horizontal.
     angles = np.arange(p.screw_count) * 2 * math.pi / p.screw_count
     if p.screw_count != 2:
@@ -206,11 +214,16 @@ def _mounting(p, solid):
         gaps[:, i, i] = np.inf
     spaced = gaps.min(axis=(1, 2)) >= p.head_diameter + 1.5
     candidates = candidates[spaced]
-    target = round(min(12, p.projection * 0.36) if p.auto_seat else p.seat_depth, 1)
+    target = round(automatic_seat(p.projection) if p.auto_seat else p.seat_depth, 1)
     cone = (p.head_diameter - p.shank_diameter) / 2
-    # Prefer a larger body to an extremely shallow automatic screw seat.
-    # A manual seat can lower further when its requested height cannot fit.
-    floor = max(3.0, target / 2) if p.auto_seat else 0.5
+    # Prefer a larger body to a shallow automatic screw seat: it comes down
+    # to its floor, and below that (to 3 mm, the lowest it ever came) only
+    # once the body has grown as far as it will (relaxed). A manual seat can
+    # lower further when its requested height cannot fit.
+    if not p.auto_seat:
+        floor = 0.5
+    else:
+        floor = 3.0 if relaxed else lowest_seat(target)
     for seat in np.unique(np.append(np.arange(target, floor - 1e-9, -0.5), floor))[
         ::-1
     ]:
@@ -256,42 +269,51 @@ def build(requested: Parameters, quality="preview") -> Model:
         max((MAX_WIDTH - p.width) / 8, (MAX_HEIGHT - p.height) / 8)
     )
     depth_steps = math.ceil((MAX_PROJECTION - p.projection) / 4)
-    for attempt in range(growth_steps + depth_steps + 1):
-        p = _fit_slope(p)
-        mesh, profile = _mesh(p, "preview")
-        solid = _solid(mesh)
-        seat_limit = max(3.0, float(mesh.bounds[1, 2]) - p.head_diameter)
-        if not p.auto_seat:
-            p = replace(p, seat_depth=min(p.seat_depth, seat_limit))
-        holes = []
-        if p.screws and p.bolt_mount:
-            target = round(
-                min(
-                min(12, p.projection * 0.36)
-                    if p.auto_seat
-                    else p.seat_depth,
-                    seat_limit,
-                ),
-                1,
-            )
-            holes = fit_bolt_and_screw(p, solid, mesh.bounds, target)
-            screws = [(h.x, h.y) for h in holes if not h.bolt]
-            seat = holes[0].seat if holes else target
+    # An automatic seat that cannot sit at its floor even on the largest
+    # body starts again from the requested body, as low as it fits (RIL-136).
+    start = p
+    for relaxed in (False, True) if p.auto_seat else (True,):
+        p = start
+        for attempt in range(growth_steps + depth_steps + 1):
+            p = _fit_slope(p)
+            mesh, profile = _mesh(p, "preview")
+            solid = _solid(mesh)
+            seat_limit = max(3.0, float(mesh.bounds[1, 2]) - p.head_diameter)
+            if not p.auto_seat:
+                p = replace(p, seat_depth=min(p.seat_depth, seat_limit))
+            holes = []
+            if p.screws and p.bolt_mount:
+                target = round(
+                    min(
+                        automatic_seat(p.projection) if p.auto_seat else p.seat_depth,
+                        seat_limit,
+                    ),
+                    1,
+                )
+                lowest = (
+                    lowest_seat(target) if p.auto_seat and not relaxed else MIN_SEAT
+                )
+                holes = fit_bolt_and_screw(p, solid, mesh.bounds, target, floor=lowest)
+                screws = [(h.x, h.y) for h in holes if not h.bolt]
+                seat = holes[0].seat if holes else target
+            else:
+                screws, seat = _mounting(p, solid, relaxed) if p.screws else ([], p.seat_depth)
+                seat = min(seat, seat_limit)
+            if not p.screws or screws:
+                break
+            # Grow the footprint first, then depth if the maximum oval is still
+            # too shallow for the chosen hardware. No hidden hole removal.
+            if p.width < MAX_WIDTH or p.height < MAX_HEIGHT:
+                p = replace(
+                    p,
+                    width=min(MAX_WIDTH, p.width + 8),
+                    height=min(MAX_HEIGHT, p.height + 8),
+                )
+            else:
+                p = replace(p, projection=min(MAX_PROJECTION, p.projection + 4))
         else:
-            screws, seat = _mounting(p, solid) if p.screws else ([], p.seat_depth)
-            seat = min(seat, seat_limit)
-        if not p.screws or screws:
-            break
-        # Grow the footprint first, then depth if the maximum oval is still
-        # too shallow for the chosen hardware. No hidden hole removal.
-        if p.width < MAX_WIDTH or p.height < MAX_HEIGHT:
-            p = replace(
-                p,
-                width=min(MAX_WIDTH, p.width + 8),
-                height=min(MAX_HEIGHT, p.height + 8),
-            )
-        else:
-            p = replace(p, projection=min(MAX_PROJECTION, p.projection + 4))
+            continue
+        break
     else:
         raise ValueError("The mounting solver could not find space for these screws.")
     seat = min(seat, seat_limit)

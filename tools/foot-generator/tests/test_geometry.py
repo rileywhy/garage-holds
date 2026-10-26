@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import build
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
+from tools.hold_mounting import FOOT_SEAT_FLOOR, automatic_seat, lowest_seat
+
 SHAPES = ("edge", "ball", "rock", "dish", "rectangle")
 
 
@@ -195,6 +197,20 @@ class FootTests(unittest.TestCase):
         self.assertFalse(in_corner.any())
         big = build(replace(rail, size=200, lip_radius=14))
         self.assertAlmostEqual(big.mesh.bounds[1][0] - big.mesh.bounds[0][0], 140, delta=0.4)
+
+    def test_presets_seat_their_screws_at_least_5_mm_off_the_wall(self):
+        # A foothold's automatic seat aims for 40% of the edge depth and
+        # comes down no lower than 5 mm, or than itself on a thinner edge,
+        # before the body grows (RIL-136).
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                model = build(p)
+                built = model.parameters
+                target = automatic_seat(built.edge_depth * built.size / 100)
+                self.assertGreaterEqual(
+                    min(h.seat for h in model.holes),
+                    lowest_seat(target, FOOT_SEAT_FLOOR),
+                )
 
     def test_manual_seat_survives_turning_screws_off(self):
         # Dragging the seat slider sets auto_seat off; turning the mounting

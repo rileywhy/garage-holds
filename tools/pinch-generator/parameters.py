@@ -237,13 +237,6 @@ CONTROLS = [
 # overall scale, and one more for every 30 mm past that, up to six.
 SCREW_SPAN = 60
 SCREW_STEP = 30
-# The automatic seat stands this share of the depth off the wall, after
-# overall scale, as the Crimp and Sloper Labs seat theirs: a thick floor
-# under each screw head and a short recess above it. 16 mm on the block
-# pinch, and never more than SEAT_MAX.
-SEAT_SHARE = 0.36
-SEAT_MAX = 20
-
 SHAPES = {"flat": "Flat top", "domed": "Domed top", "ridged": "Ridged top"}
 
 BASE = Parameters()
