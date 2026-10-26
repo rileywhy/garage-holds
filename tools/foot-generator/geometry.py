@@ -18,7 +18,16 @@ else:
     from crimp_engine import geometry as crimp
     from parameters import CONTROLS, parse_parameters
 
-from tools.hold_mounting import closed_mesh, drill, fit_bolt_and_screw, screw_layout
+from tools.hold_mounting import (
+    FOOT_SEAT_FLOOR,
+    MIN_SEAT,
+    automatic_seat,
+    closed_mesh,
+    drill,
+    fit_bolt_and_screw,
+    lowest_seat,
+    screw_layout,
+)
 
 
 def shaped_body(p, quality):
@@ -230,24 +239,40 @@ def build(requested, quality="preview"):
     if p.auto_screw_count and not p.bolt_mount:
         p = replace(p, screw_count=2 if p.width * p.size / 100 >= 50 else 1)
     holes = []
+    # An automatic seat comes down no lower than a foothold's floor before
+    # the body grows; only once the body has grown as far as it will does
+    # the hold start again, as designed, with the seat as low as it fits
+    # (RIL-136).
+    start, relaxed = p, False
     # The body may grow for the hardware, but never past what the sliders
     # allow: the design carries the settings built, and a reopened design
     # is clamped to the sliders, so growth past them would export a
     # different hold from the one previewed (RIL-78).
     limits = {control["key"]: control["max"] for control in CONTROLS}
-    for attempt in range(120):
+    for attempt in range(240):
         solid, profile, radius = body(p, "preview")
         if not p.screws:
             break
         target = (
-            min(8, p.edge_depth * p.size / 100 * 0.25) if p.auto_seat else p.seat_depth
+            automatic_seat(p.edge_depth * p.size / 100)
+            if p.auto_seat
+            else p.seat_depth
+        )
+        lowest = (
+            lowest_seat(target, FOOT_SEAT_FLOOR)
+            if p.auto_seat and not relaxed
+            else MIN_SEAT
         )
         holes = (
             fit_bolt_and_screw(
-                p, solid, np.array(solid.bounding_box()).reshape(2, 3), target
+                p,
+                solid,
+                np.array(solid.bounding_box()).reshape(2, 3),
+                target,
+                floor=lowest,
             )
             if p.bolt_mount
-            else screw_layout(p, solid, target)
+            else screw_layout(p, solid, target, floor=lowest)
         )
         if holes:
             p = replace(p, seat_depth=holes[0].seat)
@@ -259,6 +284,9 @@ def build(requested, quality="preview"):
             body_height=min(limits["body_height"], p.body_height + 4),
             edge_depth=min(limits["edge_depth"], p.edge_depth + 0.5),
         )
+        if grown == p and p.auto_seat and not relaxed:
+            p, relaxed = start, True
+            continue
         if grown == p:
             raise ValueError(
                 "Hardware could not fit this body, even at the largest size the sliders allow. Use fewer holes or smaller recesses, or turn holes off."

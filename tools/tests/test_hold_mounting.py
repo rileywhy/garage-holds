@@ -19,14 +19,17 @@ import trimesh
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.hold_mounting import (  # noqa: E402
+    FOOT_SEAT_FLOOR,
     Hole,
     _highest_enclosed_seat,
     _inside,
     _room,
     assert_closed,
+    automatic_seat,
     closed_mesh,
     drill,
     fit_bolt_and_screw,
+    lowest_seat,
     screw_layout,
 )
 
@@ -238,6 +241,37 @@ class ScrewLayoutTests(unittest.TestCase):
 
     def test_no_layout_when_not_every_screw_fits(self):
         self.assertEqual(screw_layout(Hardware(screw_count=3), box(24, 24, 10), 6), [])
+
+
+class SeatRuleTests(unittest.TestCase):
+    def test_the_automatic_seat_is_40_percent_of_the_depth_up_to_20_mm(self):
+        self.assertEqual(automatic_seat(28), 11)
+        self.assertEqual(automatic_seat(16), 6.5)
+        self.assertEqual(automatic_seat(50), 20)
+        self.assertEqual(automatic_seat(66), 20)
+
+    def test_it_comes_down_to_8_mm_or_5_on_a_foothold_but_never_below_itself(self):
+        self.assertEqual(lowest_seat(20), 8)
+        self.assertEqual(lowest_seat(20, FOOT_SEAT_FLOOR), 5)
+        self.assertEqual(lowest_seat(6.5), 6.5)
+
+    def test_no_seat_comes_below_the_callers_floor(self):
+        # On the cone a 35 mm seat lowers to fit; asked to stop above where
+        # it fits, the fit finds nothing, and the caller grows the body.
+        solid = cone()
+        fitted = screw_layout(Hardware(screw_count=3), solid, 35)[0].seat
+        self.assertEqual(
+            screw_layout(Hardware(screw_count=3), solid, 35, floor=fitted)[0].seat,
+            fitted,
+        )
+        self.assertEqual(
+            screw_layout(Hardware(screw_count=3), solid, 35, floor=fitted + 0.5), []
+        )
+        bolt = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35)[0].seat
+        self.assertEqual(
+            fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35, floor=bolt + 0.5),
+            [],
+        )
 
 
 class DrillTests(unittest.TestCase):

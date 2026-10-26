@@ -17,14 +17,12 @@ from parameters import (
     PRESETS,
     SCREW_SPAN,
     SCREW_STEP,
-    SEAT_MAX,
-    SEAT_SHARE,
     SHAPES,
     design_document,
     parse_parameters,
 )
 
-from tools.hold_mounting import _inside
+from tools.hold_mounting import _inside, automatic_seat
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -561,13 +559,13 @@ class PinchTests(unittest.TestCase):
             self.assertEqual(model.holes, [])
 
     def test_automatic_seat_follows_the_depth(self):
-        # Each screw head sits SEAT_SHARE of the depth off the wall, with a
-        # thick floor of plastic under it: 16 mm on the block pinch, where
-        # it once sat 8 mm up.
-        self.assertEqual({h.seat for h in build(BASE).holes}, {16})
+        # Each screw head sits the shared share of the depth off the wall,
+        # with a thick floor of plastic under it: 19 mm on the block pinch,
+        # where it once sat 8 mm up (RIL-136).
+        self.assertEqual({h.seat for h in build(BASE).holes}, {19})
         for name, p in PRESETS.items():
             with self.subTest(name=name):
-                seat = min(SEAT_MAX, round(SEAT_SHARE * p.depth * p.size / 100 * 2) / 2)
+                seat = automatic_seat(p.depth * p.size / 100)
                 self.assertEqual({h.seat for h in build(p).holes}, {seat})
 
     def test_manual_seat_is_used_when_it_fits(self):

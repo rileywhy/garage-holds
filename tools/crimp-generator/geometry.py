@@ -17,7 +17,13 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.hold_mounting import assert_closed, closed_mesh, drill, fit_bolt_and_screw
+from tools.hold_mounting import (
+    assert_closed,
+    closed_mesh,
+    drill,
+    fit_bolt_and_screw,
+    lowest_seat,
+)
 
 if __package__:
     from .parameters import Parameters, parse_parameters, seat_height
@@ -360,9 +366,15 @@ def _check_deadline(deadline: float | None) -> None:
         raise ValueError(TOO_SLOW)
 
 
-def automatic_seat(p: Parameters, jug: bool = False) -> float:
-    target = seat_height(p)
-    return 12.0 if jug else target
+# The Jug Lab sizes its body once, test-fitting the hardware at the seat it
+# has always used there, so the seat rule (RIL-136) leaves every jug's
+# outside, and the time it takes to find, as it was.
+JUG_BODY_SEAT = 12.0
+
+
+def automatic_seat(p: Parameters) -> float:
+    """The automatic seat on this body, the Jug Lab's included (RIL-136)."""
+    return seat_height(replace(p, auto_seat=True))
 
 
 def build(
@@ -402,19 +414,15 @@ def build(
             reference_mesh = _loft(reference, "preview", end_wrap, arc_rise)[0]
             if fit_bolt_and_screw(
                 reference, _solid(reference_mesh), reference_mesh.bounds,
-                automatic_seat(reference, jug), edge_clearance=5.0,
+                JUG_BODY_SEAT, edge_clearance=5.0,
             ):
                 start = float(height)
                 break
         heights = np.array([start])
     # A taller body is preferred to a shallow seat: the seat may drop to
-    # half its target first, and only once the body has grown as far as it
-    # will may it go lower still.
-    floors = [max(3.0, automatic_seat(p, jug) / 2), 0.5] if p.auto_seat else [0.5]
-    if jug and p.auto_seat:
-        # Prefer at least 6 mm in Jug Lab, while still allowing unusually
-        # compact profiles to lower the recess enough to remain printable.
-        floors = [6.0, 0.5]
+    # its floor first, and only once the body has grown as far as it will
+    # may it go lower still, so unusually compact profiles stay printable.
+    floors = [lowest_seat(automatic_seat(p)), 0.5] if p.auto_seat else [0.5]
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.
@@ -483,7 +491,7 @@ def _build(
         if p.screws
         else None
     )
-    seat = automatic_seat(p, jug) if p.auto_seat else seat_height(p)
+    seat = automatic_seat(p) if p.auto_seat else seat_height(p)
     # With mounting holes off there is no limit to clamp to; the seat slider
     # may still have turned auto_seat off before the holes were removed.
     if not p.auto_seat and seat_limit is not None:
@@ -498,7 +506,7 @@ def _build(
             edge_clearance=5.0 if jug else None,
             enclose_requested=not jug,
             layout_target=(
-                min(automatic_seat(replace(p, auto_seat=True), jug), seat_limit)
+                min(automatic_seat(p), seat_limit)
                 if not p.auto_seat
                 else None
             ),
@@ -515,7 +523,7 @@ def _build(
     elif p.screws:
         requested_seat = seat
         if jug or not p.auto_seat:
-            seat = min(automatic_seat(replace(p, auto_seat=True), jug), seat_limit)
+            seat = min(automatic_seat(p), seat_limit)
         cone_height = (p.head_diameter - p.shank_diameter) / 2
         # Resolve mounting on the same mesh for both qualities. Otherwise a
         # finer rounded end can shift automatic spacing between preview/STL.

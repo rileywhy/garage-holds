@@ -25,7 +25,7 @@ from geometry import (
 )
 from parameters import BASE, CONTROLS, PRESETS, design_document, parse_parameters
 
-from tools.hold_mounting import _inside
+from tools.hold_mounting import SEAT_FLOOR, _inside
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -106,6 +106,14 @@ class PocketTests(unittest.TestCase):
                 self.assertEqual(a.adjusted, {})
                 c = build(parse_parameters(asdict(a.parameters)))
                 np.testing.assert_allclose(a.mesh.extents, c.mesh.extents)
+
+    def test_presets_seat_their_screws_at_least_8_mm_off_the_wall(self):
+        # The automatic seat aims for 40% of the depth and comes down no
+        # lower than 8 mm before the body grows (RIL-136); every preset is
+        # sized so it never has to.
+        for name, p in PRESETS.items():
+            with self.subTest(name=name):
+                self.assertGreaterEqual(min(h.seat for h in build(p).holes), SEAT_FLOOR)
 
     def test_closed_pockets_keep_a_floor(self):
         for name, p in PRESETS.items():

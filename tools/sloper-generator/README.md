@@ -47,9 +47,10 @@ retains their dimensions.
   shank at the back and the head at/above the countersink, with intermediate
   checks for the lifted body. Candidate positions can move up as well as down.
   Crowded footprints
-  grow; depth also grows if needed. Automatic seats can lower to half their
-  target (at least 3 mm) before growing the body further; manual seats can
-  lower further to fit. Changes appear in the sliders and status.
+  grow; depth also grows if needed. The automatic seat is 40% of the
+  projection (at most 20 mm) and can lower to 8 mm before the body grows;
+  only a body that cannot take that even at its largest seats lower (to
+  3 mm). Manual seats can lower further to fit. Changes appear in the sliders and status.
 
 Preview camera orbit, pan, and zoom survive edits. Presets and loaded settings
 refit while keeping the viewing direction. **board preview** defaults to 40°

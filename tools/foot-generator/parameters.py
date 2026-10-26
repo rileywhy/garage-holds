@@ -152,10 +152,10 @@ CONTROLS = [
         "Screw seat",
         "Mounting",
         2,
-        12,
+        30,
         0.5,
         "mm",
-        "Material beneath the screw head. Automatically reduced to fit when necessary.",
+        "Material beneath the screw head. Automatic follows the depth; reduced to fit when necessary.",
     ),
     *hardware.SCREW_CONTROLS,
     *hardware.BOLT_CONTROLS,
@@ -164,13 +164,13 @@ BASE = Parameters()
 PRESETS = {
     "Board edge": BASE,
     "Toe-in edge": replace(
-        BASE, width=50, body_height=51, incut=55, edge_depth=24.5, crown=8, taper=25
+        BASE, width=52, body_height=55, incut=55, edge_depth=25, crown=8, taper=25
     ),
     "Neutral chip": replace(
         BASE,
-        width=38,
-        body_height=28,
-        edge_depth=12,
+        width=40,
+        body_height=32,
+        edge_depth=12.5,
         incut=0,
         lip_radius=3.5,
         screw_count=1,

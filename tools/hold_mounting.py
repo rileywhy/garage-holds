@@ -8,6 +8,33 @@ import numpy as np
 import trimesh
 
 
+# An automatic seat (where the countersink starts, above the wall) stands
+# this share of the hold's depth off the wall, up to SEAT_MAX. To fit, it
+# steps down no lower than SEAT_FLOOR (FOOT_SEAT_FLOOR on a foothold), or
+# not at all on a hold too shallow for the floor; past that the body grows
+# instead. Only a body that cannot take it even at its largest seats lower,
+# down to MIN_SEAT, as every lab did before (RIL-136). A floor this thick
+# resists the head pulling through about as well as a #10 screw grips 3/4 in
+# ply, and at SEAT_MAX a 2 in screw still bites the whole sheet.
+SEAT_SHARE = 0.4
+SEAT_MAX = 20.0
+SEAT_FLOOR = 8.0
+FOOT_SEAT_FLOOR = 5.0
+MIN_SEAT = 2.0
+
+
+def automatic_seat(depth: float) -> float:
+    """The automatic seat, to the half millimetre, for a hold standing
+    depth mm off the wall."""
+    return min(SEAT_MAX, max(0.5, round(SEAT_SHARE * depth * 2) / 2))
+
+
+def lowest_seat(target: float, floor: float = SEAT_FLOOR) -> float:
+    """How far an automatic seat may come down to fit before the body has
+    to grow: to the floor, or nowhere when the target is already below it."""
+    return min(target, floor)
+
+
 def closed_mesh(solid: manifold.Manifold, message: str) -> trimesh.Trimesh:
     """A drilled solid as a trimesh, after confirming it is a closed body.
 
@@ -84,13 +111,15 @@ def fit_bolt_and_screw(
     layout_target=None,
     enclose_requested=True,
     screw_target=None,
+    floor=MIN_SEAT,
 ):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
 
     Every recess and shank is checked in inset slices before drilling. Manual
-    seats can lower to fit, matching the existing lab fitting behavior. A
-    caller can name where the screw belongs (screw_target); it then takes the
-    eligible spot nearest there instead of the longest lever arm.
+    seats can lower to fit, matching the existing lab fitting behavior; no
+    seat comes below floor. A caller can name where the screw belongs
+    (screw_target); it then takes the eligible spot nearest there instead of
+    the longest lever arm.
     """
     lo, hi = bounds
     xs = np.unique(np.append(np.linspace(lo[0], hi[0], 41), 0))
@@ -99,7 +128,7 @@ def fit_bolt_and_screw(
     requested_seat = target
     if layout_target is not None:
         target = layout_target
-    seats = np.arange(max(2, min(target, hi[2] - 3)), 1.9, -0.5)
+    seats = np.arange(max(floor, min(target, hi[2] - 3)), floor - 0.1, -0.5)
     for seat in seats:
         bolts = points[
             _inside(
@@ -188,13 +217,13 @@ def fit_bolt_and_screw(
     return []
 
 
-def screw_layout(p, solid, target, targets=None):
+def screw_layout(p, solid, target, targets=None, floor=MIN_SEAT):
     """One to three countersunk screws, each at the eligible spot nearest its
     target: centred for one, spread toward the sides for two, with a third
     below the middle, unless the caller places the targets itself; a
     caller's targets are candidates too, so each lands exactly where it was
     asked when it fits there. The seat lowers in steps until every recess
-    fits."""
+    fits, but never below floor."""
     bounds = np.array(solid.bounding_box()).reshape(2, 3)
     lo, hi = bounds
     xx, yy = np.meshgrid(np.linspace(lo[0], hi[0], 51), np.linspace(lo[1], hi[1], 51))
@@ -207,7 +236,7 @@ def screw_layout(p, solid, target, targets=None):
         )
         if p.screw_count == 3:
             targets.append((0, lo[1] * 0.55))
-    for seat in np.arange(max(2, target), 1.9, -0.5):
+    for seat in np.arange(max(floor, target), floor - 0.1, -0.5):
         eligible = points[
             _inside(
                 points, _room(solid, p.shank_diameter, p.head_diameter, seat, False)

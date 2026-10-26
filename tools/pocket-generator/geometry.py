@@ -24,11 +24,14 @@ else:
     from parameters import CONTROLS, parse_parameters
 
 from tools.hold_mounting import (
+    MIN_SEAT,
     _inside,
     assert_closed,
+    automatic_seat,
     closed_mesh,
     drill,
     fit_bolt_and_screw,
+    lowest_seat,
     screw_layout,
 )
 
@@ -947,23 +950,32 @@ def build(requested, quality="preview"):
     requested = parse_parameters(asdict(requested))
     p = fit_pocket(requested)
     holes = []
+    # An automatic seat comes down no lower than its floor before the body
+    # grows; only once the body has grown as far as it will does the hold
+    # start again, as designed, with the seat as low as it fits (RIL-136).
+    start, relaxed = p, False
     # The body may grow for the hardware, but never past what the sliders
     # allow: the design carries the settings built, and a reopened design
     # is clamped to the sliders, so growth past them would export a
     # different hold from the one previewed (RIL-78).
-    for _ in range(120):
+    for _ in range(240):
         solid, cut, pocketed, profiles, floor = pocket(p, "preview")
         if not p.screws:
             break
         depth = p.depth * p.size / 100
-        target = min(8, depth * 0.25) if p.auto_seat else p.seat_depth
+        target = automatic_seat(depth) if p.auto_seat else p.seat_depth
+        lowest = lowest_seat(target) if p.auto_seat and not relaxed else MIN_SEAT
         proxy = mounting_proxy(solid, cut, depth)
         holes = (
             fit_bolt_and_screw(
-                p, proxy, np.array(proxy.bounding_box()).reshape(2, 3), target
+                p,
+                proxy,
+                np.array(proxy.bounding_box()).reshape(2, 3),
+                target,
+                floor=lowest,
             )
             if p.bolt_mount
-            else screw_layout(p, proxy, target)
+            else screw_layout(p, proxy, target, floor=lowest)
         )
         grown = replace(
             p,
@@ -981,6 +993,9 @@ def build(requested, quality="preview"):
         if holes and (not crowded or grown == p):
             p = replace(p, seat_depth=holes[0].seat)
             break
+        if grown == p and p.auto_seat and not relaxed:
+            p, relaxed = start, True
+            continue
         if grown == p:
             raise ValueError(
                 "Hardware could not fit this body, even at the largest size the sliders allow. Use fewer holes or smaller recesses, or turn holes off."
