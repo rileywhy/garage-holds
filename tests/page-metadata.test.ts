@@ -25,6 +25,31 @@ test("a page carries its own canonical and link-preview fields", () => {
   });
 });
 
+test("a design's search title and description say what it is; its card keeps the name", () => {
+  const metadata = designMetadata({
+    id: "abc",
+    title: "wavy deep crimp",
+    description: "Big edge, unique look.",
+    type: "Crimp",
+    size: "Medium",
+    mount: "Dual mount",
+    status: "published",
+    photos: [],
+  } as unknown as Hold);
+  assert.equal(
+    metadata.title,
+    "wavy deep crimp: 3D printable climbing crimp STL",
+  );
+  assert.equal(
+    metadata.description,
+    "A medium dual-mount climbing crimp to 3D print, with a free STL. Big edge, unique look.",
+  );
+  assert.equal(
+    (metadata.openGraph as { title: string }).title,
+    "wavy deep crimp",
+  );
+});
+
 test("an article carries its authors and dates in the Open Graph block", () => {
   const metadata = pageMetadata({
     title: "Guide",
