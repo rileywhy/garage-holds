@@ -211,7 +211,7 @@
   },
   "crack": {
     "dimensions": [89, 80, 60],
-    "triangles": 14118,
+    "triangles": 18168,
     "screws": 4,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -221,6 +221,7 @@
       "flare": 0,
       "constriction": 23,
       "constriction_height": 15,
+      "jam_angle": 40,
       "edge_radius": 5,
       "shape": "block",
       "length": 80,
@@ -239,7 +240,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 2866084,
-    "stlSha256": "cde022303c678d7e48f19a5e6bdcd4c91a8931b9fd41178975008a1d3108e817"
+    "stlBytes": 4114784,
+    "stlSha256": "c85316c10b8cc719b21d0ee22f6f4971a97bb86cb71d0ca8e54b7df3e484358c"
   }
 }

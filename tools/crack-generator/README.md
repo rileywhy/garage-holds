@@ -3,7 +3,8 @@
 A crack to jam fingers, hands or fists in: its width at the mouth, how far
 it runs in, each face's flare (out, wider at the mouth, or in, wider inside
 so a jam locks behind the mouth), a constriction partway along it for locks,
-the rounding of its lips, its length up the wall, the thickness of each side
+the jam angle those locks are turned to for a steep wall or a roof, the
+rounding of its lips, its length up the wall, the thickness of each side
 and the back behind the floor, and a seeded wander from side to side. It
 comes as one block with the crack through it, or as one side of a crack to
 print twice, mirror one in the slicer and mount apart, which makes a wide
@@ -31,6 +32,18 @@ side of its height, the wander moves the whole crack sideways and keeps its
 width, and toward each end every surface but the back moves into the body
 along a quarter circle, so the ends round off with the edges and the back
 stays on the wall.
+
+The jam angle turns the constriction and the wander about the middle of
+the crack's depth, so they dive down the wall as they go in: on a board
+that steep, your weight pulls square into the lock, as it does on a
+vertical wall at 0. The default, 40, suits a standard board; at 90, for a
+roof, the lock lies along the wall halfway in, and fingers slot up through
+it and hang on it. Each point of a face moves by the constriction and the
+wander at its own depth, so a turned crack's faces are sampled as finely
+across the depth as the loft is along the crack. The block's outside and
+its ends do not turn, and a constriction only moves the faces away from
+the sides, so the screws fit as they do at 0. A straight, parallel crack
+has nothing to turn.
 
 The side thickness is each side at its thinnest: at the mouth, or at the
 floor of a crack flared in, where the block widens to keep it. A flare out

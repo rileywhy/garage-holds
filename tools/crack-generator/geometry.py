@@ -8,8 +8,9 @@ crack's two faces at the flare angle with rounded lips, and a floor with
 rounded corners where the back joins the two sides. One side of a crack is
 the left half of that, its face running to the wall. The section is lofted
 along Y; the constriction moves both faces in over a short stretch, the
-wander moves the whole crack sideways, and toward each end every surface
-but the back moves into the body along a quarter circle, so the ends round
+wander moves the whole crack sideways, the jam angle turns both so they
+dive down the wall as they go in, and toward each end every surface but
+the back moves into the body along a quarter circle, so the ends round
 off with the edges. Screws go only where a vertical line from the wall
 leaves through a side's front face, clear of the crack, and the bolt only
 where one leaves through the crack's floor, so no recess can open into the
@@ -100,31 +101,30 @@ def lean(p):
     return max(0.0, -p.depth * math.tan(math.radians(p.flare)))
 
 
-def corners(p, shift=0.0, narrow=0.0):
+def corners(p):
     """The section's corners in (x, z), clockwise from the left side's foot
-    on the wall, before rounding, with each corner's kind. The crack sits
-    shift across from the middle and narrowed by narrow. One side of a
+    on the wall, before rounding, with each corner's kind. One side of a
     crack is the left of the two, its face toward +X; its hardware column
     is centred on X=0 (see centre_half), so a bolt can sit there."""
     tan = math.tan(math.radians(p.flare))
     depth = body_depth(p)
     if p.shape == "block":
         outer = p.width / 2 + p.side + lean(p)
-        mouth = p.width / 2 - narrow / 2
+        mouth = p.width / 2
         floor = mouth - p.depth * tan
         points = [
             (-outer, 0),
             (-outer, depth),
-            (shift - mouth, depth),
-            (shift - floor, p.back),
-            (shift + floor, p.back),
-            (shift + mouth, depth),
+            (-mouth, depth),
+            (-floor, p.back),
+            (floor, p.back),
+            (mouth, depth),
             (outer, depth),
             (outer, 0),
         ]
         kinds = ["wall", "corner", "lip", "floor", "floor", "lip", "corner", "wall"]
     else:
-        face = p.side / 2 + narrow / 2 + shift
+        face = p.side / 2
         outer = -p.side / 2 - lean(p)
         points = [
             (outer, 0),
@@ -188,9 +188,9 @@ def end_radius(p, radius):
     return max(0.0, min(limit))
 
 
-def rounded(points, kinds, radius, floor, arcs, segments):
+def rounded(points, kinds, radius, floor, arcs, runs):
     """The corners filleted, each arc sampled with its given count and each
-    straight run between them with segments steps, so sections of one
+    straight run between them with its given steps, so sections of one
     crack line up point for point in the loft. The run along the wall is
     left whole. Returns the outline and where each corner's points start
     and end in it."""
@@ -220,7 +220,7 @@ def rounded(points, kinds, radius, floor, arcs, segments):
             break
         end, following = piece[-1], pieces[i + 1][0]
         contour.extend(
-            end + (following - end) * t for t in np.linspace(0, 1, segments + 1)[1:-1]
+            end + (following - end) * t for t in np.linspace(0, 1, runs[i] + 1)[1:-1]
         )
     return np.asarray(contour), spans
 
@@ -242,14 +242,63 @@ def arc_counts(p, segments):
     ]
 
 
-def section(p, segments, shift=0.0, narrow=0.0, arcs=None):
-    """The section in (x, z) at one place along the crack, with where each
-    corner's points sit in it."""
+def run_counts(p, segments, spacing):
+    """Each straight run's steps, from each corner to the next: segments,
+    and across the crack's faces, once the jam angle turns a lock across
+    them, as many as keep each step within spacing, as the loft steps
+    along the crack."""
+    points, _ = corners(p)
+    turns = p.jam_angle > 0 and (p.constriction > 0 or p.character > 0)
+    faces = (2, 4) if p.shape == "block" else (2,)
+    return [
+        max(segments, math.ceil(np.linalg.norm(points[i + 1] - points[i]) / spacing))
+        if turns and i in faces
+        else segments
+        for i in range(len(points) - 1)
+    ]
+
+
+def follows(p, spans, size):
+    """How far each point of a section moves with the crack's left face and
+    with its right, as (left, right): the lips, the faces and the floor's
+    corners all the way, the outsides not at all, and the straight runs
+    between two corners in proportion along them, as they were sampled.
+    One side's face is a left face."""
+    owners = [0, 0, 1, 1, 2, 2, 0, 0] if p.shape == "block" else [0, 0, 1, 1]
+    corner = np.eye(3)[owners][:, 1:]
+    share = np.zeros((size, 2))
+    for i, (start, end) in enumerate(spans):
+        share[start : end + 1] = corner[i]
+        if i + 1 < len(spans):
+            following = spans[i + 1][0]
+            t = np.linspace(0, 1, following - end + 1)[1:-1, None]
+            share[end + 1 : following] = corner[i] + (corner[i + 1] - corner[i]) * t
+    return share
+
+
+def section(p, segments, arcs=None, runs=None, y=None, wander=None, delta=0.0):
+    """The section in (x, z) with where each corner's points sit in it: at
+    y up the wall, moved delta into the body toward an end, the
+    constriction narrows the crack and the wander moves it across, each
+    point of its faces by as much as there is at that point's own height
+    (see turned). Without y, none of these. The outline moves in before
+    the faces do: a lip rounded nearly away at an end stays a clean arc."""
     radius, floor, _ = radii(p)
-    points, kinds = corners(p, shift, narrow)
+    points, kinds = corners(p)
     if arcs is None:
         arcs = arc_counts(p, segments)
-    return rounded(points, kinds, radius, floor, arcs, segments)
+    if runs is None:
+        runs = [segments] * (len(points) - 1)
+    contour, spans = rounded(points, kinds, radius, floor, arcs, runs)
+    if y is None:
+        return contour, spans
+    contour = inset(contour, delta)
+    z = contour[:, 1]
+    across, narrow = wander(turned(p, y, z)), neck(p, y, z)
+    share = follows(p, spans, len(contour))
+    contour[:, 0] += share[:, 0] * (across + narrow / 2)
+    contour[:, 0] += share[:, 1] * (across - narrow / 2)
+    return contour, spans
 
 
 def inset(contour, delta):
@@ -273,32 +322,45 @@ def inset(contour, delta):
     return moved
 
 
-def neck(p, y):
+def turned(p, y, z):
+    """Where a point y up the wall and z out from it falls along the
+    crack's locks, which the jam angle turns about the middle of the
+    crack's depth. At 0 the constriction and the wander run straight in
+    from the mouth, as on a vertical wall; turned, they dive down the wall
+    as they go in, so on a wall that steep your weight pulls square into
+    them; at 90, for a roof, they lie along the wall and vary only with
+    the depth."""
+    angle = math.radians(p.jam_angle)
+    middle = body_depth(p) - p.depth / 2
+    return y * math.cos(angle) + (middle - z) * math.sin(angle)
+
+
+def neck(p, y, z):
     """How much the constriction narrows the crack at y up the wall from
-    the middle of the block."""
+    the middle of the block and z out from the wall."""
     if p.constriction <= 0:
-        return 0.0
+        return np.zeros(np.shape(z))
     reach = float(np.clip(NECK_REACH * p.width, *NECK_BOUNDS))
     middle = p.length * (p.constriction_height / 100 - 0.5)
-    u = (y - middle) / reach
-    return p.constriction * math.cos(math.pi * u / 2) ** 2 if abs(u) < 1 else 0.0
+    u = turned(p, y - middle, z) / reach
+    return np.where(np.abs(u) < 1, p.constriction * np.cos(np.pi * u / 2) ** 2, 0)
 
 
 def wanders(p):
-    """The wander: the crack's sideways shift as a function of y up the
-    wall from the middle of the block."""
+    """The wander: the crack's sideways shift as a function of where a
+    point falls along the crack from the middle of the block (see turned)."""
     amplitude = sway(p)
     rng = np.random.default_rng(p.seed)
     phase = rng.uniform(0, 2 * math.pi, 2)
     frequency = rng.uniform([1.5, 4], [3, 7])
 
-    def shift(y):
-        u = y / (p.length / 2)
+    def shift(along):
+        u = along / (p.length / 2)
         return (
             amplitude
             * (
-                math.sin(frequency[0] * u + phase[0])
-                + 0.4 * math.sin(frequency[1] * u + phase[1])
+                np.sin(frequency[0] * u + phase[0])
+                + 0.4 * np.sin(frequency[1] * u + phase[1])
             )
             / 1.4
         )
@@ -343,6 +405,7 @@ def loft(p, quality):
     edge rounding that fits."""
     q = QUALITY[quality]
     arcs = arc_counts(p, q["segments"])
+    runs = run_counts(p, q["segments"], p.length / q["along"])
     radius, _, cap = radii(p)
     end = end_radius(p, radius)
     length = p.length
@@ -367,7 +430,7 @@ def loft(p, quality):
     deltas = np.concatenate((insets, np.zeros(steps + 1), insets[::-1]))
     rings, columns, centre = [], None, None
     for y, delta in zip(ys, deltas):
-        contour, spans = section(p, q["segments"], shift(y), neck(p, y), arcs)
+        contour, spans = section(p, q["segments"], arcs, runs, y, shift, delta)
         contour = contour + [across, 0]
         if delta == 0:
             bounds = column_bounds(contour, spans, p)
@@ -377,8 +440,9 @@ def loft(p, quality):
                 column.append((y, left, right))
             if centre is None or abs(y) < abs(centre[0]):
                 centre = (y, contour)
-        ring = inset(contour, delta)
-        rings.append(np.column_stack((ring[:, 0], np.full(len(ring), y), ring[:, 1])))
+        rings.append(
+            np.column_stack((contour[:, 0], np.full(len(contour), y), contour[:, 1]))
+        )
     vertices = np.vstack(rings)
     n, count = len(rings[0]), len(rings)
     faces = []

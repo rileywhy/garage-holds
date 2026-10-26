@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Crack Lab",
   description:
-    "Design a printable crack climbing trainer for finger, hand or fist jams: one block with the crack through it, or one side to print twice. Set the width and depth, flare it or add a constriction for locks, preview it on a 40° board and export an STL.",
+    "Design a printable crack climbing trainer for finger, hand or fist jams: one block with the crack through it, or one side to print twice. Set the width and depth, flare it or add a constriction for locks, turn the locks for a steep board or a roof, preview it on a 40° board and export an STL.",
   path: "/make/crack",
 });
 
@@ -31,9 +31,10 @@ export default async function CrackLabPage() {
         <h1>Crack Lab</h1>
         <p>
           A crack to jam fingers, hands or fists in. Set its width and depth,
-          flare it or add a constriction for locks, then export an STL: one
-          block, or one side to print twice and mount apart. It prints on its
-          back and stands tall, so keep the guide&rsquo;s{" "}
+          flare it or add a constriction for locks, turn the locks for a steep
+          board or a roof, then export an STL: one block, or one side to print
+          twice and mount apart. It prints on its back and stands tall, so keep
+          the guide&rsquo;s{" "}
           <Link href="/how-to-3d-print-climbing-holds#settings">
             walls and vertical shell thickness
           </Link>

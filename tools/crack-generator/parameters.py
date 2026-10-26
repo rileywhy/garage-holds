@@ -9,15 +9,17 @@ from tools import hold_hardware as hardware
 @dataclass(frozen=True)
 class Parameters:
     # The crack: its width at the mouth, how far it runs into the block,
-    # each face's lean, a narrowing partway along it for locks, and the
-    # rounding of its lips. By default a short finger-lock block: the crack
-    # narrows from 39 mm to 16 mm near its bottom end, so fingers slot in
-    # above the narrowing and pull down into it.
+    # each face's lean, a narrowing partway along it for locks, the angle
+    # its locks are turned to for a steep wall, and the rounding of its
+    # lips. By default a short finger-lock block for a 40 degree board: the
+    # crack narrows from 39 mm to 16 mm near its bottom end, so fingers
+    # slot in above the narrowing and pull down into it.
     width: float = 39
     depth: float = 50
     flare: float = 0
     constriction: float = 23
     constriction_height: float = 15
+    jam_angle: float = 40
     edge_radius: float = 5
     # The block: one piece with the crack through it, or one side of a
     # crack to print twice.
@@ -106,6 +108,16 @@ CONTROLS = [
         1,
         "%",
         "Where the constriction sits, as a share of the length from the bottom end.",
+    ),
+    control(
+        "jam_angle",
+        "Jam angle",
+        "Grip",
+        0,
+        90,
+        1,
+        "°",
+        "The wall the locks are for: the constriction and the wander dive down the wall as they go in, so your weight pulls straight into them. Set it to the board's angle, 0 for a vertical wall and 90 for a roof. A straight, parallel crack has nothing to turn.",
     ),
     control(
         "edge_radius",

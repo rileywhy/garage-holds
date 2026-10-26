@@ -10,7 +10,7 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import BED, GAP, build, loft
+from geometry import BED, GAP, NECK_BOUNDS, NECK_REACH, build, loft
 from parameters import (
     BASE,
     STRAIGHT,
@@ -34,11 +34,15 @@ SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
 
 # Settings where a recess could open into the crack: thin sides, a crack
 # flared in so its faces lean over the screws, a wandering crack, a
-# constriction beside a screw, a lowered seat, and the bolt in a floor.
+# constriction beside a screw, locks turned for a roof, a lowered seat, and
+# the bolt in a floor.
 CLOSE = [
     replace(STRAIGHT, side=17, flare=-12, depth=60, edge_radius=2),
     replace(
         PRESETS["Finger locks"], character=1, seed=5, auto_seat=False, seat_depth=8
+    ),
+    replace(
+        PRESETS["Finger locks"], character=1, seed=8, constriction=12, jam_angle=90
     ),
     replace(PRESETS["Hand crack"], bolt_mount=True),
     replace(PRESETS["Hand crack, one side"], flare=-10, side=40, bolt_mount=True),
@@ -184,7 +188,8 @@ class CrackTests(unittest.TestCase):
     def test_default_is_a_short_finger_lock_block(self):
         # The lab opens on an 80 mm block whose 39 mm crack narrows to
         # 16 mm near its bottom end, so fingers slot in above the narrowing
-        # and pull down into it.
+        # and pull down into it, turned for a 40 degree board.
+        self.assertEqual(BASE.jam_angle, 40)
         model = build(BASE)
         np.testing.assert_allclose(model.mesh.extents, (89, 80, 60), atol=0.01)
         self.assertEqual(len(model.holes), 4)
@@ -196,9 +201,10 @@ class CrackTests(unittest.TestCase):
         self.assertGreater(gap(solid, BASE.length / 2 - 8, z), 30)
 
     def test_constriction_narrows_a_stretch(self):
-        # The crack narrows by the constriction at its height and is back
-        # to its width a crack width or so either side of it.
-        p = PRESETS["Finger locks"]
+        # Turned for a vertical wall, the crack narrows by the constriction
+        # at its height and is back to its width a crack width or so either
+        # side of it, all the way in.
+        p = replace(PRESETS["Finger locks"], jam_angle=0)
         solid = body(p)
         middle = p.length * (p.constriction_height / 100 - 0.5)
         z = p.back + p.depth / 2
@@ -210,6 +216,69 @@ class CrackTests(unittest.TestCase):
         between = gap(solid, middle + 12, z)
         self.assertGreater(between, p.width - p.constriction + 0.5)
         self.assertLess(between, p.width - 0.5)
+
+    def test_jam_angle_turns_the_lock(self):
+        # The crack is narrowest along a line through the constriction's
+        # height halfway in, which dives down the wall at the jam angle as
+        # it goes in, and opens square to that line as it does along the
+        # crack on a vertical wall: so on a wall that steep, your weight
+        # pulls square into the lock. At 90, for a roof, the line lies
+        # along the wall halfway in.
+        p = replace(PRESETS["Finger locks"], length=160, depth=60, screws=False)
+        reach = float(np.clip(NECK_REACH * p.width, *NECK_BOUNDS))
+        middle = np.array(
+            (p.length * (p.constriction_height / 100 - 0.5), p.back + p.depth / 2)
+        )
+        for angle in (0, 25, 40, 65, 90):
+            with self.subTest(angle=angle):
+                solid = loft(build(replace(p, jam_angle=angle)).parameters, "export")[0]
+                a = math.radians(angle)
+                along = np.array((math.sin(a), math.cos(a)))
+                square = np.array((math.cos(a), -math.sin(a)))
+                for s in (-20, 0, 20):
+                    point = middle + s * along
+                    self.assertAlmostEqual(
+                        gap(solid, *point), p.width - p.constriction, delta=0.15
+                    )
+                    for d in (-reach - 2, -reach / 2, reach / 2, reach + 2):
+                        y, z = point + d * square
+                        # Clear of the lips, the floor's rounding and the
+                        # ends.
+                        if abs(z - middle[1]) > 24 or abs(y) > p.length / 2 - 10:
+                            continue
+                        opened = math.cos(math.pi * min(abs(d) / reach, 1) / 2) ** 2
+                        self.assertAlmostEqual(
+                            gap(solid, y, z),
+                            p.width - p.constriction * opened,
+                            delta=0.15,
+                        )
+
+    def test_a_straight_crack_has_nothing_to_turn(self):
+        a, b = (build(replace(STRAIGHT, jam_angle=angle)) for angle in (0, 90))
+        np.testing.assert_allclose(a.mesh.vertices, b.mesh.vertices)
+        self.assertEqual(a.holes, b.holes)
+
+    def test_turned_locks_close_and_keep_their_screws(self):
+        # The jam angle moves only the crack's faces, and a constriction
+        # moves them away from the sides: every angle builds one closed
+        # body with the screws it has turned for a vertical wall.
+        for p in (
+            BASE,
+            replace(PRESETS["Finger locks"], character=1, seed=5),
+            replace(
+                PRESETS["Hand crack, one side"], character=1, seed=2, constriction=10
+            ),
+            replace(PRESETS["Hand crack"], bolt_mount=True, constriction=20),
+        ):
+            square = build(replace(p, jam_angle=0))
+            for angle in (15, 30, 45, 60, 75, 90) if DEEP else (45, 90):
+                with self.subTest(values=asdict(p), angle=angle):
+                    model = build(replace(p, jam_angle=angle), "export")
+                    self.assertTrue(model.mesh.is_watertight)
+                    self.assertTrue(model.mesh.is_winding_consistent)
+                    self.assertGreater(model.mesh.volume, 0)
+                    self.assertEqual(len(model.holes), len(square.holes))
+                    self.assertEqual(model.adjusted, {})
 
     def test_flare_and_constriction_ease_to_keep_the_crack_open(self):
         # A flare that would close the floor eases until it keeps GAP open,
@@ -366,7 +435,7 @@ class CrackTests(unittest.TestCase):
         # around each hole leaves the body once, above its recess. A face
         # leaning over a screw, or a screw too near the crack, would cut
         # the circle short or let the line out into the crack and back in.
-        for p in CLOSE if DEEP else CLOSE[:3]:
+        for p in CLOSE if DEEP else CLOSE[:4]:
             with self.subTest(values=asdict(p)):
                 model = build(p)
                 self.assertTrue(model.holes)
