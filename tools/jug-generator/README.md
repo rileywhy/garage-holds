@@ -14,9 +14,12 @@ edge. The default uses a 158 mm sweep span, 57.5 mm edge depth, 90% bite (56° i
 The whole gripping section follows an arch into the wall,
 then is trimmed flush at Z=0; the finished width is smaller than the sweep span.
 The centre section stays unchanged instead of being squeezed at the shoulders.
-Presets: board jug, deep jug, and two-handed jug (a 253 mm sweep span with a
-gentler arch and four screws; the finished hold is about 243 mm wide, nearly
-twice the other two and 5% inside a 256 mm printer bed).
+Presets: board jug, deep jug (87.5 mm reach and 135% bite with a low arc
+rise, so the trough behind its lip is about 70 mm deep and its shelf about
+56° incut as built; the hold is about 112 × 101 × 71 mm), and two-handed jug (a
+253 mm sweep span with a gentler arch and four screws; the finished hold is
+about 243 mm wide, nearly twice the other two and 5% inside a 256 mm printer
+bed).
 
 Grip controls are overall size (75–140%), more/less bite, grip reach, arc rise,
 and lip comfort. Size scales geometry before hole fitting, leaving hardware
