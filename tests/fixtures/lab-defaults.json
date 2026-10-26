@@ -172,21 +172,21 @@
     "stlSha256": "5d290cf489413e02d8e5220b26cfdb2d953a0cb85470e6cad1b77bec161bed36"
   },
   "pinch": {
-    "dimensions": [58.71, 110, 50.47],
-    "triangles": 9880,
+    "dimensions": [58.97, 110, 54.97],
+    "triangles": 9884,
     "screws": 3,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
       "width": 66,
-      "depth": 44,
-      "thumb_angle": -15,
-      "finger_angle": -15,
+      "depth": 48,
+      "thumb_angle": -13,
+      "finger_angle": -13,
       "offset": 0,
-      "edge_radius": 12.5,
+      "edge_radius": 14,
       "swoop": 5,
       "shape": "domed",
-      "top_rise": 6.5,
+      "top_rise": 7,
       "size": 100,
       "height": 110,
       "end_rounding": 60,
@@ -199,14 +199,14 @@
       "screws": true,
       "screw_count": 3,
       "auto_seat": true,
-      "seat_depth": 17.5,
+      "seat_depth": 19,
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "bolt_mount": false,
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1671884,
-    "stlSha256": "9456ddfe0e32a23e4cc45e1e8fd12bc17fb7aa123f4cdcc08c6950bf0fe51df2"
+    "stlBytes": 1662484,
+    "stlSha256": "f2598e568314d2bdb2a9f7069cf2f8f4ae04bd92bc1eb17944c29f2c3be3cf86"
   }
 }
