@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools import hold_hardware as hardware
+from tools.hold_mounting import automatic_seat
 
 
 @dataclass(frozen=True)
@@ -39,18 +40,13 @@ class Parameters:
     seat_depth: float = 10
 
 
-# With the seat this far into the body, measured as a share of the body's
-# projection from the wall, the floor under the screw head stays solid and
-# the recess above it stays short. 10 mm on the default 28 mm crimp.
-SEAT_SHARE = 0.36
-
-
 def seat_height(p: "Parameters") -> float:
-    """Where the countersink starts, above the wall."""
+    """Where the countersink starts, above the wall. An automatic seat
+    follows the body's projection from the wall, as every lab's does
+    (tools/hold_mounting.py): 11 mm on the default 28 mm crimp."""
     if not p.auto_seat:
         return p.seat_depth
-    projection = p.edge_depth + 6
-    return min(30.0, max(0.5, round(SEAT_SHARE * projection * 2) / 2))
+    return automatic_seat(p.edge_depth + 6)
 
 
 # The GUI reads this schema instead of keeping its own copy of limits/defaults.

@@ -18,8 +18,8 @@ class Parameters:
     through: bool = True
     # The body, before overall scale.
     size: float = 100
-    width: float = 100
-    height: float = 100
+    width: float = 104
+    height: float = 104
     depth: float = 53
     roundness: float = 100
     edge_rounding: float = 10
@@ -210,10 +210,10 @@ CONTROLS = [
         "Screw seat",
         "Mounting",
         2,
-        12,
+        30,
         0.5,
         "mm",
-        "Material beneath the screw head. Automatically reduced to fit when necessary.",
+        "Material beneath the screw head. Automatic follows the depth; reduced to fit when necessary.",
     ),
     *hardware.SCREW_CONTROLS,
     *hardware.BOLT_CONTROLS,
@@ -268,8 +268,8 @@ PRESETS = {
         incut=-6,
         lip_radius=10,
         crown=25,
-        width=98,
-        height=98,
+        width=100,
+        height=100,
         depth=44,
     ),
     "Pocket rail": replace(

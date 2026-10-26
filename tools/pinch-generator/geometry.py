@@ -27,8 +27,6 @@ if __package__:
         CONTROLS,
         SCREW_SPAN,
         SCREW_STEP,
-        SEAT_MAX,
-        SEAT_SHARE,
         parse_parameters,
     )
 else:
@@ -37,12 +35,16 @@ else:
         CONTROLS,
         SCREW_SPAN,
         SCREW_STEP,
-        SEAT_MAX,
-        SEAT_SHARE,
         parse_parameters,
     )
 
-from tools.hold_mounting import closed_mesh, drill, fit_bolt_and_screw, screw_layout
+from tools.hold_mounting import (
+    automatic_seat,
+    closed_mesh,
+    drill,
+    fit_bolt_and_screw,
+    screw_layout,
+)
 
 # The least width the pinch keeps between its sides anywhere below the top
 # edges, so an undercut pinch stands on a neck and not a stalk; a narrower
@@ -578,11 +580,9 @@ def build(requested, quality="preview"):
                 f"The {'bolt recess does' if p.bolt_mount else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the edge rounding, ease the undercut, or turn holes off."
             )
         depth = p.depth * p.size / 100
-        target = (
-            min(SEAT_MAX, round(SEAT_SHARE * depth * 2) / 2)
-            if p.auto_seat
-            else p.seat_depth
-        )
+        # A taller pinch has no more room above the wall for a recess, so
+        # an automatic seat comes down to fit instead of the body growing.
+        target = automatic_seat(depth) if p.auto_seat else p.seat_depth
         proxy = mounting_proxy(solid, region)
         # The bolt's anti-rotation screw sits in line below it, where the
         # lower of two screws would.

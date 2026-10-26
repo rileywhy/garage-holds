@@ -27,14 +27,14 @@
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "auto_seat": true,
-      "seat_depth": 10
+      "seat_depth": 11
     },
     "stlBytes": 2560084,
-    "stlSha256": "1051bf6f494c6e17f01466b39ff8bf59dced1740f48d9d2e3c44a1f033f481ac"
+    "stlSha256": "34a9ebfea4b1a1be91dc2af6ee840746c6e9ec79016c9c2ca8c507b438bf0b0c"
   },
   "sloper": {
     "dimensions": [165, 140.16, 70.65],
-    "triangles": 4296,
+    "triangles": 4300,
     "screws": 3,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -59,10 +59,10 @@
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "auto_seat": true,
-      "seat_depth": 12
+      "seat_depth": 20
     },
-    "stlBytes": 957984,
-    "stlSha256": "b22ffbaed0eb0f70f5f73206b6353c0fc82c63d678bc93091c3972e1b79cc931"
+    "stlBytes": 958184,
+    "stlSha256": "0a2b1ef8a39dddba88f173b7527286b55307b5886526e5e0a185e4677269ba1f"
   },
   "jug": {
     "dimensions": [126.59, 75.07, 50.91],
@@ -104,7 +104,7 @@
   },
   "foot": {
     "dimensions": [44.88, 31.09, 15.83],
-    "triangles": 12976,
+    "triangles": 13008,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -125,19 +125,19 @@
       "screws": true,
       "screw_count": 2,
       "auto_seat": true,
-      "seat_depth": 4.5,
+      "seat_depth": 6.5,
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "bolt_mount": false,
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1986684,
-    "stlSha256": "a673f903a863113f3f4af6f485ebecf2c2bfe19dd2f27fe300d87eb7aeefe830"
+    "stlBytes": 1991084,
+    "stlSha256": "ef81328c43545b537f29fe480f51d4f531dc243a56c89522a0346a729ef78c32"
   },
   "pocket": {
-    "dimensions": [99.98, 99.98, 48.48],
-    "triangles": 6132,
+    "dimensions": [103.98, 103.98, 48.85],
+    "triangles": 6148,
     "screws": 2,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -149,8 +149,8 @@
       "lip_radius": 12,
       "through": true,
       "size": 100,
-      "width": 100,
-      "height": 100,
+      "width": 104,
+      "height": 104,
       "depth": 53,
       "roundness": 100,
       "edge_rounding": 10,
@@ -161,15 +161,15 @@
       "screws": true,
       "screw_count": 2,
       "auto_seat": true,
-      "seat_depth": 8,
+      "seat_depth": 20,
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "bolt_mount": false,
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 622184,
-    "stlSha256": "c373cc63dfe35af0108e5c42154abe687300198de290283730705f255e2fefe5"
+    "stlBytes": 626884,
+    "stlSha256": "5d290cf489413e02d8e5220b26cfdb2d953a0cb85470e6cad1b77bec161bed36"
   },
   "pinch": {
     "dimensions": [58.71, 110, 50.47],
@@ -199,7 +199,7 @@
       "screws": true,
       "screw_count": 3,
       "auto_seat": true,
-      "seat_depth": 16,
+      "seat_depth": 17.5,
       "shank_diameter": 5.5,
       "head_diameter": 11,
       "bolt_mount": false,
@@ -207,6 +207,6 @@
       "bolt_head_diameter": 20
     },
     "stlBytes": 1671884,
-    "stlSha256": "36cc0ca4692481935a5d6a71dfb112b7ad6c55760525c04146a48783c8d75b43"
+    "stlSha256": "9456ddfe0e32a23e4cc45e1e8fd12bc17fb7aa123f4cdcc08c6950bf0fe51df2"
   }
 }
