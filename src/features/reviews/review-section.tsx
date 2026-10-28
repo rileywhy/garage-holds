@@ -155,7 +155,6 @@ export function ReviewSection({
         <div className="review-empty">
           <Star size={24} strokeWidth={1.2} />
           <div>
-            <h3>A fresh start.</h3>
             <p>No reviews yet. Share what you learned from your print.</p>
           </div>
         </div>
