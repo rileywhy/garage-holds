@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Sloper Lab",
+  title: "Sloper Lab: 3D printable climbing sloper generator",
   description:
     "Design a printable climbing sloper with adjustable curve, incut, shape and screw holes. Preview it on a 40° board and export an STL.",
   path: "/make/sloper",

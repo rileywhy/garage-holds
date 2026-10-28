@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Foot Lab",
+  title: "Foot Lab: 3D printable climbing foothold generator",
   description:
     "Design a printable climbing foothold: board edges, toe-in edges, chips, smears, balls and dishes with screw holes. Preview it on a 40° board and export an STL.",
   path: "/make/foot",

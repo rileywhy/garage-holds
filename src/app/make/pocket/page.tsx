@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Pocket Lab",
+  title: "Pocket Lab: 3D printable climbing pocket generator",
   description:
     "Design a printable climbing pocket hold: a mono, two-finger or three-finger pocket in a round body, with screw holes. Set the opening, depth and floor angle, preview it on a 40° board and export an STL.",
   path: "/make/pocket",

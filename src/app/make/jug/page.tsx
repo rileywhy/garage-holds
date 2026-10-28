@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Jug Lab",
+  title: "Jug Lab: 3D printable climbing jug generator",
   description:
     "Design a printable climbing jug with a rounded incut grip, curved arch and screw holes. Preview it on a 40° board and export an STL.",
   path: "/make/jug",

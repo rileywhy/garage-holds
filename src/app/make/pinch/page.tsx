@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Pinch Lab",
+  title: "Pinch Lab: 3D printable climbing pinch generator",
   description:
     "Design a printable climbing pinch hold: a block gripped between thumb and fingers, with screw holes or a bolt. Set the span, lean or undercut each side, offset the top, preview it on a 40° board and export an STL.",
   path: "/make/pinch",
