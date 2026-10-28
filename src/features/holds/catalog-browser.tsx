@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
@@ -62,7 +61,7 @@ export function CatalogBrowser({
   savedIds: string[];
   signedIn: boolean;
   savedOnly?: boolean;
-  // The Saved page's lab presets, shown between the hero and the designs.
+  // The Saved page's lab presets, shown above the designs.
   beforeLibrary?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -104,39 +103,10 @@ export function CatalogBrowser({
     catalogHref({ ...query, page: number }, pathname);
   return (
     <main className={`main-container ${savedOnly ? "" : "equipment-home"}`}>
-      {savedOnly ? (
-        <section className="catalog-hero saved-hero">
-          <div className="hero-copy">
-            <h1>Saved holds for your next print.</h1>
-            <p className="hero-description">
-              Keep the designs you want to come back to. Saved designs follow
-              your account to any device.
-            </p>
-            <a href="#library" className="hero-text-link">
-              Browse your saved designs <ArrowDown size={15} />
-            </a>
-          </div>
-          <div className="saved-hero-icon">
-            <Bookmark size={66} strokeWidth={1} />
-          </div>
-        </section>
-      ) : (
-        <section className="equipment-hero" aria-labelledby="home-title">
-          <div className="equipment-copy">
-            <h1 id="home-title">
-              Climbing holds. <span>Made to print.</span>
-            </h1>
-            <p className="equipment-description">
-              Model files and print recipes for your home wall. Find your next
-              hold in the pile, or shape it yourself in Hold Labs.
-            </p>
-            <a href="#library" className="equipment-browse button button-dark">
-              Browse the pile <ArrowDown size={16} />
-            </a>
-          </div>
-          <LabCarousel />
-        </section>
-      )}
+      <h1 className="sr-only">
+        {savedOnly ? "Saved holds" : "Climbing holds"}
+      </h1>
+      {!savedOnly && <LabCarousel />}
       {beforeLibrary}
       <section id="library" className="library-section" aria-label="Hold pile">
         <div className="library-title-row">
@@ -147,11 +117,6 @@ export function CatalogBrowser({
             </h2>
             {savedOnly && <p>Designs you have bookmarked.</p>}
           </div>
-          <span className="sample-note">
-            {savedOnly
-              ? "Saved to your account"
-              : "Community designs / Model files + print recipes"}
-          </span>
         </div>
         <div
           className={`catalog-layout ${filtersOpen ? "" : "catalog-filters-collapsed"}`}
@@ -378,7 +343,7 @@ export function CatalogBrowser({
                 <Bookmark size={32} strokeWidth={1.3} />
                 <h3>
                   {savedOnly && !count && !query.query
-                    ? "Your collection starts here."
+                    ? "No saved designs."
                     : "No holds found."}
                 </h3>
                 <p>
@@ -429,13 +394,6 @@ export function CatalogBrowser({
               </nav>
             )}
             <div className="catalog-end">
-              <span>
-                {page.holds.length
-                  ? page.page < page.pageCount
-                    ? "More designs on the next page."
-                    : "You’ve reached the end of this collection."
-                  : "Have a design in mind?"}
-              </span>
               <Link href="/upload">
                 <Plus size={14} /> Add your own
               </Link>

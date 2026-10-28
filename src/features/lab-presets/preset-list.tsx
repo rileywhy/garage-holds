@@ -37,7 +37,6 @@ export function PresetList({ presets }: { presets: AccountPreset[] }) {
           </h2>
           <p>Shapes you saved in the labs. Open one to keep working on it.</p>
         </div>
-        <span className="sample-note">Saved to your account</span>
       </div>
       {presets.length ? (
         <ul className="preset-list">

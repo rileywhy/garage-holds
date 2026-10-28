@@ -83,7 +83,6 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
     <footer className="site-footer">
       <div className="footer-brand">
         <span className="footer-wordmark">Garage Holds</span>
-        <span>grips for your board.</span>
       </div>
       <nav className="footer-links" aria-label="Footer">
         <FeedbackWidget signedIn={signedIn} />
