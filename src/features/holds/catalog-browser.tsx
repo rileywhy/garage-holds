@@ -69,6 +69,16 @@ export function CatalogBrowser({
   const [pending, startTransition] = useTransition();
   const [filtersOpen, setFiltersOpen] = useState(true);
   const filtersId = savedOnly ? "saved-catalog-filters" : "catalog-filters";
+  // On a phone the open filter list pushes the first design about a screen
+  // and a half down, so it starts closed there unless a filter is in use.
+  const startedFiltered = useRef(activeFilterCount(query) > 0);
+  useEffect(() => {
+    if (
+      !startedFiltered.current &&
+      window.matchMedia("(max-width: 760px)").matches
+    )
+      setFiltersOpen(false);
+  }, []);
   const navigate = (next: Partial<CatalogQuery>) =>
     startTransition(() => {
       router.replace(catalogHref({ ...query, page: 1, ...next }, pathname), {

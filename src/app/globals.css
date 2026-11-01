@@ -2103,6 +2103,23 @@ svg {
   .header-upload svg {
     width: 16px;
   }
+  /* Sign in and My designs drop to their icons, as Upload does, so the
+     wordmark fits beside them on a 360-390px phone. */
+  .account-sign-in,
+  .account-designs {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .account-sign-in .nav-label,
+  .account-designs .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
   .brand {
     font-size: 24px;
   }
@@ -3286,7 +3303,7 @@ svg {
   position: absolute;
   left: 0;
   top: calc(100% + 6px);
-  width: 260px;
+  width: min(260px, calc(100vw - 32px));
   padding: 8px 10px;
   border-radius: 6px;
   background: var(--ink);
@@ -3296,14 +3313,15 @@ svg {
   line-height: 1.45;
   letter-spacing: 0;
   white-space: normal;
-  opacity: 0;
+  /* Out of layout until shown: a hidden 260px box still widened phone
+     pages enough to scroll sideways. */
+  display: none;
   pointer-events: none;
-  transition: opacity 0.1s;
   z-index: 5;
 }
 .tag-tip:hover::after,
 .tag-tip:focus-visible::after {
-  opacity: 1;
+  display: block;
 }
 .eyebrow-tags {
   letter-spacing: 0;

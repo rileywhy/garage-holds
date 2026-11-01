@@ -1262,3 +1262,24 @@ input[type="radio"] {
     font-size: 20px;
   }
 }
+/* iOS Safari zooms into any field under 16px when it is focused, and stays
+   zoomed. Phone widths get 16px fields so tapping one leaves the page as is. */
+@media (max-width: 760px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* A tag can sit anywhere across a phone screen, so a tooltip hung from it
+   runs off the right edge. On phones it shows along the bottom instead. */
+@media (max-width: 760px) {
+  .tag-tip::after {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+  }
+}
