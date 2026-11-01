@@ -1271,3 +1271,15 @@ input[type="radio"] {
     font-size: 16px !important;
   }
 }
+/* A tag can sit anywhere across a phone screen, so a tooltip hung from it
+   runs off the right edge. On phones it shows along the bottom instead. */
+@media (max-width: 760px) {
+  .tag-tip::after {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+  }
+}
