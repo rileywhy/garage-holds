@@ -13,3 +13,6 @@ coverage/
 .venv/
 __pycache__/
 *.pyc
+
+# Agent skills, installed locally from skills-lock.json
+.agents/
