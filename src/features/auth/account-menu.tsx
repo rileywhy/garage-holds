@@ -12,14 +12,14 @@ export async function AccountMenu() {
   if (!user)
     return (
       <Link href="/sign-in" className="nav-link account-sign-in">
-        <LogIn size={15} /> Sign in
+        <LogIn size={15} /> <span className="nav-label">Sign in</span>
       </Link>
     );
   return (
     <div className="account-menu">
       {user.onboarded && (
         <Link href="/designs" className="nav-link account-designs">
-          <Layers3 size={15} /> My designs
+          <Layers3 size={15} /> <span className="nav-label">My designs</span>
         </Link>
       )}
       <Link

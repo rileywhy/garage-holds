@@ -55,7 +55,7 @@ export default async function HowToPrintHoldsPage() {
             Slicer: 8 walls, 25 to 40% infill, Layer height 0.2 mm, everything
             else default.
           </li>
-          <li>Fuzzy skin on: 0.3 mm point distance, 0.4 to 0.5 mm thick.</li>
+          <li>Fuzzy skin on: 0.2 mm point distance, 0.35 mm thick.</li>
           <li>
             Mount with wood screws, snug not tight, and test it low first.
           </li>
@@ -164,8 +164,8 @@ export default async function HowToPrintHoldsPage() {
             </li>
             <li>
               <strong>Fuzzy skin on,</strong> for grip. PETG comes out slick
-              without it. We use a point distance of 0.3 mm and a thickness of
-              0.4 to 0.5 mm, rougher than the slicer default.{" "}
+              without it. We use a point distance of 0.2 mm and a thickness of
+              0.35 mm, rougher than the slicer default.{" "}
               <a
                 href="https://help.prusa3d.com/en/article/fuzzy-skin_246186/"
                 rel="noopener"
