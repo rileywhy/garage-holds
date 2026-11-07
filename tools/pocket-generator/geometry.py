@@ -1000,7 +1000,10 @@ def build(requested, quality="preview"):
             raise ValueError(
                 "Hardware could not fit this body, even at the largest size the sliders allow. Use fewer holes or smaller recesses, or turn holes off."
             )
-        p = grown
+        # A bigger body changes the face over the lip, so the pocket is
+        # fitted again: otherwise a lip checked on the smaller body exports
+        # too thin, and the reopened design fits it to less incut.
+        p = fit_pocket(grown)
     else:
         raise ValueError("Hardware could not fit this body.")
     if quality == "export":

@@ -591,7 +591,17 @@ class PocketTests(unittest.TestCase):
         cases = [
             dict(
                 opening_width=80, opening_height=45, width=50, height=50, screw_count=3
-            )
+            ),
+            # The bolt grows the body after the lip is fitted (nightly seed
+            # 42255087299): the lip is fitted again on the bigger body.
+            dict(
+                opening_width=32, opening_height=26, pocket_depth=54, incut=23,
+                lip_radius=12.5, size=143, width=77, height=69, depth=54,
+                roundness=52, edge_rounding=26.0, crown=60, taper=13, character=0.1,
+                screw_count=2, seat_depth=13.5, shank_diameter=5.3, head_diameter=10.7,
+                bolt_diameter=11.9, bolt_head_diameter=21.5, screws=True,
+                bolt_mount=True, auto_seat=True, through=False, seed=781724,
+            ),
         ] + [random_settings(rng) for _ in range(count)]
         rebuilt = 0
         for values in cases:
