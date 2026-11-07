@@ -6,7 +6,7 @@ import { LABS } from "@/features/labs/labs";
 import styles from "./page.module.css";
 
 export const metadata = pageMetadata({
-  title: "Hold Labs",
+  title: "Hold Labs: free 3D printable climbing hold generators",
   description:
     "Choose a climbing hold lab to design crimps, slopers, jugs, footholds, or your own custom shape and export an STL.",
   path: "/make",

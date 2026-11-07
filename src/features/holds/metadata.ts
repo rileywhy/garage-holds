@@ -7,14 +7,20 @@ import type { Hold } from "./types";
 // never expires; the photo id busts caches when the photo changes. Without
 // a photo the site image stands in, set here because a page's openGraph
 // replaces the layout's rather than adding to it.
+//
+// The search title and description name what the design is in the words
+// people search with ("3D printable climbing crimp STL"); the page and its
+// link preview keep the designer's own name.
 export function designMetadata(hold: Hold | null): Metadata {
   if (!hold || hold.status !== "published")
     return { title: "Hold design", robots: { index: false, follow: false } };
   const photo = hold.photos[0];
-  const description = `${hold.type} · ${hold.size} · ${hold.mount}. ${hold.description}`;
+  const kind = `climbing ${hold.type.toLowerCase()}`;
+  const mount = hold.mount.toLowerCase().replace(" ", "-");
+  const description = `A ${hold.size.toLowerCase()} ${mount} ${kind} to 3D print, with a free STL. ${hold.description}`;
   return {
-    title: hold.title,
-    description: hold.description,
+    title: `${hold.title}: 3D printable ${kind} STL`,
+    description,
     alternates: { canonical: `/holds/${hold.id}` },
     openGraph: {
       type: "article",
