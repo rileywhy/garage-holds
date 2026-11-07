@@ -292,10 +292,12 @@ def _loft(
     if end_wrap:
         # Plane trim makes a broad, coplanar mounting face rather than a
         # collapsed pole or a separately added foot.
+        # Read back as is (see closed_mesh): where the centre ring touches
+        # the plane, merging nearly coincident vertices joins edges in threes.
         solid = _solid(mesh).trim_by_plane((0, 0, 1), 0)
         result = solid.to_mesh()
         mesh = trimesh.Trimesh(
-            result.vert_properties[:, :3], result.tri_verts, process=True
+            result.vert_properties[:, :3], result.tri_verts, process=False
         )
     # The displayed section must include the same bow and seeded folds as
     # the centre ring of the mesh, rather than showing its unmodified profile.

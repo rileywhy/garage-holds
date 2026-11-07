@@ -45,6 +45,16 @@ PINHOLE_JUGS = [
         shank_diameter=9.4, head_diameter=24.5, auto_seat=True, seat_depth=80.0,
         end_wrap=145, arc_rise=22.0, size=86, grip_quality=109, screw_arc=11.0,
     ),
+    # Undrilled, where the wrapped centre ring touches the trim plane
+    # (nightly seed 42387351262).
+    dict(
+        width=61, edge_depth=67.0, lip_radius=8.0, body_height=124,
+        body_rounding=30.0, end_rounding=51.5, bow=-23.5, taper=-10, character=2.9,
+        seed=277870, screws=False, bolt_mount=False, bolt_diameter=13.8,
+        bolt_head_diameter=23.5, screw_count=6, auto_spacing=True, screw_spacing=258,
+        shank_diameter=6.2, head_diameter=8.7, auto_seat=False, seat_depth=2.0,
+        end_wrap=8, arc_rise=10.5, size=131, grip_quality=56, screw_arc=4.5,
+    ),
 ]
 
 
@@ -83,8 +93,8 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_random_settings_export_closed_solids(self):
-        # A seeded sweep across the control ranges, plus the two settings
-        # that used to be refused at export. The mounting solver may say
+        # A seeded sweep across the control ranges, plus the settings that
+        # used to be refused at export. The mounting solver may say
         # there is no room, in words; anything else must export closed.
         rng = random.Random(2026 + SEED)
         count = 40 if DEEP else 3
