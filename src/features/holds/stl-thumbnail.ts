@@ -1,18 +1,19 @@
 import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
 import type { Orientation } from "./orientation";
 
-const thumbnails = new Map<string, string>();
-const pending = new Map<string, Promise<string>>();
+const thumbnails = new Map<string, HTMLCanvasElement>();
+const pending = new Map<string, Promise<HTMLCanvasElement>>();
 let queue: Promise<void> = Promise.resolve();
 const MAX_CACHED_THUMBNAILS = 32;
 
 // Fetches the STL from its signed URL; thumbnails are cached by file id,
 // orientation and colour, so a refreshed URL for the same file never
-// renders twice.
+// renders twice. A thumbnail is a canvas to draw from (see stl-renderer.ts),
+// shared by every card showing it, so it is copied, never put on the page.
 export function getStlThumbnail(
   file: { id: string; url: string; orientation: Orientation },
   color: string,
-): Promise<string> {
+): Promise<HTMLCanvasElement> {
   const key = `${file.id}:${file.orientation}:${color}`;
   const cached = thumbnails.get(key);
   if (cached) return Promise.resolve(cached);

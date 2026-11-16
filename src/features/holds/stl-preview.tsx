@@ -23,11 +23,11 @@ export function StlPreview({
   // file or orientation reads as "loading" without resetting state in the
   // effect.
   const key = `${fileId}:${orientation}:${color}`;
-  const [rendered, setRendered] = useState({
-    key: "",
-    image: "",
-    failed: false,
-  });
+  const [rendered, setRendered] = useState<{
+    key: string;
+    image: HTMLCanvasElement | null;
+    failed: boolean;
+  }>({ key: "", image: null, failed: false });
   useEffect(() => {
     let active = true;
     const load = () => {
@@ -36,7 +36,7 @@ export function StlPreview({
           if (active) setRendered({ key, image, failed: false });
         })
         .catch(() => {
-          if (active) setRendered({ key, image: "", failed: true });
+          if (active) setRendered({ key, image: null, failed: true });
         });
     };
     const observer = new IntersectionObserver(
@@ -55,15 +55,24 @@ export function StlPreview({
     };
   }, [fileId, url, orientation, color, key]);
   const { image, failed } =
-    rendered.key === key ? rendered : { image: "", failed: false };
+    rendered.key === key ? rendered : { image: null, failed: false };
+  // The thumbnail is drawn onto this card's own canvas; see stl-renderer.ts
+  // for why it is not an <img>.
+  const picture = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (image) picture.current?.getContext("2d")?.drawImage(image, 0, 0);
+  }, [image]);
   return (
     <div className="stl-preview" ref={container}>
       <div className="stl-preview-canvas" aria-busy={!image && !failed}>
         {image ? (
           <>
-            <img
-              src={image}
-              alt={`STL preview of ${title}, side view`}
+            <canvas
+              ref={picture}
+              width={image.width}
+              height={image.height}
+              role="img"
+              aria-label={`STL preview of ${title}, side view`}
               className="stl-preview-image"
             />
             <span className="illustration-label">STL preview</span>
