@@ -25,6 +25,9 @@ class Parameters(crimp.Parameters):
     grip_quality: float = 90
     screw_arc: float = 3
     seat_depth: float = 6
+    # Jugs are pulled on hard and from every side: four screws, five on the
+    # two-handed one.
+    screw_count: int = 4
 
 
 CONTROLS = [

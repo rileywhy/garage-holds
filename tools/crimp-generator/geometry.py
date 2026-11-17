@@ -747,6 +747,13 @@ def _highest_enclosed_seat(
     return float(fitted)
 
 
+# Jug Lab's automatic row: how much of the mounting width the outer holes
+# may span, and how far up its usable section (0 the middle, 1 the top,
+# nearest the lip) an end hole sits.
+JUG_END_REACH = 0.88
+JUG_END_LIFT = 0.75
+
+
 def _screw_candidates(
     p: Parameters,
     jug: bool = False,
@@ -796,9 +803,12 @@ def _screw_candidates(
             else np.array([float(p.screw_spacing)])
         )
     if jug and p.auto_spacing and not supplied_spans:
-        # Fit the count-dependent span by lowering the seat first, rather
-        # than silently packing extra holes into a narrower row.
-        spans = np.array([preferred_span])
+        # A jug's row reaches toward its ends: the widest span that fits,
+        # from most of the mounting width down to the count-dependent span.
+        # That last span is fitted by lowering the seat first, rather than
+        # by silently packing extra holes into a narrower row.
+        widest = max(preferred_span, (mounting_width or p.width) * JUG_END_REACH)
+        spans = preferred_span + np.arange(0, widest - preferred_span + 1e-9, 2.0)[::-1]
     drops = np.arange(0, p.body_height + 1e-9, 0.5)
     rows = []
     for span in spans:
@@ -869,6 +879,13 @@ def _screw_positions(
                 # Outer holes stay put; inner holes move progressively
                 # away from the lip. Even counts get a matched inner pair.
                 weight = max(0.0, 1.0 - (midpoint[0] / half_span) ** 2)
+                # The end holes sit high in their sections, toward the lip,
+                # so the row holds the hold near its top corners; the lift
+                # fades to nothing at the centre.
+                midpoint = midpoint.copy()
+                midpoint[1] += JUG_END_LIFT * (1 - weight) * (options[0, 1] - midpoint[1])
+                if not _inside_mask(midpoint[None, :], polygons)[0]:
+                    midpoint = options[np.argmin(abs(options[:, 1] - midpoint[1]))]
                 if require_arc and midpoint[1] - options[-1, 1] < min(3.0, arc_bias * weight):
                     return []
                 target = midpoint.copy()

@@ -157,9 +157,11 @@ class GeometryTests(unittest.TestCase):
         for name in ("Board jug", "Deep jug"):
             p = PRESETS[name]
             model = build(p)
-            left, middle, right = model.screws
+            left, *inner, right = model.screws
+            self.assertEqual(len(inner), 2)
             self.assertGreaterEqual(right[0] - left[0], p.width * 0.32)
-            self.assertLess(middle[1], min(left[1], right[1]) - 5)
+            for middle in inner:
+                self.assertLess(middle[1], min(left[1], right[1]) - 5)
 
     def test_mounting_clearance_from_body_edges(self):
         def boundary_distance(point, contours):
@@ -279,7 +281,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(model.parameters.grip_quality, 90)
         self.assertEqual(model.parameters.incut, 56)
         self.assertGreaterEqual(model._model.lip_radius, 7)
-        self.assertEqual(len(model.screws), 3)
+        self.assertEqual(len(model.screws), 4)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)
 
     def test_deep_jug_is_deeper_and_more_incut_than_the_board_jug(self):
@@ -308,7 +310,11 @@ class GeometryTests(unittest.TestCase):
         model = build(PRESETS["Two-handed jug"])
         self.assertEqual(len(model.screws), 5)
         xs = sorted(x for x, _ in model.screws)
-        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.35)
+        # The row reaches toward both ends, and the end holes sit well above
+        # the three between them, near the hold's top corners.
+        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.8)
+        ys = [y for _, y in sorted(model.screws)]
+        self.assertGreater(min(ys[0], ys[-1]), max(ys[1:-1]) + 15)
 
     def test_body_height_changes_geometry_and_manual_span_is_exact(self):
         low = build(Parameters(body_height=130))
@@ -323,14 +329,32 @@ class GeometryTests(unittest.TestCase):
             self.assertEqual(preview.screws, exported.screws)
             self.assertFalse(preview.parameters.auto_spacing)
 
-    def test_automatic_span_increases_with_hole_count(self):
+    def test_automatic_span_is_at_least_the_span_for_its_hole_count(self):
+        # Each count has its own share of the mounting width, growing with
+        # the count; the row is then spread as far past it as still fits.
         for width in (158, 240):
-            spans = []
             for count in range(2, 7):
                 model = build(Parameters(width=width, screw_count=count))
                 self.assertEqual(len(model.screws), count)
-                spans.append(model.screws[-1][0] - model.screws[0][0])
-            self.assertTrue((np.diff(spans) > 0).all(), spans)
+                span = model.screws[-1][0] - model.screws[0][0]
+                share = 0.60 + 0.02 * (count - 2)
+                self.assertGreaterEqual(span, model.mesh.extents[0] * share - 0.01)
+                self.assertLessEqual(span, model.mesh.extents[0] * crimp.JUG_END_REACH + 0.01)
+
+    def test_end_holes_sit_high_in_their_sections(self):
+        # With the lift off, each end hole is centred in its usable section;
+        # with it, the same holes sit nearer the lip and the rest stay put.
+        p = PRESETS["Two-handed jug"]
+        lifted = np.array(build(p).screws)
+        original = crimp.JUG_END_LIFT
+        crimp.JUG_END_LIFT = 0
+        try:
+            centred = np.array(build(p).screws)
+        finally:
+            crimp.JUG_END_LIFT = original
+        np.testing.assert_allclose(lifted[:, 0], centred[:, 0])
+        self.assertTrue((lifted[[0, -1], 1] > centred[[0, -1], 1] + 5).all())
+        np.testing.assert_allclose(lifted[2], centred[2])
 
     def test_manual_span_limit_is_the_largest_slider_value_that_fits(self):
         oversized = build(Parameters(auto_spacing=False, screw_spacing=360))
