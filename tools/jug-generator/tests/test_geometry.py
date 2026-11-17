@@ -343,8 +343,11 @@ class GeometryTests(unittest.TestCase):
 
     def test_end_holes_sit_high_in_their_sections(self):
         # With the lift off, each end hole is centred in its usable section;
-        # with it, the same holes sit nearer the lip and the rest stay put.
-        p = PRESETS["Two-handed jug"]
+        # with it, the same holes sit nearer the lip and the centre one stays
+        # put. A manual span short of the ends leaves the sections tall
+        # enough to show it; at the automatic span they are a few
+        # millimetres high and the height comes from the reach instead.
+        p = replace(PRESETS["Two-handed jug"], auto_spacing=False, screw_spacing=160)
         lifted = np.array(build(p).screws)
         original = crimp.JUG_END_LIFT
         crimp.JUG_END_LIFT = 0
