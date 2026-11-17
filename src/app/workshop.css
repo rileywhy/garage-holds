@@ -46,9 +46,9 @@
 body {
   font-size: 15px;
 }
-/* Plywood wherever a hold is shown without its own backdrop. */
-.card-visual,
-.detail-main-visual,
+/* Plywood wherever a hold is shown without a backdrop of its own: lab
+   renders, and designs that have no photo yet. A photo brings its own
+   backdrop, so its frame stays plain, around it and while it loads. */
 .equipment-product,
 .image-placeholder,
 .hero-art {
@@ -58,18 +58,16 @@ body {
   background-position: center;
   background-size: cover;
 }
+.card-visual,
+.detail-main-visual {
+  background: var(--stage-bg);
+}
 /* Neighbouring cards are cut from different sheets. */
 .hold-card:nth-child(4n + 1) {
   --ply-photo: var(--ply-back);
 }
 /* On a card the board is seen from closer, so its T-nuts sit apart, and
    words on bare wood get a little haze behind them. */
-.hold-card .card-visual,
-.hold-card .image-placeholder {
-  background-size:
-    auto,
-    auto 165%;
-}
 .no-photo-visual {
   background-image:
     radial-gradient(
