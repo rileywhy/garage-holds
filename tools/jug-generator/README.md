@@ -46,7 +46,10 @@ Body-height inputs keep your requested value. The preview reports a fitted
 height when the requested base cannot contain the grip and mounting holes.
 The outside shape is resolved independently of the screw seat. Automatic
 fitting aims for 40% of the projection (at most 20 mm) and comes down to fit,
-preferring at least 8 mm; compact profiles may fit lower. Reset restores
+preferring at least 8 mm; compact profiles may fit lower. A jug too small for
+its screw row even at the lowest seat (a Deep jug below 78% with four screws)
+grows taller below the grip, by up to 30 mm of body height, until the row
+fits; the added height is reported like any other adjusted setting. Reset restores
 automatic fitting. Adjusting seat selects a manual
 depth while preserving body dimensions
 and hole centers. Its range reaches the top of the hold profile. Where the

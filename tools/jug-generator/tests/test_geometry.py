@@ -341,6 +341,25 @@ class GeometryTests(unittest.TestCase):
                 self.assertGreaterEqual(span, model.mesh.extents[0] * share - 0.01)
                 self.assertLessEqual(span, model.mesh.extents[0] * crimp.JUG_END_REACH + 0.01)
 
+    def test_a_small_deep_jug_grows_to_take_its_screws(self):
+        # At 75% the Deep jug has too little back for four screws. It used
+        # to be refused; the body now grows below the grip until they fit.
+        small = replace(PRESETS["Deep jug"], size=75)
+        three = build(replace(small, screw_count=3))
+        model, exported = build(small), build(small, "export")
+        self.assertEqual(len(model.screws), 4)
+        self.assertEqual(model.screws, exported.screws)
+        self.assertTrue(exported.mesh.is_watertight)
+        self.assertGreater(model.parameters.body_height, three.parameters.body_height)
+        self.assertIn("body_height", model.adjusted)
+        # The added height is found with an automatic seat and span, so a
+        # requested recess depth still never changes the outside.
+        manual = build(replace(small, auto_seat=False, seat_depth=6))
+        self.assertEqual(manual.parameters.body_height, model.parameters.body_height)
+        np.testing.assert_allclose(manual.mesh.bounds, model.mesh.bounds)
+        # A jug that already fits is left exactly as tall as it was.
+        self.assertEqual(build(PRESETS["Deep jug"]).adjusted, {})
+
     def test_end_holes_sit_high_in_their_sections(self):
         # With the lift off, each end hole is centred in its usable section;
         # with it, the same holes sit nearer the lip and the centre one stays

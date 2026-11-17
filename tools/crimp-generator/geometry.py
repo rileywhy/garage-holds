@@ -444,6 +444,10 @@ def build(
                 continue
         if model:
             break
+    if model is None and jug:
+        model, p = _grown_jug(
+            p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline
+        )
     if model is None:
         raise ValueError(
             "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
@@ -460,6 +464,46 @@ def build(
     ):
         model.adjusted["screw_spacing"] = model.parameters.screw_spacing
     return model
+
+
+def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline):
+    """A jug whose screw row does not fit at its resolved height, on a
+    taller body: the model and the settings it was built from, or no model.
+
+    A small jug with a deep trough has too little back for its row (a Deep
+    jug at 75% could not take four screws), so material is added below the
+    grip, as the other labs add it. The height is found with an automatic
+    seat and span, so a requested recess depth or span still never changes
+    the outside of the hold, and a taller body is preferred to a seat below
+    its floor."""
+    reference = replace(p, auto_seat=True, auto_spacing=True)
+    heights = np.arange(
+        start + BODY_STEP, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP
+    )
+    tried: dict[float, float] = {}
+    for floor in (lowest_seat(automatic_seat(reference)), 0.5):
+        for height in heights:
+            _check_deadline(deadline)
+            try:
+                fitted = _build(
+                    replace(reference, body_height=float(height)), "preview",
+                    floor, end_wrap, arc_rise, True, screw_arc, deadline,
+                    tried.get(float(height)),
+                )
+            except _NoRoomForScrews:
+                tried[float(height)] = floor
+                continue
+            p = replace(p, body_height=float(height))
+            if p.auto_seat and p.auto_spacing and quality == "preview":
+                return fitted, p
+            try:
+                return _build(
+                    p, quality, floor if p.auto_seat else 0.5, end_wrap,
+                    arc_rise, True, screw_arc, deadline,
+                ), p
+            except _NoRoomForScrews:
+                return None, p
+    return None, p
 
 
 def _build(
@@ -657,6 +701,19 @@ def _build(
             spacing_limit = max(
                 spacing_limit or 0.0, round(screws[-1][0] - screws[0][0], 6)
             )
+        if jug and p.auto_spacing:
+            # The seat is settled on the count-dependent span. At that seat
+            # the row then reaches toward the ends: the widest span that
+            # still fits, up to most of the mounting width. (Searching the
+            # wide spans at every seat made a fit that fails many times
+            # slower.)
+            preferred = float(candidates[0, -1, 0] - candidates[0, 0, 0])
+            reach = mounting_width * JUG_END_REACH
+            if reach > preferred:
+                candidates = _screw_candidates(
+                    p, jug=True, mounting_width=mounting_width,
+                    spans=preferred + np.arange(0, reach - preferred + 1e-9, 2.0)[::-1],
+                )
         if jug:
             # Resolve one mounting section for every arc setting, then apply
             # the requested inner-hole offset without moving outer holes.
@@ -803,12 +860,9 @@ def _screw_candidates(
             else np.array([float(p.screw_spacing)])
         )
     if jug and p.auto_spacing and not supplied_spans:
-        # A jug's row reaches toward its ends: the widest span that fits,
-        # from most of the mounting width down to the count-dependent span.
-        # That last span is fitted by lowering the seat first, rather than
-        # by silently packing extra holes into a narrower row.
-        widest = max(preferred_span, (mounting_width or p.width) * JUG_END_REACH)
-        spans = preferred_span + np.arange(0, widest - preferred_span + 1e-9, 2.0)[::-1]
+        # Fit the count-dependent span by lowering the seat first, rather
+        # than silently packing extra holes into a narrower row.
+        spans = np.array([preferred_span])
     drops = np.arange(0, p.body_height + 1e-9, 0.5)
     rows = []
     for span in spans:
