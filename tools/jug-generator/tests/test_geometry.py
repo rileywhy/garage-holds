@@ -341,24 +341,34 @@ class GeometryTests(unittest.TestCase):
                 self.assertGreaterEqual(span, model.mesh.extents[0] * share - 0.01)
                 self.assertLessEqual(span, model.mesh.extents[0] * crimp.JUG_END_REACH + 0.01)
 
-    def test_a_small_deep_jug_grows_to_take_its_screws(self):
-        # At 75% the Deep jug has too little back for four screws. It used
-        # to be refused; the body now grows below the grip until they fit.
+    def test_a_small_jug_closes_its_row_to_keep_plastic_under_the_heads(self):
+        # At 75% the Deep jug's ends are too thin for a screw. Four screws
+        # were refused there, and three sat on 1.5 mm of plastic; the row
+        # now closes up toward the middle, where the body is thick, and the
+        # hold stays the size it was asked to be.
         small = replace(PRESETS["Deep jug"], size=75)
-        three = build(replace(small, screw_count=3))
+        full = build(PRESETS["Deep jug"])
         model, exported = build(small), build(small, "export")
         self.assertEqual(len(model.screws), 4)
         self.assertEqual(model.screws, exported.screws)
         self.assertTrue(exported.mesh.is_watertight)
-        self.assertGreater(model.parameters.body_height, three.parameters.body_height)
-        self.assertIn("body_height", model.adjusted)
-        # The added height is found with an automatic seat and span, so a
-        # requested recess depth still never changes the outside.
+        self.assertGreaterEqual(model.parameters.seat_depth, crimp.MIN_SEAT)
+        share = lambda m: (m.screws[-1][0] - m.screws[0][0]) / m.mesh.extents[0]
+        self.assertLess(share(model), share(full) - 0.05)
+        self.assertLess(model.mesh.extents[1], full.mesh.extents[1])
+        # A seat set by hand drills the same holes at its own depth.
         manual = build(replace(small, auto_seat=False, seat_depth=6))
-        self.assertEqual(manual.parameters.body_height, model.parameters.body_height)
+        self.assertEqual(manual.screws, model.screws)
         np.testing.assert_allclose(manual.mesh.bounds, model.mesh.bounds)
-        # A jug that already fits is left exactly as tall as it was.
-        self.assertEqual(build(PRESETS["Deep jug"]).adjusted, {})
+        # A jug that already fits keeps its full row and its height.
+        self.assertEqual(full.adjusted, {})
+
+    def test_no_preset_at_any_size_leaves_a_thin_seat(self):
+        for name, preset in PRESETS.items():
+            for size in (75, 85, 100, 140):
+                with self.subTest(name=name, size=size):
+                    model = build(replace(preset, size=size))
+                    self.assertGreaterEqual(model.parameters.seat_depth, crimp.MIN_SEAT)
 
     def test_end_holes_sit_high_in_their_sections(self):
         # With the lift off, each end hole is centred in its usable section;

@@ -379,8 +379,7 @@ JUG_BODY_SEAT = 12.0
 def _minimum_seat(p: Parameters) -> float:
     """The least plastic an automatic seat may leave under the screw heads:
     MIN_SEAT, or the hold's own automatic seat on an edge too shallow for
-    that (a 10 mm crimp stands 16 mm off the wall and seats at 6.5 mm; a
-    5 mm one cannot hold 6 mm under a countersink at all)."""
+    that (a 5 mm crimp stands 11 mm off the wall and seats at 4.5 mm)."""
     return min(automatic_seat(p), MIN_SEAT)
 
 
@@ -434,8 +433,13 @@ def build(
     # A taller body is preferred to a shallow seat: the seat may drop to
     # its floor first, and only once the body has grown as far as it will
     # may it go lower still, so unusually compact profiles stay printable.
+    # A jug's row is fitted the same way whatever seat was asked for (a
+    # manual seat only changes how deep its recesses are drilled), so it
+    # keeps the automatic floors.
     floors = (
-        [lowest_seat(automatic_seat(p)), _minimum_seat(p)] if p.auto_seat else [0.5]
+        [lowest_seat(automatic_seat(p)), _minimum_seat(p)]
+        if p.auto_seat or jug
+        else [0.5]
     )
     model = None
     # A later, lower floor revisits every height; the seats above the
@@ -456,6 +460,18 @@ def build(
                 continue
         if model:
             break
+    if model is None and jug and p.auto_spacing:
+        # A jug too small for its row at a proper seat: first the row closes
+        # up on the body as it is, and only then does the body grow.
+        for floor in floors:
+            try:
+                model = _build(
+                    p, quality, floor, end_wrap, arc_rise, jug, screw_arc,
+                    deadline, narrow=True,
+                )
+                break
+            except _NoRoomForScrews:
+                continue
     if model is None and jug:
         model, p = _grown_jug(
             p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline
@@ -482,9 +498,9 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
     """A jug whose screw row does not fit at its resolved height, on a
     taller body: the model and the settings it was built from, or no model.
 
-    A small jug with a deep trough has too little back for its row (a Deep
-    jug at 75% could not take four screws), so material is added below the
-    grip, as the other labs add it. The height is found with an automatic
+    A small jug with a deep trough can have too little back for its row
+    even closed up, so material is added below the grip, as the other labs
+    add it. The height is found with an automatic
     seat and span, so a requested recess depth or span still never changes
     the outside of the hold, and a taller body is preferred to a seat below
     its floor."""
@@ -492,7 +508,6 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
     heights = np.arange(
         start + BODY_STEP, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP
     )
-    tried: dict[float, float] = {}
     for floor in (lowest_seat(automatic_seat(reference)), _minimum_seat(reference)):
         for height in heights:
             _check_deadline(deadline)
@@ -500,18 +515,17 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
                 fitted = _build(
                     replace(reference, body_height=float(height)), "preview",
                     floor, end_wrap, arc_rise, True, screw_arc, deadline,
-                    tried.get(float(height)),
+                    narrow=True,
                 )
             except _NoRoomForScrews:
-                tried[float(height)] = floor
                 continue
             p = replace(p, body_height=float(height))
             if p.auto_seat and p.auto_spacing and quality == "preview":
                 return fitted, p
             try:
                 return _build(
-                    p, quality, floor if p.auto_seat else 0.5, end_wrap,
-                    arc_rise, True, screw_arc, deadline,
+                    p, quality, floor, end_wrap, arc_rise, True, screw_arc,
+                    deadline, narrow=p.auto_spacing,
                 ), p
             except _NoRoomForScrews:
                 return None, p
@@ -528,6 +542,7 @@ def _build(
     screw_arc: float = 6.0,
     deadline: float | None = None,
     tried_down_to: float | None = None,
+    narrow: bool = False,
 ) -> Model:
     mesh, profile, inner, outer, lip_radius = _loft(p, quality, end_wrap, arc_rise)
     solid = _solid(mesh)
@@ -689,6 +704,22 @@ def _build(
             seats[seats < tried_down_to - 1e-9] if tried_down_to is not None else seats
         )
         screws, seat, selected_room = fit_row(candidates, untried)
+        narrowed = False
+        if not screws and narrow and jug and p.auto_spacing:
+            # The count-dependent span has no seat this high anywhere. A
+            # jug's row then closes up: the widest span that fits at the
+            # lowest seat allowed, searched from the top seat down like a
+            # request for that span. Holes nearer the middle of a small jug
+            # have more plastic under them than holes out at its thin ends.
+            narrow_limit = widest_span(seats[-1])
+            if narrow_limit is not None:
+                narrow_candidates = _screw_candidates(
+                    replace(p, auto_spacing=False, screw_spacing=narrow_limit),
+                    jug=True, mounting_width=mounting_width,
+                )
+                screws, seat, selected_room = fit_row(narrow_candidates)
+                if screws:
+                    candidates, narrowed = narrow_candidates, True
         if not screws and not p.auto_spacing:
             # The manual span may be wider than the body allows at any
             # seat. The widest span that does fit, at the lowest seat, is
@@ -714,7 +745,7 @@ def _build(
             spacing_limit = max(
                 spacing_limit or 0.0, round(screws[-1][0] - screws[0][0], 6)
             )
-        if jug and p.auto_spacing:
+        if jug and p.auto_spacing and not narrowed:
             # The seat is settled on the count-dependent span. At that seat
             # the row then reaches toward the ends: the widest span that
             # still fits, up to most of the mounting width. (Searching the
