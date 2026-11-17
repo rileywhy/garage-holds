@@ -56,7 +56,7 @@ The [Sloper](../tools/sloper-generator/README.md), [Jug](../tools/jug-generator/
 
 ## Shared library
 
-Designs, reviews, and saved holds live in Supabase Postgres; model files and photos live in a private Cloudflare R2 bucket. Browsing and downloads are open to everyone; uploading, reviewing, and saving need an account. Uploads go from the browser straight to R2 with signed URLs, and a design is published only after the server has confirmed every file exists with its declared size. Download and photo links are signed and expire after an hour.
+Designs, reviews, and saved holds live in Supabase Postgres; model files and photos live in a private Cloudflare R2 bucket. Browsing and downloads are open to everyone; uploading, reviewing, and saving need an account. Uploads go from the browser straight to R2 with signed URLs, and a design is published only after the server has confirmed every file exists with its declared size. Download and photo links are signed and expire after an hour. A 3D preview whose link has expired, on a page left open, asks the server for a fresh one and draws anyway; download links still need a reload.
 
 Ownership is enforced in the database with row-level security keyed on the immutable user id. Drafts are visible only to their owner. Each person can leave one review per design and edit it. The `crux-theme` preference key is retained so existing theme choices survive.
 

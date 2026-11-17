@@ -60,6 +60,7 @@ const SETUPS: Setup[] = [
 
 let server: Server;
 let origin = "";
+const requests: string[] = [];
 
 before(async () => {
   const bundle = await build({
@@ -71,6 +72,19 @@ before(async () => {
     tsconfig: `${ROOT}tsconfig.json`,
     define: { "process.env.NODE_ENV": '"production"' },
     logLevel: "error",
+    // The server action that renews a link cannot run here.
+    plugins: [
+      {
+        name: "stub-preview-actions",
+        setup(build) {
+          build.onResolve({ filter: /\/preview-actions$/ }, () => ({
+            path: fileURLToPath(
+              new URL("./preview-actions-stub.ts", import.meta.url),
+            ),
+          }));
+        },
+      },
+    ],
   });
   const files: Record<string, [string, Uint8Array]> = {
     "/": [
@@ -88,7 +102,8 @@ before(async () => {
     ],
   };
   server = createServer((request, response) => {
-    const file = files[request.url ?? ""];
+    requests.push(request.url ?? "");
+    const file = files[(request.url ?? "").replace("?expired", "")];
     response.writeHead(file ? 200 : 404, { "Content-Type": file?.[0] ?? "" });
     response.end(file?.[1]);
   });
@@ -215,3 +230,26 @@ for (const setup of SETUPS)
       await browser.close();
     }
   });
+
+// A page open for over an hour holds links the bucket refuses. Each preview
+// asks for a fresh one and draws, instead of giving up until a reload.
+test("an expired link is renewed and both previews still draw", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 720, height: 340 },
+    });
+    requests.length = 0;
+    await page.goto(`${origin}/?expired`);
+    await page.locator("#card .stl-preview-image").waitFor();
+    await page.locator("#viewer").getByText("drag to rotate").waitFor();
+    assertHold(
+      (await pixels(page.locator("#card")))(0.5, 0.5),
+      "The middle of the thumbnail",
+    );
+    assert.ok(requests.includes("/expired.stl"), "the old link was tried");
+    assert.ok(requests.includes("/hold.stl"), "the fresh link was fetched");
+  } finally {
+    await browser.close();
+  }
+});
