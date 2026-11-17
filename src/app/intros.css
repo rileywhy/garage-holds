@@ -1,0 +1,254 @@
+/* Intro layers (src/features/intros). Both sit over a page that is already
+   drawn, take no clicks, and are shown only while <html data-intro> names
+   them. Reduced motion never sees either. */
+.intro-door,
+.intro-light {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  pointer-events: none;
+}
+
+/* A sectional garage door: four steel sections with pressed panels, painted
+   white by day and charcoal at night, with the name on the second section. */
+.intro-door {
+  --door-face: light-dark(#e6e4dc, #2f3134);
+  --door-high: light-dark(#f7f6f1, #404347);
+  --door-low: light-dark(#bfbcb1, #1b1d1f);
+  grid-template-rows: repeat(4, 1fr);
+  background: var(--door-low);
+  box-shadow: 0 10px 0 #101112;
+}
+.intro-door-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4%;
+  padding: 2.2vh 4%;
+  background: linear-gradient(
+    180deg,
+    var(--door-high) 0,
+    var(--door-face) 9%,
+    var(--door-face) 88%,
+    var(--door-low) 100%
+  );
+  border-bottom: 2px solid rgb(0 0 0 / 0.45);
+}
+.intro-door-section > span {
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--door-low) 0,
+    var(--door-face) 14%,
+    var(--door-face) 100%
+  );
+  box-shadow:
+    inset 2px 2px 4px rgb(0 0 0 / 0.28),
+    inset -2px -2px 3px rgb(255 255 255 / 0.22);
+}
+.intro-door-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25em;
+  color: light-dark(#16181b, #eceae4);
+  font-family: var(--display);
+  font-size: clamp(36px, 9vw, 120px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.intro-door-name > .brand-icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background: var(--tape);
+  box-shadow: none;
+}
+/* Daylight under the door's edge as it lifts. */
+.intro-door-spill {
+  position: absolute;
+  inset: calc(100% + 10px) 0 auto;
+  height: 18vh;
+  background: linear-gradient(rgb(255 236 190 / 0.45), rgb(255 236 190 / 0));
+}
+html[data-intro="door"] .intro-door {
+  display: grid;
+  animation: intro-door-up 1.25s both;
+}
+@keyframes intro-door-up {
+  0% {
+    transform: translateY(0);
+  }
+  8% {
+    transform: translateY(-1.2%);
+    animation-timing-function: ease-out;
+  }
+  15% {
+    transform: translateY(-0.8%);
+    animation-timing-function: cubic-bezier(0.55, 0.06, 0.3, 1);
+  }
+  100% {
+    transform: translateY(calc(-100% - 18vh - 12px));
+  }
+}
+
+/* The shop light: the room is dark with a strip light hanging in it. The
+   tube catches once, softly, sags, then comes on and lights the page under
+   it before the fitting fades away. One catch, never a strobe. */
+.intro-light-dark,
+.intro-light-room,
+.intro-light-cone {
+  position: absolute;
+  inset: 0;
+}
+.intro-light-dark {
+  background: rgb(6 6 8 / 0.94);
+}
+/* What the lamp does not reach: once it is on, the page under it is lit and
+   the corners of the room stay dark a little longer. */
+.intro-light-room {
+  background: radial-gradient(
+    ellipse 78% 105% at 50% 0%,
+    rgb(6 6 8 / 0) 30%,
+    rgb(6 6 8 / 0.55) 62%,
+    rgb(6 6 8 / 0.92) 100%
+  );
+}
+.intro-light-cone {
+  background: radial-gradient(
+    ellipse 62% 92% at 50% 0%,
+    rgb(255 244 214 / 0.42),
+    rgb(255 244 214 / 0.12) 45%,
+    rgb(255 244 214 / 0) 72%
+  );
+}
+.intro-light-fixture {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(52vw, 620px);
+  height: 74px;
+  translate: -50% 0;
+}
+/* Two cords down from the ceiling. */
+.intro-light-fixture::before,
+.intro-light-fixture::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 30px;
+  background: #4b4d50;
+}
+.intro-light-fixture::before {
+  left: 14%;
+}
+.intro-light-fixture::after {
+  right: 14%;
+}
+.intro-light-housing {
+  position: absolute;
+  inset: 28px 0 auto;
+  height: 24px;
+  background: linear-gradient(#a3a6aa, #6c6f73 55%, #4f5255);
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+}
+.intro-light-tube {
+  position: absolute;
+  inset: 52px 3% auto;
+  height: 11px;
+  border-radius: 6px;
+  background: #5c5e61;
+}
+.intro-light-tube::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fffdf3;
+  box-shadow:
+    0 0 26px 8px rgb(255 249 226 / 0.85),
+    0 0 110px 34px rgb(255 244 214 / 0.42);
+}
+html[data-intro="light"] .intro-light {
+  display: block;
+  animation: intro-light-life 2.6s both;
+}
+html[data-intro="light"] .intro-light-dark {
+  animation: intro-light-dark 2.6s both;
+}
+html[data-intro="light"] .intro-light-room {
+  animation: intro-light-room 2.6s both;
+}
+html[data-intro="light"] .intro-light-cone,
+html[data-intro="light"] .intro-light-tube::before {
+  animation: intro-light-glow 2.6s both;
+}
+/* The fitting stays for a moment once it is on, then fades with its glow. */
+@keyframes intro-light-life {
+  0%,
+  80% {
+    opacity: 1;
+    animation-timing-function: ease-in;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-room {
+  0%,
+  46% {
+    opacity: 1;
+    animation-timing-function: ease-in-out;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-dark {
+  0%,
+  14% {
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.84;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.97;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-glow {
+  0%,
+  14% {
+    opacity: 0;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.5;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.08;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-door,
+  .intro-light {
+    display: none !important;
+  }
+}

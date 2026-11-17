@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { BoardPanel, DEFAULT_BOARD_ANGLE, mountOnBoard } from "./board-preview";
+import {
+  BoardPanel,
+  DEFAULT_BOARD_ANGLE,
+  loadBoardFaces,
+  loadPlywood,
+  mountOnBoard,
+  plywoodMaterial,
+} from "./board-preview";
 import { WheelGestures } from "./gestures";
 
 // The interactive preview shared by Crimp Lab and the design pages: an
@@ -50,6 +57,10 @@ const ARROWS: Partial<Record<string, [number, number]>> = {
   ArrowDown: [0, 1],
 };
 
+// The bench is a little larger than the board panel, in whole 10 mm squares.
+const BENCH_MM = 300;
+const BENCH_THICKNESS_MM = 12;
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
@@ -65,7 +76,8 @@ export class Viewer {
   private mesh: THREE.Mesh | null = null;
   private model = new THREE.Group();
   private board: BoardPanel;
-  private grid: THREE.GridHelper;
+  // The bench the hold lies on: a plywood offcut with a pencilled 10 mm grid.
+  private grid = new THREE.Group();
   private boardAngle = DEFAULT_BOARD_ANGLE;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
   private resizeObserver: ResizeObserver;
@@ -124,7 +136,7 @@ export class Viewer {
     const { dark } = options;
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(dark ? 0x303039 : 0xeeece5);
+    this.renderer.setClearColor(dark ? 0x242628 : 0xe4e4df);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
     container.append(this.renderer.domElement);
@@ -152,26 +164,39 @@ export class Viewer {
     });
     container.addEventListener("gesturestart", this.onGesture);
     container.addEventListener("gesturechange", this.onGesture);
-    this.scene.add(new THREE.HemisphereLight(0xece8ff, 0x3f3a47, 2.2));
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x4a463f, 2.2));
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
     key.position.set(-60, 130, 80);
     this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0xcbc0ff, 1.8);
+    const rim = new THREE.DirectionalLight(0xdde6ff, 1.8);
     rim.position.set(80, 50, -100);
     this.scene.add(rim);
     // A soft fill reveals the rounded underside instead of leaving it dark
     // when the hold is lying on the print bed. Mounted holds need more fill.
     this.fillLight.position.set(80, -60, 120);
     this.scene.add(this.fillLight);
-    this.grid = new THREE.GridHelper(
-      300,
-      30,
-      dark ? 0x5b5469 : 0xb9b4a8,
-      dark ? 0x3d3947 : 0xd8d3c7,
+    const plywood = loadPlywood(dark, () => this.render());
+    const lines = new THREE.GridHelper(
+      BENCH_MM,
+      BENCH_MM / 10,
+      0x4a3a26,
+      0x6b5638,
     );
-    this.grid.position.y = -0.3;
+    const pencil = lines.material as THREE.LineBasicMaterial;
+    pencil.transparent = true;
+    pencil.opacity = dark ? 0.5 : 0.32;
+    lines.position.y = -0.3;
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(BENCH_MM, BENCH_THICKNESS_MM, BENCH_MM),
+      plywoodMaterial(dark, plywood),
+    );
+    slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
+    this.grid.add(slab, lines);
     this.scene.add(this.grid);
-    this.board = new BoardPanel(dark);
+    this.board = new BoardPanel(
+      dark,
+      loadBoardFaces(() => this.render()),
+    );
     this.model.add(this.board.mesh);
     this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({
@@ -381,8 +406,14 @@ export class Viewer {
     this.mesh?.geometry.dispose();
     this.material.dispose();
     this.board.dispose();
-    this.grid.geometry.dispose();
-    (this.grid.material as THREE.Material).dispose();
+    this.grid.traverse((part) => {
+      if (!(part instanceof THREE.Mesh || part instanceof THREE.LineSegments))
+        return;
+      part.geometry.dispose();
+      const material = part.material as THREE.MeshStandardMaterial;
+      material.map?.dispose();
+      material.dispose();
+    });
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

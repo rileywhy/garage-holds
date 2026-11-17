@@ -44,18 +44,18 @@ export const LAB_KINDS: Record<Kind, LabKind> = {
     ...rounded,
     views: VIEW_ORDER.filter((view) => view !== "angled-side"),
   },
-  jug: { ...rounded, color: 0xc2aadf, views: VIEW_ORDER },
-  foot: { ...rounded, color: 0xa9c4ae, views: VIEW_ORDER },
+  jug: { ...rounded, color: 0xe9b416, views: VIEW_ORDER },
+  foot: { ...rounded, color: 0xe07a1f, views: VIEW_ORDER },
   pocket: {
     ...rounded,
-    color: 0xa9bbd8,
+    color: 0x2f6fde,
     views: VIEW_ORDER,
     seedHint:
       "Seeds wobble the rim and drift the crown; the pocket stays put. Reset returns to the clean default.",
   },
   pinch: {
     ...rounded,
-    color: 0xd8bd8e,
+    color: 0xd9412c,
     views: VIEW_ORDER,
     seedHint:
       "Seeds wave the sides in and out along the pinch; the back stays put. Reset returns to the clean default.",
