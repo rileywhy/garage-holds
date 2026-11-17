@@ -1775,7 +1775,8 @@ svg {
 .stl-preview-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* A whole scene (stl-renderer.ts), so it fills the frame like a photo. */
+  object-fit: cover;
 }
 /* The design page's interactive model view (stl-viewer.tsx). */
 .stl-viewer-canvas {
