@@ -19,26 +19,29 @@ export function mountOnBoard(group: THREE.Group, angle: number) {
   group.rotation.set(THREE.MathUtils.degToRad(angle), 0, 0);
 }
 
-// A photo of a real sheet (public/images/plywood), as a texture: a patched
-// cheap sheet by day, a weathered one at night. It arrives after the first
-// frame, so the caller redraws when it does; until then, and wherever images
-// cannot load, the plain plywood colour stands in.
-export function loadPlywood(dark: boolean, onLoad: () => void) {
+// The plywood in public/images/plywood, drilled the way a gym drills a wall:
+// holes 200 mm apart along a row, rows 100 mm apart and offset by 100 mm
+// (docs/plywood-images.md). Each image is a square with a hole in its centre.
+// A texture arrives after the first frame, so the caller redraws when it
+// does; until then, and wherever images cannot load, the plain plywood
+// colour stands in.
+export function loadPlywood(
+  name: "bench" | "panel-front" | "panel-back",
+  onLoad: () => void,
+) {
   const texture = new THREE.TextureLoader().load(
-    `/images/plywood/${dark ? "weathered" : "sheet"}.webp`,
+    `/images/plywood/${name}.webp`,
     onLoad,
   );
   texture.colorSpace = THREE.SRGBColorSpace;
-  // The photos are portrait; the faces they cover are square.
-  texture.repeat.set(1, 0.72);
-  texture.offset.set(0, 0.14);
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
   return texture;
 }
 
-export function plywoodMaterial(dark: boolean, map?: THREE.Texture) {
+// The wood is lit the same in both themes: only the room behind it changes.
+export function plywoodMaterial(map?: THREE.Texture) {
   return new THREE.MeshStandardMaterial({
-    color: map ? (dark ? 0xb9b2aa : 0xd9d2c6) : dark ? 0x82654e : 0xb99a76,
+    color: map ? 0xffffff : 0xc4a57e,
     map: map ?? null,
     roughness: 0.92,
   });
@@ -46,41 +49,34 @@ export function plywoodMaterial(dark: boolean, map?: THREE.Texture) {
 
 export type BoardFaces = { front: THREE.Texture; back: THREE.Texture };
 
-// The two faces of a home board: drilled holes on the climbing side, the
-// T-nuts hammered in behind. Each shows a 3 × 3 block with one T-nut in the
-// middle, where the hold bolts on.
+// The two faces of the board: drilled holes on the climbing side, the T-nuts
+// hammered in behind. The hold bolts on at the hole in the middle.
 export function loadBoardFaces(onLoad: () => void): BoardFaces {
-  const face = (side: string) => {
-    const texture = new THREE.TextureLoader().load(
-      `/images/plywood/panel-${side}.webp`,
-      onLoad,
-    );
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
-    return texture;
+  return {
+    front: loadPlywood("panel-front", onLoad),
+    back: loadPlywood("panel-back", onLoad),
   };
-  return { front: face("front"), back: face("back") };
 }
 
 export class BoardPanel {
   readonly mesh: THREE.Mesh;
   private edges: THREE.LineSegments;
 
-  constructor(dark: boolean, faces?: BoardFaces) {
+  constructor(faces?: BoardFaces) {
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const side = plywoodMaterial(dark);
+    const side = plywoodMaterial();
     // Box faces run +X, -X, +Y, -Y, +Z (the climbing side), -Z (the back).
     this.mesh = new THREE.Mesh(geometry, [
       side,
       side,
       side,
       side,
-      plywoodMaterial(dark, faces?.front),
-      plywoodMaterial(dark, faces?.back),
+      plywoodMaterial(faces?.front),
+      plywoodMaterial(faces?.back),
     ]);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry),
-      new THREE.LineBasicMaterial({ color: dark ? 0x443b39 : 0x78634e }),
+      new THREE.LineBasicMaterial({ color: 0x78634e }),
     );
     this.mesh.add(this.edges);
     this.mesh.visible = false;

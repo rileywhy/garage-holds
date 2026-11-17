@@ -4,6 +4,7 @@ import {
   Box3,
   BoxGeometry,
   DirectionalLight,
+  HemisphereLight,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -49,7 +50,7 @@ test("40° means overhang from vertical, with the contact face pointing down and
 });
 
 test("board face meets the hold back and stays bed-sized, so a wide hold overhangs", () => {
-  const board = new BoardPanel(true);
+  const board = new BoardPanel();
   board.placeBehind(
     new Box3(new Vector3(-150, -50, 0), new Vector3(150, 100, 60)),
   );
@@ -77,7 +78,7 @@ function headlessViewer() {
   const camera = new OrthographicCamera(-80, 80, 60, -60, -2000, 2000);
   const target = new Vector3();
   const cursor = new Vector3();
-  const board = new BoardPanel(true);
+  const board = new BoardPanel();
   const model = new Group();
   model.add(board.mesh);
   const viewer = Object.assign(Object.create(Viewer.prototype), {
@@ -89,6 +90,7 @@ function headlessViewer() {
     model,
     board,
     fillLight: new DirectionalLight(),
+    skyLight: new HemisphereLight(),
     grid: new Object3D(),
     slab: new Object3D(),
     material: new MeshStandardMaterial(),

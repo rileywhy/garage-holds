@@ -60,6 +60,9 @@ const ARROWS: Partial<Record<string, [number, number]>> = {
 const BENCH_MM = 300;
 const BENCH_THICKNESS_MM = 12;
 
+const FLOOR_DIM = 0x4a463f;
+const FLOOR_BRIGHT = 0x9a948a;
+
 // The camera sits this far from the point the view turns around.
 const CAMERA_DISTANCE_MM = 300;
 // Zooming toward the pointer and panning both move that point. It stays
@@ -97,6 +100,8 @@ export class Viewer {
   private slab: THREE.Mesh;
   private boardAngle = DEFAULT_BOARD_ANGLE;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
+  // Light from the sky and, more dimly, back up off the floor.
+  private skyLight = new THREE.HemisphereLight(0xffffff, FLOOR_DIM, 2.2);
   private resizeObserver: ResizeObserver;
   private aspect = 1;
   private halfHeight = 60;
@@ -175,7 +180,7 @@ export class Viewer {
     });
     container.addEventListener("gesturestart", this.onGesture);
     container.addEventListener("gesturechange", this.onGesture);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x4a463f, 2.2));
+    this.scene.add(this.skyLight);
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
     key.position.set(-60, 130, 80);
     this.scene.add(key);
@@ -186,7 +191,6 @@ export class Viewer {
     // when the hold is lying on the print bed. Mounted holds need more fill.
     this.fillLight.position.set(80, -60, 120);
     this.scene.add(this.fillLight);
-    const plywood = loadPlywood(dark, () => this.render());
     const lines = new THREE.GridHelper(
       BENCH_MM,
       BENCH_MM / 10,
@@ -195,19 +199,25 @@ export class Viewer {
     );
     const pencil = lines.material as THREE.LineBasicMaterial;
     pencil.transparent = true;
-    pencil.opacity = dark ? 0.5 : 0.32;
+    pencil.opacity = 0.3;
     lines.position.y = -0.3;
+    const edge = plywoodMaterial();
+    // Box faces run +X, -X, +Y (the top), -Y, +Z, -Z.
     this.slab = new THREE.Mesh(
       new THREE.BoxGeometry(BENCH_MM, BENCH_THICKNESS_MM, BENCH_MM),
-      plywoodMaterial(dark, plywood),
+      [
+        edge,
+        edge,
+        plywoodMaterial(loadPlywood("bench", () => this.render())),
+        edge,
+        edge,
+        edge,
+      ],
     );
     this.slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
     this.grid.add(this.slab, lines);
     this.scene.add(this.grid);
-    this.board = new BoardPanel(
-      dark,
-      loadBoardFaces(() => this.render()),
-    );
+    this.board = new BoardPanel(loadBoardFaces(() => this.render()));
     this.model.add(this.board.mesh);
     this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({
@@ -240,6 +250,9 @@ export class Viewer {
     this.view = view;
     this.board.mesh.visible = view === "board";
     this.fillLight.intensity = view === "board" ? 1.8 : 1.2;
+    // An overhanging board faces the floor, so more comes back up at it;
+    // without that its climbing side reads as stained.
+    this.skyLight.groundColor.set(view === "board" ? FLOOR_BRIGHT : FLOOR_DIM);
     this.grid.visible = view !== "board";
     if (view === "board") mountOnBoard(this.model, this.boardAngle);
     else this.model.rotation.set(-Math.PI / 2, 0, 0);
@@ -428,9 +441,10 @@ export class Viewer {
       if (!(part instanceof THREE.Mesh || part instanceof THREE.LineSegments))
         return;
       part.geometry.dispose();
-      const material = part.material as THREE.MeshStandardMaterial;
-      material.map?.dispose();
-      material.dispose();
+      for (const material of new Set([part.material].flat())) {
+        (material as THREE.MeshStandardMaterial).map?.dispose();
+        material.dispose();
+      }
     });
     this.renderer.dispose();
     this.renderer.domElement.remove();
