@@ -17,7 +17,7 @@ The centre section stays unchanged instead of being squeezed at the shoulders.
 Presets: board jug, deep jug (87.5 mm reach and 135% bite with a low arc
 rise, so the trough behind its lip is about 70 mm deep and its shelf about
 56° incut as built; the hold is about 112 × 101 × 71 mm), and two-handed jug (a
-253 mm sweep span with a gentler arch and four screws; the finished hold is
+253 mm sweep span with a gentler arch and five screws; the finished hold is
 about 243 mm wide, nearly twice the other two and 5% inside a 256 mm printer
 bed).
 

@@ -306,7 +306,7 @@ class GeometryTests(unittest.TestCase):
             self.assertGreater(widths["Two-handed jug"], 1.9 * widths[name])
         self.assertLessEqual(widths["Two-handed jug"], 256 * 0.95)
         model = build(PRESETS["Two-handed jug"])
-        self.assertEqual(len(model.screws), 4)
+        self.assertEqual(len(model.screws), 5)
         xs = sorted(x for x, _ in model.screws)
         self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.35)
 
