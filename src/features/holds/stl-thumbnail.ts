@@ -1,3 +1,5 @@
+import { fetchModel } from "./model-fetch";
+import { freshPreviewUrl } from "./preview-actions";
 import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
 import type { Orientation } from "./orientation";
 
@@ -21,9 +23,7 @@ export function getStlThumbnail(
   if (existing) return existing;
   // One job at a time keeps geometry parsing and GPU use bounded while scrolling.
   const task = queue.then(async () => {
-    const response = await fetch(file.url);
-    if (!response.ok) throw new Error("Could not load this STL.");
-    const bytes = await response.arrayBuffer();
+    const bytes = await fetchModel(file.url, () => freshPreviewUrl(file.id));
     if (bytes.byteLength > MAX_STL_PREVIEW_BYTES)
       throw new Error("This STL is too large for a browsing preview.");
     const { renderStlThumbnail } = await import("./stl-renderer");

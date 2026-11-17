@@ -5,7 +5,10 @@ import { StlViewer } from "../../src/features/holds/stl-viewer";
 // The page tests/browser/stl-previews.test.ts loads: a library card's
 // thumbnail and the design page's interactive viewer, each drawing the same
 // STL in a colour the test can recognise.
-const file = { id: "fixture", url: "/hold.stl", orientation: "x,y,z" };
+// With ?expired the page starts from a link the server refuses, as a page
+// open for over an hour does.
+const url = location.search === "?expired" ? "/expired.stl" : "/hold.stl";
+const file = { id: "fixture", url, orientation: "x,y,z" };
 const frame = { width: 320, height: 300, background: "var(--visual-bg)" };
 
 createRoot(document.getElementById("root")!).render(

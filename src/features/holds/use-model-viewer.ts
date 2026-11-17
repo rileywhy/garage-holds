@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Viewer, ViewName } from "@/features/model-viewer/viewer";
+import { fetchModel } from "./model-fetch";
+import { freshPreviewUrl } from "./preview-actions";
 import { MAX_STL_PREVIEW_BYTES } from "./stl-limits";
 import type { Orientation } from "./orientation";
 
 // An STL to show: a file already in storage, or one still in the browser
-// before upload. `key` tells one model from another.
+// before upload. `key` tells one model from another; for a file in storage
+// it is the file's id, which is how an expired link gets renewed.
 export type ModelSource =
   { key: string; url: string } | { key: string; file: File };
 
@@ -53,10 +56,7 @@ export function useModelViewer(
           import("./stl-scene"),
           file
             ? file.arrayBuffer()
-            : fetch(url).then((response) => {
-                if (!response.ok) throw new Error("Could not load this STL.");
-                return response.arrayBuffer();
-              }),
+            : fetchModel(url, () => freshPreviewUrl(key)),
         ]);
       if (data.byteLength > MAX_STL_PREVIEW_BYTES)
         throw new Error("This STL is too large for a browsing preview.");
