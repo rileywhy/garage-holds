@@ -20,12 +20,22 @@ const HOLD_FRAME = {
   up: new Vector3(0, 0, 1),
 };
 
-// Render once to an image. Browsing cards don't keep WebGL contexts or animation loops alive.
+const WIDTH = 640;
+const HEIGHT = 480;
+
+// Render once to a picture. Browsing cards don't keep WebGL contexts or
+// animation loops alive.
+//
+// The picture is a 2D canvas the frame was drawn onto, never a data URL or
+// blob read back out of one: browsers that resist fingerprinting (Firefox
+// with resistFingerprinting, LibreWolf, Mullvad, Tor) answer toDataURL with
+// noise, and the cards showed stripes. Drawing one canvas onto another is
+// not a read, so nothing is withheld.
 export function renderStlThumbnail(
   data: ArrayBuffer,
   orientation: Orientation,
   color: string,
-): string {
+): HTMLCanvasElement {
   const geometry = holdGeometry(data, orientation);
   const material = new MeshStandardMaterial({
     color,
@@ -40,7 +50,7 @@ export function renderStlThumbnail(
       alpha: true,
       preserveDrawingBuffer: true,
     });
-    renderer.setSize(640, 480);
+    renderer.setSize(WIDTH, HEIGHT);
     renderer.setClearColor(0x000000, 0);
     const scene = new Scene();
     scene.add(new Mesh(geometry, material));
@@ -54,7 +64,7 @@ export function renderStlThumbnail(
       .multiplyScalar(4)
       .addScaledVector(HOLD_FRAME.up, 3);
     scene.add(light);
-    const aspect = 4 / 3;
+    const aspect = WIDTH / HEIGHT;
     const { target, halfHeight } = fitStlCamera(
       geometry,
       direction,
@@ -78,7 +88,13 @@ export function renderStlThumbnail(
     renderer.render(scene, camera);
     if (renderer.getContext().isContextLost())
       throw new Error("The graphics context is unavailable.");
-    return (renderer.domElement as HTMLCanvasElement).toDataURL("image/png");
+    const picture = document.createElement("canvas");
+    picture.width = WIDTH;
+    picture.height = HEIGHT;
+    const context = picture.getContext("2d");
+    if (!context) throw new Error("The graphics context is unavailable.");
+    context.drawImage(renderer.domElement, 0, 0);
+    return picture;
   } finally {
     geometry.dispose();
     material.dispose();

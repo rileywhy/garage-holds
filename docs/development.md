@@ -26,6 +26,8 @@ npm run test:smoke
 
 GitHub Actions runs the same six commands on every pull request and on pushes to `main` ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)), plus each generator's Python tests (a fixed sample on push, in full every night; see [docs/hosted-setup.md](hosted-setup.md#generator-tests-a-sample-on-push-in-full-every-night)) and the two-user ownership tests in `tests/integration` against a local Supabase stack in Docker; [docs/local-stack.md](local-stack.md) walks through running that stack and `npm run test:integration` on a laptop. `.nvmrc` pins the Node major version CI uses; keep it equal to the Node.js version in the Vercel project's settings, which is what production runs. Lint uses `eslint-config-next` with the TypeScript rules and treats warnings as failures.
 
+`npm run test:browser` draws the 3D previews (a card's thumbnail and the design page's viewer) in Chromium, WebKit and Firefox, the last also with fingerprinting resistance on and with WebGL off, and checks what reached the screen; CI runs it on every pull request. `npm run test:browser:install` downloads the three browsers once. On Linux without a screen, Firefox has no WebGL unless a display exists: `xvfb-run -a npm run test:browser`.
+
 With the six lab generators running (see [docs/sandbox.md](sandbox.md)), `npm run test:e2e` checks each parametric lab's default output end to end: the first preview, the settings the sliders hold, the link and the exported STL, against `tests/fixtures/lab-defaults.json`.
 
 ## What works
