@@ -893,10 +893,7 @@ export function HoldLab({
             )}
           </div>
           <p className="lab-caption">
-            <span>
-              Drag or two-finger swipe to turn · Shift to pan · scroll or pinch
-              to zoom
-            </span>
+            <span>Drag to turn · Shift to pan · scroll or pinch to zoom</span>
             <span>
               {view === "board"
                 ? `Mounted on a ${boardAngle}° board`

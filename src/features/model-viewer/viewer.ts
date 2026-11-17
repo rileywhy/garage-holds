@@ -8,7 +8,6 @@ import {
   mountOnBoard,
   plywoodMaterial,
 } from "./board-preview";
-import { WheelGestures } from "./gestures";
 
 // The interactive preview shared by Crimp Lab and the design pages: an
 // orthographic camera around a hold, shown on a print bed or mounted on an
@@ -103,7 +102,6 @@ export class Viewer {
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
   private turning = 0;
-  private wheel = new WheelGestures();
   // Safari's own pinch events, and whether it is sending the pinch as
   // Ctrl + wheel too (which the controls already zoom on).
   private pinchScale = 1;
@@ -118,18 +116,12 @@ export class Viewer {
     else return;
     event.preventDefault();
   };
-  // Runs before the controls see the event (capture on the container): a
-  // trackpad's two-finger drag turns or pans here, and anything else goes on
-  // to the controls' zoom.
+  // Every scroll zooms, through the controls: a mouse wheel, a trackpad's
+  // two-finger scroll and its pinch. Devices cannot be told apart reliably,
+  // and a wheel that turned the view instead of zooming is worse than a
+  // trackpad that has to drag to turn. This only notes a pinch.
   private onWheel = (event: WheelEvent) => {
     if (event.ctrlKey) this.pinchAsWheel = true;
-    const intent = this.wheel.read(event, event.timeStamp);
-    if (intent === "zoom") return;
-    event.preventDefault();
-    event.stopPropagation();
-    // Scrolling deltas run against the fingers, so negate them: the hold
-    // moves with the fingers, as it does with a drag.
-    this.move(-event.deltaX, -event.deltaY, intent === "pan");
   };
   // Older Safari pinches only through these events, and zooms the page
   // unless they are cancelled.
@@ -179,7 +171,7 @@ export class Viewer {
     container.addEventListener("keydown", this.onKey);
     container.addEventListener("wheel", this.onWheel, {
       capture: true,
-      passive: false,
+      passive: true,
     });
     container.addEventListener("gesturestart", this.onGesture);
     container.addEventListener("gesturechange", this.onGesture);
