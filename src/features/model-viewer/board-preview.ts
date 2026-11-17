@@ -19,33 +19,65 @@ export function mountOnBoard(group: THREE.Group, angle: number) {
   group.rotation.set(THREE.MathUtils.degToRad(angle), 0, 0);
 }
 
-// The birch face drawn for the pages, as a texture. It arrives after the
-// first frame, so the caller redraws when it does; until then, and wherever
-// images cannot load, the plain plywood colour stands in.
-export function loadPlywood(onLoad: () => void) {
-  const texture = new THREE.TextureLoader().load("/images/plywood.svg", onLoad);
+// A photo of a real sheet (public/images/plywood), as a texture: a patched
+// cheap sheet by day, a weathered one at night. It arrives after the first
+// frame, so the caller redraws when it does; until then, and wherever images
+// cannot load, the plain plywood colour stands in.
+export function loadPlywood(dark: boolean, onLoad: () => void) {
+  const texture = new THREE.TextureLoader().load(
+    `/images/plywood/${dark ? "weathered" : "sheet"}.webp`,
+    onLoad,
+  );
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  // The photos are portrait; the faces they cover are square.
+  texture.repeat.set(1, 0.72);
+  texture.offset.set(0, 0.14);
   texture.anisotropy = 4;
   return texture;
 }
 
-// In the dark theme the wood is dimmed the way the pages dim it.
 export function plywoodMaterial(dark: boolean, map?: THREE.Texture) {
   return new THREE.MeshStandardMaterial({
-    color: map ? (dark ? 0x9c948a : 0xcbbfad) : dark ? 0x82654e : 0xb99a76,
+    color: map ? (dark ? 0xb9b2aa : 0xd9d2c6) : dark ? 0x82654e : 0xb99a76,
     map: map ?? null,
     roughness: 0.92,
   });
+}
+
+export type BoardFaces = { front: THREE.Texture; back: THREE.Texture };
+
+// The two faces of a home board: drilled holes on the climbing side, the
+// T-nuts hammered in behind. Each shows a 3 × 3 block with one T-nut in the
+// middle, where the hold bolts on.
+export function loadBoardFaces(onLoad: () => void): BoardFaces {
+  const face = (side: string) => {
+    const texture = new THREE.TextureLoader().load(
+      `/images/plywood/panel-${side}.webp`,
+      onLoad,
+    );
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  };
+  return { front: face("front"), back: face("back") };
 }
 
 export class BoardPanel {
   readonly mesh: THREE.Mesh;
   private edges: THREE.LineSegments;
 
-  constructor(dark: boolean, plywood?: THREE.Texture) {
+  constructor(dark: boolean, faces?: BoardFaces) {
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    this.mesh = new THREE.Mesh(geometry, plywoodMaterial(dark, plywood));
+    const side = plywoodMaterial(dark);
+    // Box faces run +X, -X, +Y, -Y, +Z (the climbing side), -Z (the back).
+    this.mesh = new THREE.Mesh(geometry, [
+      side,
+      side,
+      side,
+      side,
+      plywoodMaterial(dark, faces?.front),
+      plywoodMaterial(dark, faces?.back),
+    ]);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry),
       new THREE.LineBasicMaterial({ color: dark ? 0x443b39 : 0x78634e }),
@@ -63,7 +95,12 @@ export class BoardPanel {
 
   dispose() {
     this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
+    for (const material of new Set(
+      this.mesh.material as THREE.MeshStandardMaterial[],
+    )) {
+      material.map?.dispose();
+      material.dispose();
+    }
     this.edges.geometry.dispose();
     (this.edges.material as THREE.Material).dispose();
   }

@@ -94,35 +94,156 @@ html[data-intro="door"] .intro-door {
   }
 }
 
-/* The shop light: the room is dark, the tube catches once, softly, then
-   warms up. One slow dip, never a strobe. */
-.intro-light {
+/* The shop light: the room is dark with a strip light hanging in it. The
+   tube catches once, softly, sags, then comes on and lights the page under
+   it before the fitting fades away. One catch, never a strobe. */
+.intro-light-dark,
+.intro-light-room,
+.intro-light-cone {
+  position: absolute;
+  inset: 0;
+}
+.intro-light-dark {
+  background: rgb(6 6 8 / 0.94);
+}
+/* What the lamp does not reach: once it is on, the page under it is lit and
+   the corners of the room stay dark a little longer. */
+.intro-light-room {
   background: radial-gradient(
-    ellipse 95% 75% at 50% 0%,
-    rgb(10 10 12 / 0.8),
-    rgb(4 4 5 / 0.95) 78%
+    ellipse 78% 105% at 50% 0%,
+    rgb(6 6 8 / 0) 30%,
+    rgb(6 6 8 / 0.55) 62%,
+    rgb(6 6 8 / 0.92) 100%
   );
+}
+.intro-light-cone {
+  background: radial-gradient(
+    ellipse 62% 92% at 50% 0%,
+    rgb(255 244 214 / 0.42),
+    rgb(255 244 214 / 0.12) 45%,
+    rgb(255 244 214 / 0) 72%
+  );
+}
+.intro-light-fixture {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(52vw, 620px);
+  height: 74px;
+  translate: -50% 0;
+}
+/* Two cords down from the ceiling. */
+.intro-light-fixture::before,
+.intro-light-fixture::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 30px;
+  background: #4b4d50;
+}
+.intro-light-fixture::before {
+  left: 14%;
+}
+.intro-light-fixture::after {
+  right: 14%;
+}
+.intro-light-housing {
+  position: absolute;
+  inset: 28px 0 auto;
+  height: 24px;
+  background: linear-gradient(#a3a6aa, #6c6f73 55%, #4f5255);
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+}
+.intro-light-tube {
+  position: absolute;
+  inset: 52px 3% auto;
+  height: 11px;
+  border-radius: 6px;
+  background: #5c5e61;
+}
+.intro-light-tube::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fffdf3;
+  box-shadow:
+    0 0 26px 8px rgb(255 249 226 / 0.85),
+    0 0 110px 34px rgb(255 244 214 / 0.42);
 }
 html[data-intro="light"] .intro-light {
   display: block;
-  animation: intro-light-on 1.7s both;
+  animation: intro-light-life 2.6s both;
 }
-@keyframes intro-light-on {
+html[data-intro="light"] .intro-light-dark {
+  animation: intro-light-dark 2.6s both;
+}
+html[data-intro="light"] .intro-light-room {
+  animation: intro-light-room 2.6s both;
+}
+html[data-intro="light"] .intro-light-cone,
+html[data-intro="light"] .intro-light-tube::before {
+  animation: intro-light-glow 2.6s both;
+}
+/* The fitting stays for a moment once it is on, then fades with its glow. */
+@keyframes intro-light-life {
   0%,
-  16% {
+  80% {
     opacity: 1;
-    animation-timing-function: ease-in-out;
-  }
-  27% {
-    opacity: 0.74;
-    animation-timing-function: ease-in-out;
-  }
-  40% {
-    opacity: 0.9;
-    animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1);
+    animation-timing-function: ease-in;
   }
   100% {
     opacity: 0;
+  }
+}
+@keyframes intro-light-room {
+  0%,
+  46% {
+    opacity: 1;
+    animation-timing-function: ease-in-out;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-dark {
+  0%,
+  14% {
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.84;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.97;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-glow {
+  0%,
+  14% {
+    opacity: 0;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.5;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.08;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -12,12 +12,22 @@
   --masking: #e6d9b8;
   --masking-ink: #16181b;
   --pale: light-dark(#e7e7e1, #2a2c2f);
-  --visual-bg: light-dark(#d8bd92, #7a6544);
-  --ply-shade: light-dark(rgb(0 0 0 / 0), rgb(34 22 10 / 0.5));
+  --visual-bg: light-dark(#dcc7a2, #5d4c3e);
   --on-ply: light-dark(#16181b, #ffffff);
-  --ply-image:
-    linear-gradient(var(--ply-shade), var(--ply-shade)),
-    url("/images/plywood.svg");
+  /* The sheets in public/images/plywood (README.md there says where each came
+     from): the two sides of a home board with its T-nuts, a patched cheap
+     sheet, a cleaner birch face and OSB. At night the cheap sheet is swapped
+     for a weathered one and the rest sit under a shade. */
+  --ply-front: url("/images/plywood/board-front.webp");
+  --ply-back: url("/images/plywood/board-back.webp");
+  --ply-sheet: url("/images/plywood/sheet.webp");
+  --ply-birch: url("/images/plywood/birch.webp");
+  --ply-osb: url("/images/plywood/osb.webp");
+  --ply-shade-on: rgb(0 0 0 / 0);
+  --ply-shade-sheet: rgb(0 0 0 / 0);
+  --ply-haze: light-dark(rgb(251 251 248 / 0.5), rgb(15 12 9 / 0.45));
+  --ply-photo: var(--ply-front);
+  --ply-shade: var(--ply-shade-on);
   --stage-bg: light-dark(#e4e4df, #242628);
   --overlay: light-dark(#fbfbf8ee, #202224ee);
   --subtle-bg: light-dark(#ebebe6, #1c1e20);
@@ -43,10 +53,60 @@ body {
 .image-placeholder,
 .hero-art {
   background-color: var(--visual-bg);
-  background-image: var(--ply-image);
+  background-image:
+    linear-gradient(var(--ply-shade), var(--ply-shade)), var(--ply-photo);
+  background-position: center;
+  background-size: cover;
+}
+/* Neighbouring cards are cut from different sheets. */
+.hold-card:nth-child(4n + 1) {
+  --ply-photo: var(--ply-back);
+}
+/* On a card the board is seen from closer, so its T-nuts sit apart, and
+   words on bare wood get a little haze behind them. */
+.hold-card .card-visual,
+.hold-card .image-placeholder {
   background-size:
     auto,
-    1024px 768px;
+    auto 165%;
+}
+.no-photo-visual {
+  background-image:
+    radial-gradient(
+      ellipse 44% 24% at 50% 56%,
+      var(--ply-haze) 35%,
+      transparent
+    ),
+    linear-gradient(var(--ply-shade), var(--ply-shade)), var(--ply-photo);
+}
+.hold-card .no-photo-visual {
+  background-size:
+    auto,
+    auto,
+    auto 165%;
+}
+.hold-card:nth-child(4n + 2),
+.lab-slide:nth-child(3n) {
+  --ply-photo: var(--ply-sheet);
+  --ply-shade: var(--ply-shade-sheet);
+}
+.hold-card:nth-child(4n) {
+  --ply-photo: var(--ply-osb);
+}
+.lab-slide:nth-child(3n + 2) {
+  --ply-photo: var(--ply-birch);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ply-sheet: url("/images/plywood/weathered.webp");
+    --ply-shade-on: rgb(26 17 9 / 0.55);
+    --ply-shade-sheet: rgb(20 14 8 / 0.2);
+  }
+}
+:root[data-theme="dark"] {
+  --ply-sheet: url("/images/plywood/weathered.webp");
+  --ply-shade-on: rgb(26 17 9 / 0.55);
+  --ply-shade-sheet: rgb(20 14 8 / 0.2);
 }
 .lab-viewer,
 .stl-preview-canvas {

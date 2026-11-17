@@ -36,10 +36,10 @@
   padding: 20px 24px;
   border-radius: 3px;
   background-color: var(--visual-bg);
-  background-image: var(--ply-image);
-  background-size:
-    auto,
-    1024px 768px;
+  background-image:
+    linear-gradient(var(--ply-shade), var(--ply-shade)), var(--ply-photo);
+  background-position: center;
+  background-size: cover;
   object-fit: contain;
 }
 .content {
@@ -101,4 +101,12 @@
   .image {
     height: 160px;
   }
+}
+/* Each lab's card is cut from a different sheet. */
+.card:nth-child(3n + 2) {
+  --ply-photo: var(--ply-birch);
+}
+.card:nth-child(3n) {
+  --ply-photo: var(--ply-sheet);
+  --ply-shade: var(--ply-shade-sheet);
 }

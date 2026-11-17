@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   BoardPanel,
   DEFAULT_BOARD_ANGLE,
+  loadBoardFaces,
   loadPlywood,
   mountOnBoard,
   plywoodMaterial,
@@ -174,7 +175,7 @@ export class Viewer {
     // when the hold is lying on the print bed. Mounted holds need more fill.
     this.fillLight.position.set(80, -60, 120);
     this.scene.add(this.fillLight);
-    const plywood = loadPlywood(() => this.render());
+    const plywood = loadPlywood(dark, () => this.render());
     const lines = new THREE.GridHelper(
       BENCH_MM,
       BENCH_MM / 10,
@@ -192,7 +193,10 @@ export class Viewer {
     slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
     this.grid.add(slab, lines);
     this.scene.add(this.grid);
-    this.board = new BoardPanel(dark, plywood);
+    this.board = new BoardPanel(
+      dark,
+      loadBoardFaces(() => this.render()),
+    );
     this.model.add(this.board.mesh);
     this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({

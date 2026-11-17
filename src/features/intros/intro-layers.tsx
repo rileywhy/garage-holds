@@ -12,7 +12,7 @@ import {
 
 // Longer than either animation: the layer always comes off, even if the
 // browser never reports the animation ending.
-const GIVE_UP_MS = 2600;
+const GIVE_UP_MS = 3200;
 
 function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -107,7 +107,15 @@ export function IntroLayers({ signedIn }: { signedIn: boolean }) {
         </div>
         <div className="intro-door-spill" />
       </div>
-      <div className="intro-light" onAnimationEnd={ended} />
+      <div className="intro-light" onAnimationEnd={ended}>
+        <div className="intro-light-dark" />
+        <div className="intro-light-room" />
+        <div className="intro-light-cone" />
+        <div className="intro-light-fixture">
+          <div className="intro-light-housing" />
+          <div className="intro-light-tube" />
+        </div>
+      </div>
     </div>
   );
 }
