@@ -70,6 +70,14 @@ the upload form reports that uploads are not configured.
    ]
    ```
 
+A preview deployment has its own origin
+(`https://garage-holds-<hash>-garage-holds.vercel.app`), which this policy
+does not list. On a preview the browser therefore refuses the model download
+and every 3D preview says "STL preview unavailable"; uploads fail the same
+way, while photos are unaffected. To try models on a preview, add that
+deployment's origin (or its branch alias) to `AllowedOrigins` for as long as
+it is needed.
+
 The bucket stays private. Downloads and photos use signed URLs that expire
 after an hour, so draft files never leak and paid downloads can be gated later
 without moving anything.
