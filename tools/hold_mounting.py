@@ -13,14 +13,22 @@ import trimesh
 # steps down no lower than SEAT_FLOOR (FOOT_SEAT_FLOOR on a foothold), or
 # not at all on a hold too shallow for the floor; past that the body grows
 # instead. Only a body that cannot take it even at its largest seats lower,
-# down to MIN_SEAT, as every lab did before (RIL-136). A floor this thick
+# and then no lower than MIN_SEAT (RIL-136). A floor this thick
 # resists the head pulling through about as well as a #10 screw grips 3/4 in
 # ply, and at SEAT_MAX a 2 in screw still bites the whole sheet.
+#
+# MIN_SEAT was 2 mm (0.5 in the Crimp and Jug Labs, 3 on a sloper) until
+# November 2026: printed holds had too little plastic under their screw
+# heads. No automatic seat now leaves less than 6 mm, or 5 mm on a
+# foothold, which is too shallow for more; a hold that cannot take that
+# grows, or is refused. A seat set by hand is the maker's own choice and
+# may still go down to MANUAL_MIN_SEAT.
 SEAT_SHARE = 0.4
 SEAT_MAX = 20.0
 SEAT_FLOOR = 8.0
 FOOT_SEAT_FLOOR = 5.0
-MIN_SEAT = 2.0
+MIN_SEAT = 6.0
+MANUAL_MIN_SEAT = 2.0
 
 
 def automatic_seat(depth: float) -> float:

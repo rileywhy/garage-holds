@@ -23,6 +23,8 @@ from tools.hold_mounting import (
     drill,
     fit_bolt_and_screw,
     lowest_seat,
+    MANUAL_MIN_SEAT,
+    MIN_SEAT,
 )
 
 if __package__:
@@ -374,6 +376,14 @@ def _check_deadline(deadline: float | None) -> None:
 JUG_BODY_SEAT = 12.0
 
 
+def _minimum_seat(p: Parameters) -> float:
+    """The least plastic an automatic seat may leave under the screw heads:
+    MIN_SEAT, or the hold's own automatic seat on an edge too shallow for
+    that (a 10 mm crimp stands 16 mm off the wall and seats at 6.5 mm; a
+    5 mm one cannot hold 6 mm under a countersink at all)."""
+    return min(automatic_seat(p), MIN_SEAT)
+
+
 def automatic_seat(p: Parameters) -> float:
     """The automatic seat on this body, the Jug Lab's included (RIL-136)."""
     return seat_height(replace(p, auto_seat=True))
@@ -416,7 +426,7 @@ def build(
             reference_mesh = _loft(reference, "preview", end_wrap, arc_rise)[0]
             if fit_bolt_and_screw(
                 reference, _solid(reference_mesh), reference_mesh.bounds,
-                JUG_BODY_SEAT, edge_clearance=5.0,
+                JUG_BODY_SEAT, edge_clearance=5.0, floor=MANUAL_MIN_SEAT,
             ):
                 start = float(height)
                 break
@@ -424,7 +434,9 @@ def build(
     # A taller body is preferred to a shallow seat: the seat may drop to
     # its floor first, and only once the body has grown as far as it will
     # may it go lower still, so unusually compact profiles stay printable.
-    floors = [lowest_seat(automatic_seat(p)), 0.5] if p.auto_seat else [0.5]
+    floors = (
+        [lowest_seat(automatic_seat(p)), _minimum_seat(p)] if p.auto_seat else [0.5]
+    )
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.
@@ -481,7 +493,7 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
         start + BODY_STEP, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP
     )
     tried: dict[float, float] = {}
-    for floor in (lowest_seat(automatic_seat(reference)), 0.5):
+    for floor in (lowest_seat(automatic_seat(reference)), _minimum_seat(reference)):
         for height in heights:
             _check_deadline(deadline)
             try:
@@ -556,6 +568,7 @@ def _build(
                 if not p.auto_seat
                 else None
             ),
+            floor=_minimum_seat(p) if p.auto_seat else MANUAL_MIN_SEAT,
         )
         if not holes:
             raise _NoRoomForScrews()
