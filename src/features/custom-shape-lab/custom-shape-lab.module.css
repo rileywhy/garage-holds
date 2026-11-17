@@ -433,7 +433,7 @@
   margin: 0;
 }
 .blueKey {
-  color: light-dark(#756395, #a18bc9);
+  color: var(--accent);
 }
 .redKey {
   color: light-dark(#84581f, #e4c78f);

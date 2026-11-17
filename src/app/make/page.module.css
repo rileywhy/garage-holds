@@ -35,7 +35,11 @@
   margin-top: 0;
   padding: 20px 24px;
   border-radius: 3px;
-  background: var(--visual-bg);
+  background-color: var(--visual-bg);
+  background-image: var(--ply-image);
+  background-size:
+    auto,
+    1024px 768px;
   object-fit: contain;
 }
 .content {
@@ -51,10 +55,11 @@
   align-items: center;
   gap: 10px;
   font-family: var(--display);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 .card h2 .tag {
   color: var(--accent);
@@ -77,7 +82,7 @@
   margin-top: auto;
   padding-top: 10px;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 @media (max-width: 640px) {

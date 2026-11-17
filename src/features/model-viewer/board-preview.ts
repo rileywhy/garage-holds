@@ -19,19 +19,33 @@ export function mountOnBoard(group: THREE.Group, angle: number) {
   group.rotation.set(THREE.MathUtils.degToRad(angle), 0, 0);
 }
 
+// The birch face drawn for the pages, as a texture. It arrives after the
+// first frame, so the caller redraws when it does; until then, and wherever
+// images cannot load, the plain plywood colour stands in.
+export function loadPlywood(onLoad: () => void) {
+  const texture = new THREE.TextureLoader().load("/images/plywood.svg", onLoad);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+// In the dark theme the wood is dimmed the way the pages dim it.
+export function plywoodMaterial(dark: boolean, map?: THREE.Texture) {
+  return new THREE.MeshStandardMaterial({
+    color: map ? (dark ? 0x9c948a : 0xcbbfad) : dark ? 0x82654e : 0xb99a76,
+    map: map ?? null,
+    roughness: 0.92,
+  });
+}
+
 export class BoardPanel {
   readonly mesh: THREE.Mesh;
   private edges: THREE.LineSegments;
 
-  constructor(dark: boolean) {
+  constructor(dark: boolean, plywood?: THREE.Texture) {
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    this.mesh = new THREE.Mesh(
-      geometry,
-      new THREE.MeshStandardMaterial({
-        color: dark ? 0x82654e : 0xb99a76,
-        roughness: 0.95,
-      }),
-    );
+    this.mesh = new THREE.Mesh(geometry, plywoodMaterial(dark, plywood));
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry),
       new THREE.LineBasicMaterial({ color: dark ? 0x443b39 : 0x78634e }),

@@ -747,7 +747,7 @@ export function CutProfileEditor(props: Props) {
               ? "Brush along the red edge to soften bumps and fill small notches."
               : tool === "erase"
                 ? "Brush over red areas to bring that material back."
-                : "Paint rose over the lavender shape to carve material away."}
+                : "Paint rose over the blue shape to carve material away."}
           </p>
           <canvas
             ref={canvas}
@@ -786,7 +786,7 @@ export function CutProfileEditor(props: Props) {
             }}
           />
           <p className={styles.hint}>
-            <span className={styles.blueKey}>Lavender: your hold</span> ·{" "}
+            <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
             <span className={styles.cutKey}>Rose: cut away</span> · Dashed:
             screw holes
           </p>

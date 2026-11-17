@@ -1,32 +1,57 @@
-@font-face {
-  font-family: "IBM Plex Mono";
-  src: url("/fonts/IBMPlexMono-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
+/* Plywood and tape: chalk and charcoal grounds, real plywood behind the
+   holds, painter's-tape blue for the things you press. */
 :root {
-  --bg: light-dark(#f4f3f8, #202027);
-  --paper: light-dark(#ffffff, #282830);
-  --ink: light-dark(#282633, #efedf5);
-  --muted: light-dark(#625d70, #aaa6b8);
-  --line: light-dark(#d8d3e1, #3b3947);
-  --accent: light-dark(#65508f, #a18bc9);
-  --pale: light-dark(#e9e4f0, #302c3e);
-  --visual-bg: light-dark(#e6e2ed, #303039);
-  --overlay: light-dark(#ffffffed, #282830ed);
-  --subtle-bg: light-dark(#eeebf3, #2c2935);
-  --input-line: light-dark(#b4aabe, #625771);
-  --placeholder: light-dark(#6a6175, #aaa6b8);
-  --action-hover: light-dark(#503d75, #baa6db);
-  --selection: light-dark(#ddd2ef, #51436b);
-  --success-bg: light-dark(#e5eddf, #2b3b2d);
-  --success-line: light-dark(#b3c5a7, #56744e);
-  --display: var(--font);
+  --bg: light-dark(#f2f2ee, #171819);
+  --paper: light-dark(#fbfbf8, #202224);
+  --ink: light-dark(#16181b, #eceae4);
+  --muted: light-dark(#555a61, #a9abb0);
+  --line: light-dark(#d3d3cb, #37393c);
+  --accent: light-dark(#1d5fd1, #8db1f7);
+  --tape: light-dark(#1d5fd1, #2a66d9);
+  --tape-hover: light-dark(#174da9, #3d7bea);
+  --masking: #e6d9b8;
+  --masking-ink: #16181b;
+  --pale: light-dark(#e7e7e1, #2a2c2f);
+  --visual-bg: light-dark(#d8bd92, #7a6544);
+  --ply-shade: light-dark(rgb(0 0 0 / 0), rgb(34 22 10 / 0.5));
+  --on-ply: light-dark(#16181b, #ffffff);
+  --ply-image:
+    linear-gradient(var(--ply-shade), var(--ply-shade)),
+    url("/images/plywood.svg");
+  --stage-bg: light-dark(#e4e4df, #242628);
+  --overlay: light-dark(#fbfbf8ee, #202224ee);
+  --subtle-bg: light-dark(#ebebe6, #1c1e20);
+  --input-line: light-dark(#8a8d92, #6e7074);
+  --placeholder: light-dark(#5f646b, #a9abb0);
+  --action-hover: light-dark(#174da9, #3d7bea);
+  --selection: light-dark(#cfe0fb, #23427f);
+  --success-bg: light-dark(#e3ecfb, #1b2740);
+  --success-line: light-dark(#a9c3f2, #2f4a85);
+  --font: var(--font-barlow), Arial, Helvetica, sans-serif;
+  --display:
+    var(--font-barlow-condensed), "Arial Narrow", Arial, Helvetica, sans-serif;
   --measure: Consolas, "Liberation Mono", monospace;
 }
 
+body {
+  font-size: 15px;
+}
+/* Plywood wherever a hold is shown without its own backdrop. */
+.card-visual,
+.detail-main-visual,
+.equipment-product,
+.image-placeholder,
+.hero-art {
+  background-color: var(--visual-bg);
+  background-image: var(--ply-image);
+  background-size:
+    auto,
+    1024px 768px;
+}
+.lab-viewer,
+.stl-preview-canvas {
+  background: var(--stage-bg);
+}
 body {
   line-height: 1.6;
 }
@@ -39,7 +64,7 @@ body {
   border: 1px solid var(--input-line);
   border-radius: 4px;
   background-color: var(--paper);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%2388779e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%23808388' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 11px center;
   background-size: 12px;
@@ -121,16 +146,17 @@ h3 {
   max-width: none;
   min-height: 88px;
   padding-inline: 48px;
-  background: #282633;
-  color: #efedf5;
-  border-bottom: 1px solid #4a4359;
+  background: light-dark(#f2f2ee, #0f1011);
+  color: var(--ink);
+  border-bottom: 2px solid light-dark(#16181b, #3b3d40);
 }
 .brand {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 32px;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  text-transform: none;
+  font-family: var(--display);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
   gap: 8px;
 }
 .brand-icon {
@@ -139,33 +165,34 @@ h3 {
   height: 1.2em;
 }
 .site-header .nav-link {
-  color: #c9c2d8;
-  font-size: 13px;
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 600;
 }
 .site-header .nav-link.active {
-  color: #efedf5;
+  color: var(--ink);
 }
+/* The current page is marked with a strip of tape under its name. */
 .site-header .nav-link.active::after {
-  background: #a18bc9;
-  height: 3px;
+  background: var(--tape);
+  height: 6px;
+  bottom: 16px;
 }
 .site-header .theme-toggle {
   background: transparent;
-  color: #efedf5;
-  border-color: #796c8a;
+  color: var(--ink);
+  border: 2px solid var(--input-line);
   border-radius: 3px;
+  width: 44px;
+  height: 44px;
 }
 .site-header .button-dark {
-  background: #a18bc9;
-  color: #282633;
+  background: var(--ink);
+  color: var(--bg);
 }
 .site-header .button-dark:hover {
-  background: #baa6db;
-}
-.site-header a:focus-visible,
-.site-header button:focus-visible {
-  outline-color: #baa6db;
+  background: var(--tape);
+  color: #ffffff;
 }
 .prototype-bar {
   background: var(--bg);
@@ -177,15 +204,30 @@ h3 {
 }
 .button {
   border-radius: 3px;
-  min-height: 40px;
-  padding: 11px 16px;
-  font-size: 12px;
-  letter-spacing: 0.015em;
+  min-height: 44px;
+  padding: 10px 20px;
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.05em;
   font-weight: 700;
+  text-transform: uppercase;
 }
 .button-dark {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--tape);
+  color: #ffffff;
+}
+.button-dark:hover {
+  background: var(--tape-hover);
+}
+.button-outline {
+  border: 2px solid var(--ink);
+}
+/* Buttons that globals.css shrinks keep a readable size in this type. */
+.detail-section-heading .button,
+.mobile-filter-button,
+.form-submit-row .button,
+.site-header .header-upload {
+  font-size: 16px;
 }
 .button:hover {
   transform: none;
@@ -220,8 +262,7 @@ input[type="radio"] {
   flex-direction: column;
   justify-content: space-between;
   min-height: 330px;
-  background: #a18bc9;
-  color: #282633;
+  color: var(--ink);
   overflow: hidden;
 }
 .hero-art img {
@@ -235,7 +276,8 @@ input[type="radio"] {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 20px;
-  border-top: 1px solid #8e7faf;
+  border-top: 1px solid var(--line);
+  background: var(--overlay);
   font-size: 12px;
   font-weight: 700;
 }
@@ -244,7 +286,7 @@ input[type="radio"] {
   font-weight: 400;
 }
 .hero-art a:focus-visible {
-  outline-color: #282633;
+  outline-color: var(--ink);
 }
 .library-section {
   padding-top: 24px;
@@ -499,6 +541,7 @@ input[type="radio"] {
   align-items: start;
   max-width: 1344px;
   margin-top: 48px;
+  margin-inline: max(48px, calc((100% - 1344px) / 2));
   padding-block: 28px;
   gap: 20px 32px;
   border-top: 1px solid var(--line);
@@ -586,11 +629,11 @@ input[type="radio"] {
   font-size: 11px;
 }
 .footer-wordmark {
-  font-family: "IBM Plex Mono", monospace;
-  text-transform: none;
-  font-size: 22px;
-  letter-spacing: -0.03em;
-  font-weight: 500;
+  font-family: var(--display);
+  text-transform: uppercase;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+  font-weight: 700;
 }
 .site-footer .footer-links {
   flex-wrap: wrap;
@@ -639,6 +682,8 @@ input[type="radio"] {
   .site-header .header-upload {
     width: 44px;
     height: 44px;
+    gap: 0;
+    font-size: 0;
   }
   .site-header nav {
     gap: 24px;
@@ -704,7 +749,7 @@ input[type="radio"] {
   position: relative;
   margin: 24px 0 0;
   height: 280px;
-  background: var(--visual-bg);
+  background-color: var(--visual-bg);
   overflow: hidden;
 }
 .equipment-product img {
@@ -758,8 +803,8 @@ input[type="radio"] {
   font-size: 14px;
 }
 .equipment-intro > a:first-of-type {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--tape);
+  color: #ffffff;
   border-color: transparent;
 }
 .equipment-intro > a:hover {
@@ -1282,4 +1327,141 @@ input[type="radio"] {
     left: 16px;
     width: auto;
   }
+}
+
+/* Plywood and tape: display type. Condensed capitals for names and headings,
+   set larger than the upright face they replace. */
+.library-title-row h2,
+.page-intro h1,
+.detail-summary h1,
+.empty-state h1,
+.empty-state h3,
+.gear-item h2,
+.gear-short h2,
+.upload-complete h2,
+.upload-aside h3,
+.section-heading h2,
+.detail-section-heading h2,
+.lab-carousel-heading h2,
+.card-title-row h3,
+.equipment-home .library-title-row h2,
+.equipment-home .card-title-row h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.page-intro h1 {
+  font-size: 56px;
+  line-height: 0.95;
+}
+.library-title-row h2,
+.equipment-home .library-title-row h2 {
+  font-size: 52px;
+}
+.lab-carousel-heading h2 {
+  font-size: 30px;
+  line-height: 1.1;
+}
+.card-title-row h3 {
+  font-size: 22px;
+}
+.equipment-home .card-title-row h3 {
+  font-size: 26px;
+}
+.section-heading h2,
+.detail-section-heading h2 {
+  font-size: 32px;
+}
+@media (max-width: 760px) {
+  .page-intro h1 {
+    font-size: 42px;
+  }
+  .library-title-row h2,
+  .equipment-home .library-title-row h2 {
+    font-size: 38px;
+  }
+}
+/* Labels on a hold's picture read as masking tape on the board. */
+.card-label,
+.equipment-home .card-label {
+  background: var(--masking);
+  color: var(--masking-ink);
+  border-radius: 0;
+  padding: 3px 9px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.save-button,
+.equipment-home .save-button {
+  background: var(--overlay);
+  color: var(--ink);
+}
+.card-photo-arrow:hover {
+  color: var(--ink);
+}
+/* Lab controls. */
+.lab-controls {
+  border-top: 3px solid var(--ink);
+}
+.lab-tabs {
+  gap: 6px;
+  border-bottom: 2px solid var(--ink);
+}
+.lab-tabs button {
+  min-height: 40px;
+  padding: 8px 14px;
+  margin-bottom: 0;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.lab-tabs button[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.lab-control-head,
+.lab-field {
+  font-size: 14px;
+}
+.lab-control-head label {
+  font-weight: 600;
+}
+.lab-hint {
+  font-size: 12px;
+}
+.lab-nav li a {
+  font-size: 14px;
+}
+.lab-toolbar button {
+  border-color: var(--input-line);
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 36px;
+}
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--tape);
+}
+/* Words that sit straight on the wood take the colour that reads on it. */
+.equipment-product figcaption,
+.equipment-product figcaption span,
+.no-photo-visual,
+.image-placeholder,
+.illustration-label,
+.lab-carousel-dots button,
+.lab-carousel-dots button[aria-pressed="true"],
+.lab-carousel-play {
+  color: var(--on-ply);
+}
+.equipment-product figcaption {
+  font-size: 14px;
 }

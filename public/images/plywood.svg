@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768">
+  <!-- Birch plywood face, drawn from noise so it tiles without a seam. Used
+       behind hold artwork and as the board texture in the lab viewer. -->
+  <defs>
+    <filter id="face" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.00195 0.052" numOctaves="5" seed="14" stitchTiles="stitch" result="bands"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.0078 0.42" numOctaves="3" seed="5" stitchTiles="stitch" result="streaks"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.031 1.1" numOctaves="2" seed="31" stitchTiles="stitch" result="pores"/>
+      <feColorMatrix in="bands" type="matrix" result="bandTone" values="
+        0.30 0 0 0 0.735
+        0.36 0 0 0 0.600
+        0.42 0 0 0 0.405
+        0 0 0 0 1"/>
+      <feColorMatrix in="streaks" type="matrix" result="streakTone" values="
+        0.22 0 0 0 0.88
+        0.24 0 0 0 0.87
+        0.28 0 0 0 0.85
+        0 0 0 0 1"/>
+      <feColorMatrix in="pores" type="matrix" result="poreTone" values="
+        0.10 0 0 0 0.95
+        0.10 0 0 0 0.95
+        0.12 0 0 0 0.94
+        0 0 0 0 1"/>
+      <feBlend in="bandTone" in2="streakTone" mode="multiply" result="wood"/>
+      <feBlend in="wood" in2="poreTone" mode="multiply"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="768" fill="#d8bd92"/>
+  <rect width="1024" height="768" filter="url(#face)"/>
+</svg>

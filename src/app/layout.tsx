@@ -1,15 +1,33 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
+import { Barlow, Barlow_Condensed } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { AccountMenu } from "@/features/auth/account-menu";
 import { getCurrentUser } from "@/features/auth/current-user";
 import { listSavedIds } from "@/features/holds/repository";
+import { IntroLayers } from "@/features/intros/intro-layers";
+import { LIGHT_INITIALIZATION_SCRIPT } from "@/features/intros/intros";
 import { THEME_INITIALIZATION_SCRIPT } from "@/lib/theme";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 import "./workshop.css";
+import "./intros.css";
+
+// Self-hosted at build time, so the font-src 'self' policy still holds.
+const barlow = Barlow({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-barlow",
+  display: "swap",
+});
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+});
 
 const DESCRIPTION =
   "Discover and share 3D printable climbing holds for home walls and training boards. Browse STL files by hold type, size, mounting, material, and suggested grade at 40°.";
@@ -66,11 +84,20 @@ export default async function RootLayout({
   const user = await getCurrentUser();
   const savedCount = user ? (await listSavedIds()).length : 0;
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${barlow.variable} ${barlowCondensed.variable}`}
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         <script
           nonce={nonce}
           dangerouslySetInnerHTML={{ __html: THEME_INITIALIZATION_SCRIPT }}
+        />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: LIGHT_INITIALIZATION_SCRIPT }}
         />
       </head>
       <body>
@@ -80,6 +107,7 @@ export default async function RootLayout({
         <SiteHeader account={<AccountMenu />} savedCount={savedCount} />
         <div id="main-content">{children}</div>
         <SiteFooter signedIn={user !== null} />
+        <IntroLayers signedIn={user !== null} />
         <Analytics />
       </body>
     </html>
