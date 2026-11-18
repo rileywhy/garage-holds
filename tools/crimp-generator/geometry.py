@@ -23,6 +23,8 @@ from tools.hold_mounting import (
     drill,
     fit_bolt_and_screw,
     lowest_seat,
+    MANUAL_MIN_SEAT,
+    MIN_SEAT,
 )
 
 if __package__:
@@ -374,6 +376,13 @@ def _check_deadline(deadline: float | None) -> None:
 JUG_BODY_SEAT = 12.0
 
 
+def _minimum_seat(p: Parameters) -> float:
+    """The least plastic an automatic seat may leave under the screw heads:
+    MIN_SEAT, or the hold's own automatic seat on an edge too shallow for
+    that (a 5 mm crimp stands 11 mm off the wall and seats at 4.5 mm)."""
+    return min(automatic_seat(p), MIN_SEAT)
+
+
 def automatic_seat(p: Parameters) -> float:
     """The automatic seat on this body, the Jug Lab's included (RIL-136)."""
     return seat_height(replace(p, auto_seat=True))
@@ -416,7 +425,7 @@ def build(
             reference_mesh = _loft(reference, "preview", end_wrap, arc_rise)[0]
             if fit_bolt_and_screw(
                 reference, _solid(reference_mesh), reference_mesh.bounds,
-                JUG_BODY_SEAT, edge_clearance=5.0,
+                JUG_BODY_SEAT, edge_clearance=5.0, floor=MANUAL_MIN_SEAT,
             ):
                 start = float(height)
                 break
@@ -424,7 +433,14 @@ def build(
     # A taller body is preferred to a shallow seat: the seat may drop to
     # its floor first, and only once the body has grown as far as it will
     # may it go lower still, so unusually compact profiles stay printable.
-    floors = [lowest_seat(automatic_seat(p)), 0.5] if p.auto_seat else [0.5]
+    # A jug's row is fitted the same way whatever seat was asked for (a
+    # manual seat only changes how deep its recesses are drilled), so it
+    # keeps the automatic floors.
+    floors = (
+        [lowest_seat(automatic_seat(p)), _minimum_seat(p)]
+        if p.auto_seat or jug
+        else [0.5]
+    )
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.
@@ -444,6 +460,22 @@ def build(
                 continue
         if model:
             break
+    if model is None and jug and p.auto_spacing:
+        # A jug too small for its row at a proper seat: first the row closes
+        # up on the body as it is, and only then does the body grow.
+        for floor in floors:
+            try:
+                model = _build(
+                    p, quality, floor, end_wrap, arc_rise, jug, screw_arc,
+                    deadline, narrow=True,
+                )
+                break
+            except _NoRoomForScrews:
+                continue
+    if model is None and jug:
+        model, p = _grown_jug(
+            p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline
+        )
     if model is None:
         raise ValueError(
             "The screw recess does not fit inside this body. Use fewer holes or smaller recesses, lower the seat, adjust the span, widen or deepen the body, or turn holes off."
@@ -462,6 +494,44 @@ def build(
     return model
 
 
+def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline):
+    """A jug whose screw row does not fit at its resolved height, on a
+    taller body: the model and the settings it was built from, or no model.
+
+    A small jug with a deep trough can have too little back for its row
+    even closed up, so material is added below the grip, as the other labs
+    add it. The height is found with an automatic
+    seat and span, so a requested recess depth or span still never changes
+    the outside of the hold, and a taller body is preferred to a seat below
+    its floor."""
+    reference = replace(p, auto_seat=True, auto_spacing=True)
+    heights = np.arange(
+        start + BODY_STEP, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP
+    )
+    for floor in (lowest_seat(automatic_seat(reference)), _minimum_seat(reference)):
+        for height in heights:
+            _check_deadline(deadline)
+            try:
+                fitted = _build(
+                    replace(reference, body_height=float(height)), "preview",
+                    floor, end_wrap, arc_rise, True, screw_arc, deadline,
+                    narrow=True,
+                )
+            except _NoRoomForScrews:
+                continue
+            p = replace(p, body_height=float(height))
+            if p.auto_seat and p.auto_spacing and quality == "preview":
+                return fitted, p
+            try:
+                return _build(
+                    p, quality, floor, end_wrap, arc_rise, True, screw_arc,
+                    deadline, narrow=p.auto_spacing,
+                ), p
+            except _NoRoomForScrews:
+                return None, p
+    return None, p
+
+
 def _build(
     p: Parameters,
     quality: str,
@@ -472,6 +542,7 @@ def _build(
     screw_arc: float = 6.0,
     deadline: float | None = None,
     tried_down_to: float | None = None,
+    narrow: bool = False,
 ) -> Model:
     mesh, profile, inner, outer, lip_radius = _loft(p, quality, end_wrap, arc_rise)
     solid = _solid(mesh)
@@ -512,6 +583,7 @@ def _build(
                 if not p.auto_seat
                 else None
             ),
+            floor=_minimum_seat(p) if p.auto_seat else MANUAL_MIN_SEAT,
         )
         if not holes:
             raise _NoRoomForScrews()
@@ -632,6 +704,22 @@ def _build(
             seats[seats < tried_down_to - 1e-9] if tried_down_to is not None else seats
         )
         screws, seat, selected_room = fit_row(candidates, untried)
+        narrowed = False
+        if not screws and narrow and jug and p.auto_spacing:
+            # The count-dependent span has no seat this high anywhere. A
+            # jug's row then closes up: the widest span that fits at the
+            # lowest seat allowed, searched from the top seat down like a
+            # request for that span. Holes nearer the middle of a small jug
+            # have more plastic under them than holes out at its thin ends.
+            narrow_limit = widest_span(seats[-1])
+            if narrow_limit is not None:
+                narrow_candidates = _screw_candidates(
+                    replace(p, auto_spacing=False, screw_spacing=narrow_limit),
+                    jug=True, mounting_width=mounting_width,
+                )
+                screws, seat, selected_room = fit_row(narrow_candidates)
+                if screws:
+                    candidates, narrowed = narrow_candidates, True
         if not screws and not p.auto_spacing:
             # The manual span may be wider than the body allows at any
             # seat. The widest span that does fit, at the lowest seat, is
@@ -657,6 +745,19 @@ def _build(
             spacing_limit = max(
                 spacing_limit or 0.0, round(screws[-1][0] - screws[0][0], 6)
             )
+        if jug and p.auto_spacing and not narrowed:
+            # The seat is settled on the count-dependent span. At that seat
+            # the row then reaches toward the ends: the widest span that
+            # still fits, up to most of the mounting width. (Searching the
+            # wide spans at every seat made a fit that fails many times
+            # slower.)
+            preferred = float(candidates[0, -1, 0] - candidates[0, 0, 0])
+            reach = mounting_width * JUG_END_REACH
+            if reach > preferred:
+                candidates = _screw_candidates(
+                    p, jug=True, mounting_width=mounting_width,
+                    spans=preferred + np.arange(0, reach - preferred + 1e-9, 2.0)[::-1],
+                )
         if jug:
             # Resolve one mounting section for every arc setting, then apply
             # the requested inner-hole offset without moving outer holes.
@@ -745,6 +846,13 @@ def _highest_enclosed_seat(
         if room and all(_inside_contours(x, y, room) for x, y in screws):
             return float(candidate)
     return float(fitted)
+
+
+# Jug Lab's automatic row: how much of the mounting width the outer holes
+# may span, and how far up its usable section (0 the middle, 1 the top,
+# nearest the lip) an end hole sits.
+JUG_END_REACH = 0.88
+JUG_END_LIFT = 0.75
 
 
 def _screw_candidates(
@@ -869,6 +977,13 @@ def _screw_positions(
                 # Outer holes stay put; inner holes move progressively
                 # away from the lip. Even counts get a matched inner pair.
                 weight = max(0.0, 1.0 - (midpoint[0] / half_span) ** 2)
+                # The end holes sit high in their sections, toward the lip,
+                # so the row holds the hold near its top corners; the lift
+                # fades to nothing at the centre.
+                midpoint = midpoint.copy()
+                midpoint[1] += JUG_END_LIFT * (1 - weight) * (options[0, 1] - midpoint[1])
+                if not _inside_mask(midpoint[None, :], polygons)[0]:
+                    midpoint = options[np.argmin(abs(options[:, 1] - midpoint[1]))]
                 if require_arc and midpoint[1] - options[-1, 1] < min(3.0, arc_bias * weight):
                     return []
                 target = midpoint.copy()

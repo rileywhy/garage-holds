@@ -25,6 +25,9 @@ class Parameters(crimp.Parameters):
     grip_quality: float = 90
     screw_arc: float = 3
     seat_depth: float = 6
+    # Jugs are pulled on hard and from every side: four screws, five on the
+    # two-handed one.
+    screw_count: int = 4
 
 
 CONTROLS = [
@@ -128,14 +131,14 @@ PRESETS = {
         arc_rise=5.5,
     ),
     # Wide enough for both hands and still 5% inside a 256 mm printer bed,
-    # with a gentler arch so four screws spread across the body instead of
+    # with a gentler arch so five screws spread across the body instead of
     # crowding the middle.
     "Two-handed jug": Parameters(
         width=253,
         end_rounding=24,
         bow=12,
         end_wrap=50,
-        screw_count=4,
+        screw_count=5,
     ),
 }
 

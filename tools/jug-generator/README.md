@@ -17,24 +17,27 @@ The centre section stays unchanged instead of being squeezed at the shoulders.
 Presets: board jug, deep jug (87.5 mm reach and 135% bite with a low arc
 rise, so the trough behind its lip is about 70 mm deep and its shelf about
 56° incut as built; the hold is about 112 × 101 × 71 mm), and two-handed jug (a
-253 mm sweep span with a gentler arch and four screws; the finished hold is
+253 mm sweep span with a gentler arch and five screws; the finished hold is
 about 243 mm wide, nearly twice the other two and 5% inside a 256 mm printer
 bed).
 
 Grip controls are overall size (75–140%), more/less bite, grip reach, arc rise,
 and lip comfort. Size scales geometry before hole fitting, leaving hardware
 diameters unchanged. The bite slider maps 0–180% to 20–60° incut; 90% is the midpoint and maps to 56°. It is not a grade. Grip reach spans 15–100 mm, centred on 57.5 mm. Width goes up to 400 mm.
-Millimeter lengths include inch equivalents. Automatic mounting spreads the
-outer screws with body width and centers each screw in the usable mounting
-section, then biases the inner screws away from the lip for a deeper mounting
-arc. The mounting tab's screw arc slider sets a 0–20 mm center offset (6 mm
+Millimeter lengths include inch equivalents. Jugs start with four screws, five on
+the two-handed one. Automatic mounting spreads the outer screws as far toward
+the ends as the body allows at the seat used (up to 88% of the mounting width)
+and centers each screw in its usable mounting section. The end screws are then
+lifted three quarters of the way to the top of theirs, toward the lip, so they
+hold the hold near its top corners, and the inner screws are biased away from
+the lip for a deeper mounting arc. The mounting tab's screw arc slider sets a 0–20 mm center offset (6 mm
 by default), tapering to zero at the outer screws; available material limits
 it. Odd counts have one deepest center screw,
 and even counts have a matched inner pair.
 The preview limits the arc slider to the offset that fits and returns the
 applied value, so values beyond the available material do not silently produce
 identical models.
-Automatic span grows with hole count. Editing manual screw span switches off
+Automatic span is never narrower than the hole count's own share of the mounting width (60%, plus 2% for each hole past two). Editing manual screw span switches off
 automatic span. Span follows the finished mounting width, with additional
 spread as holes are added. The loop-arrow reset beside span or seat restores
 automatic fitting; double-clicking either slider does the same. Other sliders
@@ -43,7 +46,13 @@ Body-height inputs keep your requested value. The preview reports a fitted
 height when the requested base cannot contain the grip and mounting holes.
 The outside shape is resolved independently of the screw seat. Automatic
 fitting aims for 40% of the projection (at most 20 mm) and comes down to fit,
-preferring at least 8 mm; compact profiles may fit lower. Reset restores
+preferring at least 8 mm and never leaving less than 5 mm under the screw
+heads. A jug too small for its screw row at that seat (a Deep jug below about
+90%, a Board jug below about 85%) closes the row up toward the middle, where
+the body is thick, and keeps its size; only when even the closest row does not
+fit does the body grow below the grip, by up to 30 mm of body height, reported
+like any other adjusted setting. A seat set by hand drills the same holes at
+its own depth. Reset restores
 automatic fitting. Adjusting seat selects a manual
 depth while preserving body dimensions
 and hole centers. Its range reaches the top of the hold profile. Where the
