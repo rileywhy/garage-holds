@@ -848,11 +848,28 @@ def _highest_enclosed_seat(
     return float(fitted)
 
 
-# Jug Lab's automatic row: how much of the mounting width the outer holes
-# may span, and how far up its usable section (0 the middle, 1 the top,
-# nearest the lip) an end hole sits.
+# Jug Lab's row. A jug is levered off the wall about its bottom edge, so a
+# screw holds best high up, near the lip: on weak plywood, screws lower down
+# were pulled out. Every hole therefore sits at the top of its usable
+# section, and the back face a screw can come out through reaches higher
+# toward a jug's ends than at its middle, so the row reaches for the ends
+# (JUG_END_REACH of the mounting width) and the inner holes lean outward
+# too: JUG_SPREAD below 1 moves them off an even spacing toward the ends
+# (0.55 puts the inner pair of four at 55% of the way out, not a third).
 JUG_END_REACH = 0.88
-JUG_END_LIFT = 0.75
+JUG_SPREAD = 0.55
+
+
+def _spread_outward(xs: np.ndarray, least_gap: float) -> np.ndarray:
+    """An even row with its inner holes moved toward the ends, where a
+    jug's back face reaches higher. The outer holes stay put; a row whose
+    recesses would then crowd each other stays even."""
+    half = xs[-1]
+    if half <= 0:
+        return xs
+    share = np.log(JUG_SPREAD) / np.log(1 / 3)
+    spread = np.sign(xs) * half * (np.abs(xs) / half) ** share
+    return spread if np.diff(spread).min() >= least_gap else xs
 
 
 def _screw_candidates(
@@ -911,6 +928,8 @@ def _screw_candidates(
     rows = []
     for span in spans:
         xs = np.linspace(-span / 2, span / 2, p.screw_count)
+        if jug:
+            xs = _spread_outward(xs, p.head_diameter + 1.5)
         tops = np.array([hole_height(x) for x in xs])
         ys = tops[None, :] - drops[:, None]
         rows.append(np.stack((np.broadcast_to(xs, ys.shape), ys), axis=2))
@@ -969,30 +988,20 @@ def _screw_positions(
             half_span = max(abs(float(candidates[start, 0, 0])), 1.0)
             for index in range(p.screw_count):
                 options = candidates[start:end, index][allowed[:, index]]
-                # Use the midpoint of the sampled interval (not one grid
-                # endpoint), keeping symmetric sections symmetric.
-                midpoint = (options[0] + options[-1]) / 2
-                if not _inside_mask(midpoint[None, :], polygons)[0]:
-                    midpoint = options[len(options) // 2]
-                # Outer holes stay put; inner holes move progressively
-                # away from the lip. Even counts get a matched inner pair.
-                weight = max(0.0, 1.0 - (midpoint[0] / half_span) ** 2)
-                # The end holes sit high in their sections, toward the lip,
-                # so the row holds the hold near its top corners; the lift
-                # fades to nothing at the centre.
-                midpoint = midpoint.copy()
-                midpoint[1] += JUG_END_LIFT * (1 - weight) * (options[0, 1] - midpoint[1])
-                if not _inside_mask(midpoint[None, :], polygons)[0]:
-                    midpoint = options[np.argmin(abs(options[:, 1] - midpoint[1]))]
-                if require_arc and midpoint[1] - options[-1, 1] < min(3.0, arc_bias * weight):
+                # Every hole starts from the top of its section, nearest
+                # the lip (see JUG_END_REACH). The arc can then bring the
+                # inner holes down from there, progressively toward the
+                # middle; outer holes stay put, and even counts get a
+                # matched inner pair.
+                top = options[0]
+                weight = max(0.0, 1.0 - (top[0] / half_span) ** 2)
+                if require_arc and top[1] - options[-1, 1] < min(3.0, arc_bias * weight):
                     return []
-                target = midpoint.copy()
-                target[1] = max(options[-1, 1], midpoint[1] - arc_bias * weight)
+                target = top.copy()
+                target[1] = max(options[-1, 1], top[1] - arc_bias * weight)
                 if not _inside_mask(target[None, :], polygons)[0]:
-                    rear = options[options[:, 1] <= midpoint[1]]
-                    target = rear[np.argmin(abs(rear[:, 1] - target[1]))]
-                midpoint = target
-                row.append(tuple(map(float, midpoint)))
+                    target = options[np.argmin(abs(options[:, 1] - target[1]))]
+                row.append(tuple(map(float, target)))
             if len(row) == p.screw_count:
                 return row
         return []
