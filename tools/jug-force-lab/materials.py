@@ -127,17 +127,19 @@ class Hold:
     # hold prints back-down): tension pulls layers apart, shear slides them.
     layer_tension: float  # MPa
     layer_shear: float  # MPa
-    # Within a layer: what a screw head has to shear to pull through its seat.
+    # Within a layer: what a screw head has to shear to pull through its seat,
+    # and the tensile strength along the layers.
     punch_shear: float  # MPa
+    in_layer: float  # MPa
     colour: str = "#e8e3d9"
     note: str = ""
 
 
 HOLDS = {
-    "pla": Hold("PLA", 25, 28, 35, "#e9e4da", "Stiff and strong between layers, but creeps under steady load and softens in a hot garage."),
-    "petg": Hold("PETG", 20, 24, 30, "#cfe3e8", "Tough and less brittle than PLA; layers bond slightly weaker."),
-    "asa": Hold("ASA / ABS", 14, 20, 26, "#f0d7c4", "Heat and UV resistant; the weakest layer bond of the common choices."),
-    "pa_cf": Hold("Nylon CF", 22, 30, 45, "#55575c", "Strong and tough if printed dry and hot."),
+    "pla": Hold("PLA", 25, 28, 35, 50, "#e9e4da", "Stiff and strong between layers, but creeps under steady load and softens in a hot garage."),
+    "petg": Hold("PETG", 20, 24, 30, 45, "#cfe3e8", "Tough and less brittle than PLA; layers bond slightly weaker."),
+    "asa": Hold("ASA / ABS", 14, 20, 26, 35, "#f0d7c4", "Heat and UV resistant; the weakest layer bond of the common choices."),
+    "pa_cf": Hold("Nylon CF", 22, 30, 45, 70, "#55575c", "Strong and tough if printed dry and hot."),
 }
 
 # Thread grip springs: N/mm of tension per mm the screw pulls out, per mm of

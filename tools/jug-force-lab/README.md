@@ -1,14 +1,16 @@
-# Jug Force Lab
+# Force Lab
 
-An unlisted, temporary page at `/jug-force-lab`. It loads a Jug Lab hold
-on a wall and shows where the force goes: into each screw, into the wall
-behind the back, and through the hold's print layers. The page is not in the
+An unlisted, temporary page at `/jug-force-lab`. It loads a hold on a wall
+and shows where the force goes: into each screw, into the wall behind the
+back, and through the plastic inside. The hold can come from any Hold Lab
+generator (crimp, sloper, jug, foot, pocket, pinch) or from the pile. The
+page is not in the
 labs list, the navigation or the sitemap, and it asks search engines not to
 index it. Anyone with the link can open it.
 
 To remove it, delete these together:
 - `src/app/jug-force-lab/`
-- `src/features/force-lab/`
+- `src/features/force-lab/` (including `pile.ts`, which lists pile holds)
 - `api/jug_force.py` and its entry in `vercel.json`
 - the `jug_force` rewrite in `next.config.ts`
 - the `jug-force-lab` job in `.github/workflows/ci.yml`
@@ -27,13 +29,34 @@ answers that route directly.
 
 ## What you can set
 
+- **Hold:** a Hold Lab generator with all its settings and presets, or a
+  published pile hold. Either can be turned on the wall in quarter turns.
 - **Pull:** the force, how far it leans out from the wall, a side pull,
-  where the hand sits across the hold, and how deep the fingers sit in the grip.
+  where the hand sits across the hold, how far out from the wall the fingers
+  land, and how wide the hand is. You can also click the hold to put the
+  fingers exactly where they go.
 - **Wall:** the material (18 mm or 12 mm plywood, OSB, MDF, hardwood, or
   concrete with anchors) and the angle, from a slab to a roof.
-- **Hold:** the print material (PLA, PETG, ASA/ABS, nylon CF), the screw type
-  (#10 or #8 wood screw) and the screw length.
-- **Shape:** every Jug Lab setting and preset.
+- **Print and screws:** the print material (PLA, PETG, ASA/ABS, nylon CF),
+  the screw type (#10 or #8 wood screw) and the screw length.
+
+## Pile holds ([holds.py](holds.py))
+
+The page lists published designs that have a ready STL. Picking one asks
+the site for a fresh signed link to its model (the preview copy when there
+is one), and the function downloads it. It only fetches https links to the
+site's own R2 bucket, up to 40 MB.
+
+- **Placing it:** the STL goes onto its mounting face the way the site's
+  previews do it (`stl-orientation.ts`), then turns by the creator's saved
+  orientation.
+- **Finding its holes:** they are openings 3 to 14 mm across in the back
+  face, followed upward until they widen into a head recess (the seat) or
+  come out through the top. Holes 8 mm or wider are taken as bolts; a hole
+  that closes over is not a fastener.
+- **Limits:** a model that is not a closed solid, or that has no holes
+  through the back, cannot be analysed. The hold is assumed to print
+  back-down.
 
 ## Screw pull-out
 
@@ -75,16 +98,37 @@ Each screw is also checked for:
   preload. An active-set solve finds which part of the back stays pressed in.
 - **Forces along the wall** are shared by the screws in shear: an equal
   share each, plus a twist about their centre.
-- **The hold is cut into slices parallel to the wall,** which are its print
-  layers when it prints back-down. Each slice carries the pull and the screw
-  heads above it, as a linear stress across its real outline plus a shear.
 - **Everything is linear in the force,** so the failure force is the set
   force divided by the worst utilisation.
 
+## Stress inside the hold ([fea.py](fea.py))
+
+The rigid solve gives every load on the hold. An elastic solve then finds
+the stress inside it:
+
+- **The grid:** the hold is filled with about 16,000 cubes (1.6 to 4 mm a
+  side, depending on its size).
+- **The loads:** the fingers are spread over the hand's width at the contact.
+  Each head pulls its seat toward the wall, each shank bears sideways near
+  the back, and the wall pushes where it is pressed in. These loads
+  balance, so no supports are needed.
+- **The solver:** plain numpy, since Vercel has no sparse solver. Every cube
+  shares one stiffness matrix, so a conjugate-gradient solve takes about
+  half a second.
+- **The checks:** each cube is checked across the print layers (tension and
+  shear between layers) and along them (in-layer tension). Cubes right at a
+  concentrated load are shown but left out of the check, since a point
+  load's peak belongs to the grid, not the plastic.
+
+The page shows this as layer stress or strength used on the surface, with a
+ring at the most stressed spot. It can also cut the hold open across its
+width or along one print layer.
+
 Material figures live in [materials.py](materials.py). They are typical
-failure values, not design values, and stress concentrations around holes
-are not modelled. Read the results as a comparison between set-ups, not as
-a rating.
+failure values, not design values. The cubes are a few millimetres across,
+so details smaller than that, such as the edge of a screw hole, are
+smoothed over. Read the results as a comparison between set-ups, not as a
+rating.
 
 ## Tests
 

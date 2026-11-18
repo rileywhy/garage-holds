@@ -5,7 +5,7 @@ import {
   plywoodMaterial,
 } from "@/features/model-viewer/board-preview";
 import type { Analysis } from "./api";
-import { HOLD_COLOUR, diverging, ramp } from "./colours";
+import { HOLD_COLOUR, diverging, ramp, stressScale } from "./colours";
 
 // The force lab's 3D view: the hold on a wall tilted to its angle, each
 // screw coloured by how close it is to failing, the pull drawn as an arrow
@@ -14,6 +14,10 @@ import { HOLD_COLOUR, diverging, ramp } from "./colours";
 
 export type Mode = "stress" | "use" | "pressure";
 export type View = "three" | "side" | "front" | "back";
+// A cut-away: across the hold at x (its side profile), or one print layer
+// at height z. The hold is clipped there and the stress inside is drawn on
+// the cut face.
+export type Cut = { axis: "x" | "z"; value: number } | null;
 
 // One plywood image covers this much wall: a hole every 200 mm, as a gym
 // drills it (docs/plywood-images.md).
@@ -53,6 +57,13 @@ export class ForceScene {
   private framed = false;
   private frame = 0;
   private stressScale = 1;
+  private cut: Cut = null;
+  private clip = new THREE.Plane();
+  private sectionCanvas = document.createElement("canvas");
+  private sectionTexture = new THREE.CanvasTexture(this.sectionCanvas);
+  private section: THREE.Mesh;
+  private peak: THREE.Group;
+  private raycaster = new THREE.Raycaster();
 
   constructor(
     private container: HTMLElement,
@@ -60,6 +71,7 @@ export class ForceScene {
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    this.renderer.localClippingEnabled = true;
     container.prepend(this.renderer.domElement);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.addEventListener("change", () => this.render());
@@ -112,6 +124,44 @@ export class ForceScene {
       this.arrowMaterial,
     );
     this.tilt.add(this.pressurePlane, this.shaft, this.head, this.dot);
+
+    this.sectionTexture.colorSpace = THREE.SRGBColorSpace;
+    this.sectionTexture.magFilter = THREE.NearestFilter;
+    const quad = new THREE.BufferGeometry();
+    quad.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(new Float32Array(12), 3),
+    );
+    quad.setAttribute(
+      "uv",
+      new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2),
+    );
+    quad.setIndex([0, 1, 2, 0, 2, 3]);
+    this.section = new THREE.Mesh(
+      quad,
+      new THREE.MeshBasicMaterial({
+        map: this.sectionTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      }),
+    );
+    this.section.visible = false;
+    // The most stressed spot: a ring drawn through the plastic.
+    const marker = new THREE.MeshBasicMaterial({
+      color: 0xb3123a,
+      depthTest: false,
+      transparent: true,
+    });
+    this.peak = new THREE.Group();
+    this.peak.add(
+      new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 10), marker),
+      new THREE.Mesh(new THREE.TorusGeometry(6, 0.8, 8, 32), marker),
+    );
+    for (const part of this.peak.children) part.renderOrder = 10;
+    this.peak.visible = false;
+    this.tilt.add(this.section, this.peak);
 
     this.setTheme(dark);
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -184,6 +234,26 @@ export class ForceScene {
   // The scale the stress colours were drawn at, MPa either way of zero.
   get stressRange() {
     return this.stressScale;
+  }
+
+  setCut(cut: Cut) {
+    this.cut = cut;
+    this.colour();
+    this.render();
+  }
+
+  // The spot on the hold under a pointer position, in hold coordinates.
+  pick(clientX: number, clientY: number): [number, number, number] | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(pointer, this.camera);
+    const hit = this.raycaster.intersectObject(this.hold, false)[0];
+    if (!hit) return null;
+    const local = this.tilt.worldToLocal(hit.point.clone());
+    return [local.x, local.y, local.z];
   }
 
   setView(view: View) {
@@ -320,8 +390,7 @@ export class ForceScene {
     if (!r || !attribute || r.mesh.use.length !== attribute.count) return;
     const colours = new Float32Array(attribute.count * 3);
     const c = new THREE.Color();
-    let scale = 1e-6;
-    for (const s of r.mesh.sigma) scale = Math.max(scale, Math.abs(s));
+    const scale = stressScale(r.mesh.sigma);
     this.stressScale = scale;
     for (let i = 0; i < attribute.count; i++) {
       if (this.mode === "stress") diverging(r.mesh.sigma[i] / scale, c);
@@ -340,6 +409,77 @@ export class ForceScene {
     this.holdMaterial.opacity = see ? 0.35 : 1;
     this.holdMaterial.depthWrite = !see;
     this.pressurePlane.visible = see;
+    this.drawSection();
+    const peak = r.summary.peak;
+    this.peak.visible = this.mode !== "pressure" && peak.use > 0;
+    this.peak.position.set(...peak.point);
+  }
+
+  // The cut face: the stress in each brick the cut passes through.
+  private drawSection() {
+    const grid = this.result?.grid;
+    if (!this.cut || !grid) {
+      this.section.visible = false;
+      this.holdMaterial.clippingPlanes = [];
+      return;
+    }
+    const [nx, ny, nz] = grid.shape;
+    const [ox, oy, oz] = grid.origin;
+    const h = grid.h;
+    const x = this.cut.axis === "x";
+    const level = Math.floor((this.cut.value - (x ? ox : oz)) / h);
+    const slab = Math.min(Math.max(level, 0), (x ? nx : nz) - 1);
+    const width = x ? ny : nx;
+    const height = x ? nz : ny;
+    this.sectionCanvas.width = width;
+    this.sectionCanvas.height = height;
+    const context = this.sectionCanvas.getContext("2d");
+    if (!context) return;
+    const image = context.createImageData(width, height);
+    const c = new THREE.Color();
+    for (let e = 0; e < grid.index.length; e++) {
+      const flat = grid.index[e];
+      const k = flat % nz;
+      const j = Math.floor(flat / nz) % ny;
+      const i = Math.floor(flat / (nz * ny));
+      if ((x ? i : k) !== slab) continue;
+      const u = x ? j : i;
+      const v = x ? k : j;
+      if (this.mode === "use") ramp(grid.use[e], c);
+      else diverging(grid.sigma[e] / this.stressScale, c);
+      // Canvas pixels are sRGB; three's colours are linear.
+      c.convertLinearToSRGB();
+      image.data.set(
+        [c.r * 255, c.g * 255, c.b * 255, 255],
+        ((height - 1 - v) * width + u) * 4,
+      );
+    }
+    context.putImageData(image, 0, 0);
+    this.sectionTexture.needsUpdate = true;
+    const value = this.cut.value;
+    const corners = x
+      ? [
+          [value, oy, oz],
+          [value, oy + ny * h, oz],
+          [value, oy + ny * h, oz + nz * h],
+          [value, oy, oz + nz * h],
+        ]
+      : [
+          [ox, oy, value],
+          [ox + nx * h, oy, value],
+          [ox + nx * h, oy + ny * h, value],
+          [ox, oy + ny * h, value],
+        ];
+    const position = this.section.geometry.getAttribute("position");
+    corners.forEach((p, n) => position.setXYZ(n, p[0], p[1], p[2]));
+    position.needsUpdate = true;
+    this.section.geometry.computeBoundingSphere();
+    this.section.visible = true;
+    // Keep the part of the hold on the near side of the cut.
+    this.clip
+      .set(new THREE.Vector3(x ? -1 : 0, 0, x ? 0 : -1), value)
+      .applyMatrix4(this.tilt.matrixWorld);
+    this.holdMaterial.clippingPlanes = [this.clip];
   }
 
   private resize() {
