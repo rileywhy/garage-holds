@@ -37,6 +37,7 @@ jobs:
           - foot-generator
           - pocket-generator
           - pinch-generator
+          - jug-force-lab
           - mesh-preview
     steps:
       - uses: actions/checkout@v4

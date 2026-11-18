@@ -105,6 +105,7 @@ export const CLIENT_ROUTES = [
   "/holds/[id]",
   "/holds/[id]/edit",
   "/how-to-3d-print-climbing-holds",
+  "/jug-force-lab",
   "/make",
   "/make/crimp",
   "/make/custom-shape",
