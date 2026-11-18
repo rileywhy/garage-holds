@@ -4,8 +4,8 @@ import {
   DoubleSide,
   HemisphereLight,
   ImageLoader,
+  Matrix4,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   MirroredRepeatWrapping,
   PCFShadowMap,
@@ -31,33 +31,34 @@ const HOLD_FRAME = {
 const WIDTH = 640;
 const HEIGHT = 480;
 
-// The picture is a photo of the hold on a workbench: it lies on a plywood
-// table, and a climbing wall stands out of focus across the room. The
-// framing is in camera distances, so a hold of any size fills the same share
-// of the picture. The table is at true size, as the 3D viewer's bench is: an
-// offcut of gym wall, its holes 200 mm apart, with the file read as
-// millimetres.
+// The picture is a photo of the hold in the shop: it lies on a plywood
+// table with a plywood board standing behind it, so everything around the
+// hold is wood. The framing is in camera distances, so a hold of any size
+// fills the same share of the picture. The wood is at true size, as the 3D
+// viewer's bench is: gym wall, its holes 200 mm apart, with the file read
+// as millimetres.
 const FIELD_OF_VIEW = 26;
 // How much higher the camera looks from than the plain side view, so the
 // table top shows.
 const CAMERA_LIFT = 0.13;
-// The hold fills this share of the frame; the rest is table and wall.
+// The hold fills this share of the frame; the rest is table and board.
 const HOLD_SHARE = 0.56;
-// Where the table's far edge crosses the frame, in degrees above its middle.
-const TABLE_EDGE_RISE = 3.2;
+// Where the board meets the table in the frame, in degrees above its middle.
+const BOARD_FOOT_RISE = 5;
 // table.webp tiles mirrored; this is the size of one tile (see
 // docs/plywood-images.md).
 const TABLE_TILE_MM = { width: 600, height: 400 };
 // A hold's radius in millimetres falls in this range. A file outside it is
 // in some other unit, so its table is scaled as if the hold were typical.
 const HOLD_RADIUS_MM = { least: 12, most: 600, typical: 60 };
-const WALL_DISTANCE = 6;
-// Without their pictures (blocked images, a failed download) the table and
-// the wall are these plain colours.
+// Without the picture (blocked images, a failed download) the table and the
+// board are these plain colours.
 const TABLE_COLOR = 0xc9ab84;
-const WALL_COLOR = 0x8d8072;
-const TABLE_PICTURE = "/images/plywood/table.webp";
-const WALL_PICTURE = "/images/plywood/wall.webp";
+const BOARD_COLOR = 0xb89a74;
+// With it they are the same sheet under the same light; the board is
+// darker only because the light comes from above.
+const PLYWOOD_TINT = 0xeadfce;
+const PLYWOOD_PICTURE = "/images/plywood/table.webp";
 
 // Pictures are downloaded once and shared by every thumbnail. Each render
 // has its own short-lived graphics context, so each makes its own textures.
@@ -92,10 +93,7 @@ export async function renderStlThumbnail(
   orientation: Orientation,
   color: string,
 ): Promise<HTMLCanvasElement> {
-  const [tableImage, wallImage] = await Promise.all([
-    picture(TABLE_PICTURE),
-    picture(WALL_PICTURE),
-  ]);
+  const plywood = await picture(PLYWOOD_PICTURE);
   const geometry = holdGeometry(data, orientation);
   const material = new MeshStandardMaterial({
     color,
@@ -103,11 +101,11 @@ export async function renderStlThumbnail(
     metalness: 0,
     side: DoubleSide,
   });
-  const tableTexture = textureOf(tableImage);
-  const wallTexture = textureOf(wallImage);
+  const tableTexture = textureOf(plywood);
+  const boardTexture = textureOf(plywood);
   const tableGeometry = new PlaneGeometry(1, 1);
   const tableMaterial = new MeshStandardMaterial({
-    color: tableTexture ? 0xeadfce : TABLE_COLOR,
+    color: tableTexture ? PLYWOOD_TINT : TABLE_COLOR,
     map: tableTexture,
     roughness: 0.9,
     // The hold's flat back lies in the table's own plane; this lets the
@@ -116,10 +114,10 @@ export async function renderStlThumbnail(
     polygonOffsetFactor: 2,
     polygonOffsetUnits: 2,
   });
-  const wallMaterial = new MeshBasicMaterial({
-    color: wallTexture ? 0xffffff : WALL_COLOR,
-    map: wallTexture,
-    toneMapped: false,
+  const boardMaterial = new MeshStandardMaterial({
+    color: boardTexture ? PLYWOOD_TINT : BOARD_COLOR,
+    map: boardTexture,
+    roughness: 0.9,
   });
   let renderer: WebGLRenderer | undefined;
   try {
@@ -128,7 +126,7 @@ export async function renderStlThumbnail(
       preserveDrawingBuffer: true,
     });
     renderer.setSize(WIDTH, HEIGHT);
-    renderer.setClearColor(WALL_COLOR);
+    renderer.setClearColor(BOARD_COLOR);
     renderer.toneMapping = ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
@@ -154,18 +152,17 @@ export async function renderStlThumbnail(
       FIELD_OF_VIEW,
       aspect,
       distance / 50,
-      distance * (WALL_DISTANCE + 3),
+      distance * 12,
     );
     camera.up.copy(up);
     camera.position.copy(target).addScaledVector(direction, distance);
     camera.lookAt(target);
 
     // The table: the hold's flat back lies on Z = 0. It runs from behind
-    // the camera to an edge a little past the hold, with the grain running
-    // away from the camera.
+    // the camera to the board a little past the hold.
     const away = new Vector3(-direction.x, -direction.y, 0).normalize();
     const elevation = Math.asin(direction.z);
-    const edgeDrop = elevation - (TABLE_EDGE_RISE * Math.PI) / 180;
+    const edgeDrop = elevation - (BOARD_FOOT_RISE * Math.PI) / 180;
     const toEdge = camera.position.z / Math.tan(edgeDrop);
     const length = toEdge + distance / 2;
     const width = distance * 4;
@@ -176,35 +173,48 @@ export async function renderStlThumbnail(
       .addScaledVector(away, toEdge - length / 2);
     table.rotation.z = Math.atan2(away.y, away.x) - Math.PI / 2;
     table.receiveShadow = true;
-    if (tableTexture) {
-      const radius = geometry.boundingSphere?.radius ?? halfHeight;
-      const { least, most, typical } = HOLD_RADIUS_MM;
-      const unit = radius < least || radius > most ? radius / typical : 1;
-      tableTexture.wrapS = tableTexture.wrapT = MirroredRepeatWrapping;
-      tableTexture.repeat.set(
-        width / (TABLE_TILE_MM.width * unit),
-        length / (TABLE_TILE_MM.height * unit),
-      );
-      tableTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    }
     scene.add(table);
 
-    // The wall: a flat picture facing the camera from across the room,
-    // raised so its middle shows above the table's edge.
-    const wallAway = distance * (WALL_DISTANCE + 1);
-    const wallHeight = 2 * wallAway * Math.tan(halfAngle) * 1.5;
-    const wall = new Mesh(tableGeometry, wallMaterial);
-    wall.scale.set(
-      wallHeight * (wallImage ? wallImage.width / wallImage.height : aspect),
-      wallHeight,
-      1,
+    // The board: upright along the table's far edge, facing the camera and
+    // taller than the picture.
+    const height = distance * 3;
+    const board = new Mesh(tableGeometry, boardMaterial);
+    board.scale.set(width, height, 1);
+    board.position
+      .set(camera.position.x, camera.position.y, height / 2)
+      .addScaledVector(away, toEdge);
+    const facing = away.clone().negate();
+    board.quaternion.setFromRotationMatrix(
+      new Matrix4().makeBasis(
+        new Vector3().crossVectors(up, facing),
+        up,
+        facing,
+      ),
     );
-    wall.quaternion.copy(camera.quaternion);
-    wall.position
-      .copy(camera.position)
-      .addScaledVector(direction, -wallAway)
-      .addScaledVector(up, wallHeight * 0.2);
-    scene.add(wall);
+    board.receiveShadow = true;
+    scene.add(board);
+
+    const radius = geometry.boundingSphere?.radius ?? halfHeight;
+    const { least, most, typical } = HOLD_RADIUS_MM;
+    const unit = radius < least || radius > most ? radius / typical : 1;
+    // Rows of holes are a quarter of a tile apart. Each sheet is slid so the
+    // corner where they meet falls midway between two rows, not through one:
+    // the table ends there, the board starts there.
+    const betweenRows = 0.125;
+    const sheets: [Texture | null, number, boolean][] = [
+      [tableTexture, length, true],
+      [boardTexture, height, false],
+    ];
+    for (const [texture, extent, endsAtCorner] of sheets) {
+      if (!texture) continue;
+      texture.wrapS = texture.wrapT = MirroredRepeatWrapping;
+      texture.repeat.set(
+        width / (TABLE_TILE_MM.width * unit),
+        extent / (TABLE_TILE_MM.height * unit),
+      );
+      texture.offset.y = betweenRows - (endsAtCorner ? texture.repeat.y : 0);
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
 
     scene.add(new HemisphereLight(0xffffff, 0x9a8a76, 1.25));
     // The shop light: above, a little toward the camera and to its left, so
@@ -261,9 +271,9 @@ export async function renderStlThumbnail(
     material.dispose();
     tableGeometry.dispose();
     tableMaterial.dispose();
-    wallMaterial.dispose();
+    boardMaterial.dispose();
     tableTexture?.dispose();
-    wallTexture?.dispose();
+    boardTexture?.dispose();
     renderer?.dispose();
     renderer?.forceContextLoss();
   }
