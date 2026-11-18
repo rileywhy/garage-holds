@@ -91,7 +91,6 @@ export function LabCarousel() {
                 <Link href={lab.href}>
                   {lab.name} <ArrowUpRight size={16} />
                 </Link>
-                <span>{lab.description}</span>
               </figcaption>
             </figure>
           ))}

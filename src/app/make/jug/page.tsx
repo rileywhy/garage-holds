@@ -18,10 +18,6 @@ export default async function JugLabPage() {
       <LabNav current="jug" />
       <div className="page-intro">
         <h1>Jug Lab</h1>
-        <p>
-          Shape a board jug, a deep jug, or a two-handed jug, then export an
-          STL.
-        </p>
       </div>
       <HoldLab kind="jug" account={Boolean(user)} />
     </main>

@@ -141,11 +141,6 @@ export function EditDesignForm({ hold }: { hold: Hold }) {
       </Link>
       <div className="page-intro">
         <h1>{hold.title}</h1>
-        <p>
-          Update the details other makers see, add or remove photos, replace a
-          model file, and set which way a model faces. Publication state stays
-          as it is.
-        </p>
       </div>
       <form
         onSubmit={submit}

@@ -18,7 +18,6 @@ export default async function SloperLabPage() {
       <LabNav current="sloper" />
       <div className="page-intro">
         <h1>Sloper Lab</h1>
-        <p>Adjust the curve and slope, then export an STL.</p>
       </div>
       <HoldLab kind="sloper" account={Boolean(user)} />
     </main>

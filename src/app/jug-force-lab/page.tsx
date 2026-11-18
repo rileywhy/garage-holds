@@ -24,11 +24,6 @@ export default function JugForceLabPage() {
       </nav>
       <div className="page-intro">
         <h1>Jug Force Lab</h1>
-        <p>
-          A Jug Lab hold, its screws and the wall behind it, loaded by a pull
-          you set. Change the pull, the wall or the hold and the model
-          re-solves.
-        </p>
       </div>
       <ForceLab />
     </main>
