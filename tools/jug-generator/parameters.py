@@ -23,18 +23,24 @@ class Parameters(crimp.Parameters):
     arc_rise: float = 5
     size: float = 100
     grip_quality: float = 90
-    screw_arc: float = 3
+    # Screws sit as high as they fit; the arc slider can lower the inner
+    # ones again.
+    screw_arc: float = 0
     seat_depth: float = 6
     # Jugs are pulled on hard and from every side: four screws, five on the
     # two-handed one.
     screw_count: int = 4
 
 
+# A jug's row leans toward its ends, where screws can sit higher.
+SCREW_COUNT_HELP = "Two to six holes across the hold, placed as high as they fit and leaning toward the ends. Turn mounting holes off for none."
+
 CONTROLS = [
     dict(
         item,
         label=item["label"],
         max=crimp.JUG_MAXIMA.get(item["key"], item["max"]),
+        help=SCREW_COUNT_HELP if item["key"] == "screw_count" else item["help"],
     )
     for item in crimp.CONTROLS
     if item["group"] != "Grip"
@@ -107,7 +113,7 @@ CONTROLS.append(
     dict(
         key="screw_arc", label="Screw arc", group="Mounting",
         min=0, max=20, step=0.5, unit="mm",
-        help="Moves the inner screws away from the lip for a deeper mounting arc. Zero follows the usable mounting curve. Outer screws stay put; available material limits the offset.",
+        help="Zero keeps every screw as high as it fits, which holds best. More moves the inner screws down, away from the lip. Outer screws stay put; available material limits the offset.",
     )
 )
 PRESETS = {

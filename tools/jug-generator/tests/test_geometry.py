@@ -5,7 +5,7 @@ import os
 import random
 import sys
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
@@ -196,7 +196,7 @@ class GeometryTests(unittest.TestCase):
     def test_deeper_mounting_arc_for_odd_and_even_hole_counts(self):
         for count in range(2, 7):
             with self.subTest(count=count):
-                p = Parameters(screw_count=count, width=240, body_height=125)
+                p = Parameters(screw_count=count, width=240, body_height=125, screw_arc=6)
                 model, exported = build(p), build(p, "export")
                 neutral = build(replace(model.parameters, auto_seat=False, screw_arc=0))
                 self.assertEqual(model.screws, exported.screws)
@@ -310,11 +310,11 @@ class GeometryTests(unittest.TestCase):
         model = build(PRESETS["Two-handed jug"])
         self.assertEqual(len(model.screws), 5)
         xs = sorted(x for x, _ in model.screws)
-        # The row reaches toward both ends, and the end holes sit well above
+        # The row reaches toward both ends, and the end holes sit above
         # the three between them, near the hold's top corners.
-        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.8)
+        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.78)
         ys = [y for _, y in sorted(model.screws)]
-        self.assertGreater(min(ys[0], ys[-1]), max(ys[1:-1]) + 15)
+        self.assertGreater(min(ys[0], ys[-1]), max(ys[1:-1]) + 8)
 
     def test_body_height_changes_geometry_and_manual_span_is_exact(self):
         low = build(Parameters(body_height=130))
@@ -370,23 +370,42 @@ class GeometryTests(unittest.TestCase):
                     model = build(replace(preset, size=size))
                     self.assertGreaterEqual(model.parameters.seat_depth, crimp.MIN_SEAT)
 
-    def test_end_holes_sit_high_in_their_sections(self):
-        # With the lift off, each end hole is centred in its usable section;
-        # with it, the same holes sit nearer the lip and the centre one stays
-        # put. A manual span short of the ends leaves the sections tall
-        # enough to show it; at the automatic span they are a few
-        # millimetres high and the height comes from the reach instead.
-        p = replace(PRESETS["Two-handed jug"], auto_spacing=False, screw_spacing=160)
-        lifted = np.array(build(p).screws)
-        original = crimp.JUG_END_LIFT
-        crimp.JUG_END_LIFT = 0
-        try:
-            centred = np.array(build(p).screws)
-        finally:
-            crimp.JUG_END_LIFT = original
-        np.testing.assert_allclose(lifted[:, 0], centred[:, 0])
-        self.assertTrue((lifted[[0, -1], 1] > centred[[0, -1], 1] + 5).all())
-        np.testing.assert_allclose(lifted[2], centred[2])
+    def test_every_screw_sits_as_high_as_it_fits(self):
+        # A jug is levered off the wall about its bottom edge, and on weak
+        # plywood screws low on the hold were pulled out. Each hole sits at
+        # the top of the back face it can come out through: a millimetre
+        # higher and it would no longer have its clearance.
+        for name, preset in PRESETS.items():
+            with self.subTest(preset=name):
+                model = build(preset)
+                # The same body without its holes, and where a hole centre
+                # may sit in it at the seat the model used.
+                blank = build(replace(preset, screws=False))
+                np.testing.assert_allclose(blank.mesh.extents, model.mesh.extents, atol=1e-6)
+                engine = replace(
+                    engine_parameters(parse_parameters(asdict(preset))),
+                    body_height=model._model.parameters.body_height,
+                )
+                room = crimp._screw_room(
+                    engine, crimp._solid(blank.mesh),
+                    float(model.parameters.seat_depth), edge_clearance=5.0,
+                )
+                screws = np.array(model.screws)
+                self.assertTrue(crimp._inside_mask(screws, room).all())
+                self.assertFalse(crimp._inside_mask(screws + [0, 1.0], room).any())
+
+    def test_inner_screws_lean_toward_the_ends(self):
+        # The back face reaches higher toward a jug's ends, so the inner
+        # pair of four sits 55% of the way out instead of a third.
+        left, inner, _, right = build(PRESETS["Board jug"]).screws
+        self.assertAlmostEqual(inner[0] / left[0], crimp.JUG_SPREAD, places=2)
+        # The Board jug's inner pair used to sit at y = -32; it is now well
+        # above that, and the outer pair higher still.
+        self.assertGreater(inner[1], -25)
+        self.assertGreater(left[1], inner[1] + 8)
+        # A row whose recesses would crowd each other stays evenly spaced.
+        crowded = np.array(build(Parameters(screw_count=6)).screws)[:, 0]
+        np.testing.assert_allclose(np.diff(crowded), np.diff(crowded)[0], atol=1e-6)
 
     def test_manual_span_limit_is_the_largest_slider_value_that_fits(self):
         oversized = build(Parameters(auto_spacing=False, screw_spacing=360))
@@ -404,7 +423,7 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_screw_arc_control_and_saved_settings(self):
-        self.assertEqual(parse_parameters({}).screw_arc, 3)
+        self.assertEqual(parse_parameters({}).screw_arc, 0)
         self.assertEqual(parse_parameters({"screw_arc": 30}).screw_arc, 20)
         for invalid in (True, "6", float("nan")):
             with self.assertRaises(ValueError):

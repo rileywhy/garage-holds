@@ -66,7 +66,7 @@
   },
   "jug": {
     "dimensions": [126.59, 75.07, 50.91],
-    "triangles": 6618,
+    "triangles": 6606,
     "screws": 4,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
@@ -97,10 +97,10 @@
       "arc_rise": 5,
       "size": 100,
       "grip_quality": 90,
-      "screw_arc": 3
+      "screw_arc": 0
     },
-    "stlBytes": 1566484,
-    "stlSha256": "8398a507cea2b1ad9540b30d4b18e48df5c12dd99ce69d51e14e7650b4cc34ea"
+    "stlBytes": 1574284,
+    "stlSha256": "bfc6376efa499358f2d60aeed71fe41ee7c95c83ce78fa53f8ea3b05bb12d3a5"
   },
   "foot": {
     "dimensions": [44.88, 31.09, 15.83],

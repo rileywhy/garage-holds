@@ -27,11 +27,14 @@ diameters unchanged. The bite slider maps 0–180% to 20–60° incut; 90% is th
 Millimeter lengths include inch equivalents. Jugs start with four screws, five on
 the two-handed one. Automatic mounting spreads the outer screws as far toward
 the ends as the body allows at the seat used (up to 88% of the mounting width)
-and centers each screw in its usable mounting section. The end screws are then
-lifted three quarters of the way to the top of theirs, toward the lip, so they
-hold the hold near its top corners, and the inner screws are biased away from
-the lip for a deeper mounting arc. The mounting tab's screw arc slider sets a 0–20 mm center offset (6 mm
-by default), tapering to zero at the outer screws; available material limits
+and puts every screw as high as it fits, at the top of the back face it can
+come out through: a jug is levered off the wall about its bottom edge, and on
+weak plywood screws lower down were pulled out. That back face reaches higher
+toward the ends than at the middle, so the inner screws lean outward as well
+(the inner pair of four sits 55% of the way to the outer pair, not a third),
+unless their recesses would then crowd each other. The mounting tab's screw
+arc slider (0 by default) lowers the inner screws again by up to 20 mm at the
+center, tapering to zero at the outer screws; available material limits
 it. Odd counts have one deepest center screw,
 and even counts have a matched inner pair.
 The preview limits the arc slider to the offset that fits and returns the
