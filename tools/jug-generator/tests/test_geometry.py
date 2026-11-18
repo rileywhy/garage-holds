@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
 from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+from tools.hold_mounting import MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -352,7 +353,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(len(model.screws), 4)
         self.assertEqual(model.screws, exported.screws)
         self.assertTrue(exported.mesh.is_watertight)
-        self.assertGreaterEqual(model.parameters.seat_depth, crimp.MIN_SEAT)
+        self.assertGreaterEqual(model.parameters.seat_depth, MIN_SEAT)
         share = lambda m: (m.screws[-1][0] - m.screws[0][0]) / m.mesh.extents[0]
         self.assertLess(share(model), share(full) - 0.05)
         self.assertLess(model.mesh.extents[1], full.mesh.extents[1])
@@ -368,7 +369,7 @@ class GeometryTests(unittest.TestCase):
             for size in (75, 85, 100, 140):
                 with self.subTest(name=name, size=size):
                     model = build(replace(preset, size=size))
-                    self.assertGreaterEqual(model.parameters.seat_depth, crimp.MIN_SEAT)
+                    self.assertGreaterEqual(model.parameters.seat_depth, MIN_SEAT)
 
     def test_every_screw_sits_as_high_as_it_fits(self):
         # A jug is levered off the wall about its bottom edge, and on weak

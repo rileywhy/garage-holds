@@ -107,6 +107,7 @@ export class Viewer {
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
   private turning = 0;
+  private disposed = false;
   // Safari's own pinch events, and whether it is sending the pinch as
   // Ctrl + wheel too (which the controls already zoom on).
   private pinchScale = 1;
@@ -418,6 +419,9 @@ export class Viewer {
   }
 
   private render() {
+    // Plywood images can arrive after the viewer has closed: drawing then
+    // would upload them again through a disposed renderer.
+    if (this.disposed) return;
     // Seen from underneath, the bench would cover the hold's back, so only
     // its pencil lines stay. The margin keeps it in a level side view.
     this.slab.visible = this.camera.position.y - this.controls.target.y > -1;
@@ -425,6 +429,7 @@ export class Viewer {
   }
 
   dispose() {
+    this.disposed = true;
     this.setTurning(false);
     this.container.removeEventListener("keydown", this.onKey);
     this.container.removeEventListener("wheel", this.onWheel, {

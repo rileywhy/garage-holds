@@ -62,14 +62,40 @@ const PLYWOOD_PICTURE = "/images/plywood/table.webp";
 
 // Pictures are downloaded once and shared by every thumbnail. Each render
 // has its own short-lived graphics context, so each makes its own textures.
+// A failed download is forgotten, so the next thumbnail tries again instead
+// of every card staying plain for the rest of the visit.
 const pictures = new Map<string, Promise<HTMLImageElement | null>>();
 function picture(url: string) {
   let loading = pictures.get(url);
   if (!loading) {
-    loading = new ImageLoader().loadAsync(url).catch(() => null);
+    loading = new ImageLoader().loadAsync(url).catch(() => {
+      pictures.delete(url);
+      return null;
+    });
     pictures.set(url, loading);
   }
   return loading;
+}
+
+// The camera's line of sight for every thumbnail: the side view, lifted.
+export function thumbnailViewDirection() {
+  return getStlViewDirection(HOLD_FRAME, "side")
+    .addScaledVector(HOLD_FRAME.up, CAMERA_LIFT)
+    .normalize();
+}
+
+// How far along the table its far edge lies from a camera this high,
+// looking down at this elevation (radians). The edge sits BOARD_FOOT_RISE
+// above the middle of the frame, so the camera must look down more steeply
+// than that: any flatter and the edge, and the board on it, would fall
+// behind the camera. Lowering CAMERA_LIFT is what does that.
+export function tableEdgeDistance(cameraHeight: number, elevation: number) {
+  const drop = elevation - (BOARD_FOOT_RISE * Math.PI) / 180;
+  if (!(drop > 0))
+    throw new RangeError(
+      "The thumbnail camera looks too flat to see the table: raise CAMERA_LIFT or lower BOARD_FOOT_RISE.",
+    );
+  return cameraHeight / Math.tan(drop);
 }
 
 function textureOf(image: HTMLImageElement | null) {
@@ -136,9 +162,7 @@ export async function renderStlThumbnail(
     scene.add(hold);
 
     const { up } = HOLD_FRAME;
-    const direction = getStlViewDirection(HOLD_FRAME, "side")
-      .addScaledVector(up, CAMERA_LIFT)
-      .normalize();
+    const direction = thumbnailViewDirection();
     const aspect = WIDTH / HEIGHT;
     const { target, halfHeight } = fitStlCamera(
       geometry,
@@ -161,9 +185,7 @@ export async function renderStlThumbnail(
     // The table: the hold's flat back lies on Z = 0. It runs from behind
     // the camera to the board a little past the hold.
     const away = new Vector3(-direction.x, -direction.y, 0).normalize();
-    const elevation = Math.asin(direction.z);
-    const edgeDrop = elevation - (BOARD_FOOT_RISE * Math.PI) / 180;
-    const toEdge = camera.position.z / Math.tan(edgeDrop);
+    const toEdge = tableEdgeDistance(camera.position.z, Math.asin(direction.z));
     const length = toEdge + distance / 2;
     const width = distance * 4;
     const table = new Mesh(tableGeometry, tableMaterial);

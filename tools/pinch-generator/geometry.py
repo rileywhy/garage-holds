@@ -39,13 +39,12 @@ else:
     )
 
 from tools.hold_mounting import (
-    MANUAL_MIN_SEAT,
-    MIN_SEAT,
     automatic_seat,
     closed_mesh,
     drill,
     fit_bolt_and_screw,
     screw_layout,
+    seat_floors,
 )
 
 # The least width the pinch keeps between its sides anywhere below the top
@@ -585,7 +584,7 @@ def build(requested, quality="preview"):
         # A taller pinch has no more room above the wall for a recess, so
         # an automatic seat comes down to fit instead of the body growing.
         target = automatic_seat(depth) if p.auto_seat else p.seat_depth
-        lowest = MIN_SEAT if p.auto_seat else MANUAL_MIN_SEAT
+        lowest = seat_floors(target, auto=p.auto_seat)[-1]
         proxy = mounting_proxy(solid, region)
         # The bolt's anti-rotation screw sits in line below it, where the
         # lower of two screws would.

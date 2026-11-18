@@ -22,9 +22,8 @@ from tools.hold_mounting import (
     closed_mesh,
     drill,
     fit_bolt_and_screw,
-    lowest_seat,
     MANUAL_MIN_SEAT,
-    MIN_SEAT,
+    seat_floors,
 )
 
 if __package__:
@@ -376,13 +375,6 @@ def _check_deadline(deadline: float | None) -> None:
 JUG_BODY_SEAT = 12.0
 
 
-def _minimum_seat(p: Parameters) -> float:
-    """The least plastic an automatic seat may leave under the screw heads:
-    MIN_SEAT, or the hold's own automatic seat on an edge too shallow for
-    that (a 5 mm crimp stands 11 mm off the wall and seats at 4.5 mm)."""
-    return min(automatic_seat(p), MIN_SEAT)
-
-
 def automatic_seat(p: Parameters) -> float:
     """The automatic seat on this body, the Jug Lab's included (RIL-136)."""
     return seat_height(replace(p, auto_seat=True))
@@ -436,11 +428,7 @@ def build(
     # A jug's row is fitted the same way whatever seat was asked for (a
     # manual seat only changes how deep its recesses are drilled), so it
     # keeps the automatic floors.
-    floors = (
-        [lowest_seat(automatic_seat(p)), _minimum_seat(p)]
-        if p.auto_seat or jug
-        else [0.5]
-    )
+    floors = seat_floors(automatic_seat(p), auto=p.auto_seat or jug)
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.
@@ -508,7 +496,7 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
     heights = np.arange(
         start + BODY_STEP, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP
     )
-    for floor in (lowest_seat(automatic_seat(reference)), _minimum_seat(reference)):
+    for floor in seat_floors(automatic_seat(reference)):
         for height in heights:
             _check_deadline(deadline)
             try:
@@ -522,6 +510,10 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
             p = replace(p, body_height=float(height))
             if p.auto_seat and p.auto_spacing and quality == "preview":
                 return fitted, p
+            # Mounting is resolved on the preview mesh at both qualities, so
+            # an automatic export fits here as its preview did. A requested
+            # seat or span that does not fit is refused at this height, in
+            # preview and export alike: it may not grow the hold further.
             try:
                 return _build(
                     p, quality, floor, end_wrap, arc_rise, True, screw_arc,
@@ -532,10 +524,16 @@ def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadl
     return None, p
 
 
+def _mounting_body(p: Parameters, end_wrap: float, arc_rise: float):
+    """The preview mesh and solid an export resolves its mounting on."""
+    mesh = _loft(p, "preview", end_wrap, arc_rise)[0]
+    return mesh, _solid(mesh)
+
+
 def _build(
     p: Parameters,
     quality: str,
-    seat_floor: float = 0.5,
+    seat_floor: float,
     end_wrap: float = 0,
     arc_rise: float = 0,
     jug: bool = False,
@@ -559,8 +557,17 @@ def _build(
         if p.screws and not p.bolt_mount
         else None
     )
+    # Mounting is resolved on the preview mesh at both qualities, so an
+    # export drills the holes its preview showed: a finer rounded end or lip
+    # must not shift the seat limit or the span, and an export must never be
+    # refused for screws its preview fitted.
+    mounting_mesh, mounting_solid = (
+        (mesh, solid)
+        if quality == "preview" or not p.screws
+        else _mounting_body(p, end_wrap, arc_rise)
+    )
     seat_limit = (
-        max(0.5, float(mesh.bounds[1, 2]) - p.head_diameter)
+        max(0.5, float(mounting_mesh.bounds[1, 2]) - p.head_diameter)
         if p.screws
         else None
     )
@@ -570,10 +577,6 @@ def _build(
     if not p.auto_seat and seat_limit is not None:
         seat = min(seat, seat_limit)
     if p.screws and p.bolt_mount:
-        mounting_mesh = (
-            _loft(p, "preview", end_wrap, arc_rise)[0] if quality == "export" else mesh
-        )
-        mounting_solid = _solid(mounting_mesh) if quality == "export" else solid
         holes = fit_bolt_and_screw(
             p, mounting_solid, mounting_mesh.bounds, seat,
             edge_clearance=5.0 if jug else None,
@@ -583,7 +586,7 @@ def _build(
                 if not p.auto_seat
                 else None
             ),
-            floor=_minimum_seat(p) if p.auto_seat else MANUAL_MIN_SEAT,
+            floor=seat_floors(automatic_seat(p), auto=p.auto_seat)[-1],
         )
         if not holes:
             raise _NoRoomForScrews()
@@ -599,16 +602,7 @@ def _build(
         if jug or not p.auto_seat:
             seat = min(automatic_seat(p), seat_limit)
         cone_height = (p.head_diameter - p.shank_diameter) / 2
-        # Resolve mounting on the same mesh for both qualities. Otherwise a
-        # finer rounded end can shift automatic spacing between preview/STL.
-        mounting_solid = (
-            _solid(_loft(p, "preview", end_wrap, arc_rise)[0])
-            if quality == "export"
-            else solid
-        )
-        mounting_width = float(
-            (_loft(p, "preview", end_wrap, arc_rise)[0] if quality == "export" else mesh).extents[0]
-        )
+        mounting_width = float(mounting_mesh.extents[0])
         maximum_span = math.floor(min(mounting_width, 360.0 if jug else 260.0))
         minimum_span = max(0.0, (p.screw_count - 1) * (p.head_diameter + 1.5))
         # Search broadly in 8 mm increments, then refine the first fitting
