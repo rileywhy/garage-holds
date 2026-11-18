@@ -820,9 +820,6 @@ input[type="radio"] {
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.equipment-product figcaption span {
-  color: var(--muted);
-}
 .equipment-intro {
   grid-column: 1;
   align-self: end;
@@ -997,10 +994,6 @@ input[type="radio"] {
     font-size: 11px;
     align-items: end;
   }
-  .equipment-product figcaption span {
-    max-width: 135px;
-    text-align: right;
-  }
   .equipment-intro > a {
     min-width: 0;
     gap: 12px;
@@ -1097,10 +1090,6 @@ input[type="radio"] {
 .lab-carousel .equipment-product figcaption {
   align-items: end;
 }
-.lab-carousel .equipment-product figcaption span {
-  max-width: 55ch;
-  text-align: right;
-}
 .lab-carousel-arrow {
   position: absolute;
   top: 40%;
@@ -1192,10 +1181,6 @@ input[type="radio"] {
     max-width: 90%;
     height: 290px;
     top: 40%;
-  }
-  .lab-carousel .equipment-product figcaption span {
-    max-width: 175px;
-    font-size: 10px;
   }
 }
 /* Frame the visible hold, rather than each image's transparent canvas. */
@@ -1380,7 +1365,6 @@ input[type="radio"] {
 .gear-item h2,
 .gear-short h2,
 .upload-complete h2,
-.upload-aside h3,
 .section-heading h2,
 .detail-section-heading h2,
 .lab-carousel-heading h2,
@@ -1494,7 +1478,6 @@ input[type="radio"] {
 }
 /* Words that sit straight on the wood take the colour that reads on it. */
 .equipment-product figcaption,
-.equipment-product figcaption span,
 .no-photo-visual,
 .image-placeholder,
 .stl-preview .illustration-label,

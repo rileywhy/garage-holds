@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowUpRight,
-  Check,
   LoaderCircle,
   CircleCheck,
 } from "lucide-react";
@@ -211,9 +210,6 @@ function UploadDesignForm({
       </Link>
       <div className="page-intro">
         <h1>Upload a hold design</h1>
-        <p>
-          Add your model files and the details other makers need to print them.
-        </p>
       </div>
       <div className="upload-layout">
         <form
@@ -386,28 +382,6 @@ function UploadDesignForm({
             </div>
           )}
         </form>
-        <aside className="upload-aside">
-          <h3>Upload checklist</h3>
-          <ul>
-            <li>
-              <Check size={15} /> Clear photos of the gripping surface
-            </li>
-            <li>
-              <Check size={15} /> Size and mounting hardware
-            </li>
-            <li>
-              <Check size={15} /> Material, print settings, and texture notes
-            </li>
-            <li>
-              <Check size={15} /> Honest notes about your testing
-            </li>
-          </ul>
-          <div className="aside-divider" />
-          <p className="small-note">
-            Recipes and grade suggestions are creator reports. They don’t
-            certify a printed hold’s strength.
-          </p>
-        </aside>
       </div>
     </main>
   );

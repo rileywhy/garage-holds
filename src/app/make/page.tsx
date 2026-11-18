@@ -17,12 +17,9 @@ export default function HoldLabsPage() {
     <main className={`main-container lab-page ${styles.page}`}>
       <div className="page-intro">
         <h1>Hold Labs</h1>
-        <p>
-          Choose a starting shape, make it your own, and export a printable STL.
-        </p>
       </div>
       <div className={styles.grid}>
-        {LABS.map(({ name, href, image, description, status }) => (
+        {LABS.map(({ name, href, image, status }) => (
           <Link
             key={href}
             href={href}
@@ -50,7 +47,6 @@ export default function HoldLabsPage() {
                   </span>
                 )}
               </h2>
-              <p>{description}</p>
               <span className={styles.action}>
                 Open lab <ArrowUpRight size={16} aria-hidden="true" />
               </span>

@@ -68,12 +68,6 @@
 .card h2 :global(.tag-out-of-order) {
   color: var(--error-ink);
 }
-.card p {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.7;
-  max-width: 42ch;
-}
 .action {
   display: inline-flex;
   align-items: center;

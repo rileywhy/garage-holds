@@ -27,10 +27,6 @@ export default async function FootLabPage() {
           </span>
         </p>
         <h1>Foot Lab</h1>
-        <p>
-          Positive edges, neutral chips, slopey wedges, balls and dishes. Pick a
-          starting point, adjust the grip, then export an STL.
-        </p>
       </div>
       <HoldLab kind="foot" account={Boolean(user)} />
     </main>

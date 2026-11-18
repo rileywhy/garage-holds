@@ -26,11 +26,6 @@ export default async function ForceLabPage() {
       </nav>
       <div className="page-intro">
         <h1>Force Lab</h1>
-        <p>
-          Any Hold Lab hold, or one from the pile, with its screws and the wall
-          behind it, loaded by a pull you set. Change the pull, the wall or the
-          hold and the model re-solves; cut it open to see the stress inside.
-        </p>
       </div>
       <ForceLab pile={pile} />
     </main>

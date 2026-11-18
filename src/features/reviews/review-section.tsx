@@ -48,12 +48,8 @@ export function ReviewSection({
       <div className="detail-section-heading">
         <div>
           <h2>
-            From the board <span className="result-count">{summary.count}</span>
+            Comments <span className="result-count">{summary.count}</span>
           </h2>
-          <p>
-            Printing notes, real-world context, and ideas for the next
-            iteration.
-          </p>
         </div>
         {signedIn ? (
           <button

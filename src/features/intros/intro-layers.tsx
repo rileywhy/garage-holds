@@ -14,6 +14,11 @@ import {
 // browser never reports the animation ending.
 const GIVE_UP_MS = 3200;
 
+// The door's four sections, top to bottom, each pressed with four panels
+// (two on a phone). The name is on the second section, the handle on the last.
+const DOOR_SECTIONS = [0, 1, 2, 3];
+const DOOR_PANELS = [0, 1, 2, 3];
+
 function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -89,22 +94,20 @@ export function IntroLayers({ signedIn }: { signedIn: boolean }) {
   return (
     <div className="intro-layers" aria-hidden="true">
       <div className="intro-door" onAnimationEnd={ended}>
-        <div className="intro-door-section">
-          <span />
-          <span />
-        </div>
-        <div className="intro-door-section intro-door-name">
-          <span className="brand-icon" />
-          Garage Holds
-        </div>
-        <div className="intro-door-section">
-          <span />
-          <span />
-        </div>
-        <div className="intro-door-section">
-          <span />
-          <span />
-        </div>
+        {DOOR_SECTIONS.map((section) => (
+          <div className="intro-door-section" key={section}>
+            {DOOR_PANELS.map((panel) => (
+              <span className="intro-door-panel" key={panel} />
+            ))}
+            {section === 1 && (
+              <span className="intro-door-name">
+                <span className="brand-icon" />
+                Garage Holds
+              </span>
+            )}
+            {section === 3 && <span className="intro-door-handle" />}
+          </div>
+        ))}
         <div className="intro-door-spill" />
       </div>
       <div className="intro-light" onAnimationEnd={ended}>
