@@ -48,3 +48,12 @@ export function gradient(fn: (t: number) => THREE.Color, from = 0, to = 1) {
 }
 
 export const TENSION_CSS = css(TENSION);
+
+// The stress the colours run to, either way of zero: nearly the largest on
+// the surface, so one spike where a load is applied does not wash out the
+// rest. Anything beyond it shows at full colour.
+export function stressScale(sigma: number[]) {
+  if (!sigma.length) return 1;
+  const sorted = sigma.map(Math.abs).sort((a, b) => a - b);
+  return Math.max(1e-6, sorted[Math.floor((sorted.length - 1) * 0.98)]);
+}

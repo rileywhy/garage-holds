@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { Crosshair, RotateCcw, X } from "lucide-react";
 import type { Control, Parameters } from "@/features/hold-lab/api";
+import { freshPreviewUrl } from "@/features/holds/preview-actions";
 import { isDarkTheme } from "@/features/model-viewer/viewer";
 import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
@@ -11,13 +13,29 @@ import {
   type Analysis,
   type ForceSchema,
   type Load,
+  type Source,
 } from "./api";
-import { TENSION_CSS, css, diverging, gradient, ramp } from "./colours";
-import { ForceScene, holdGeometry, type Mode, type View } from "./scene";
+import {
+  TENSION_CSS,
+  css,
+  diverging,
+  gradient,
+  ramp,
+  stressScale,
+} from "./colours";
+import type { PileHold } from "./pile";
+import {
+  ForceScene,
+  holdGeometry,
+  type Cut,
+  type Mode,
+  type View,
+} from "./scene";
 import styles from "./force-lab.module.css";
 
-// An unlisted page: a Jug Lab hold on a wall, a pull you set, and where the
-// force goes. The model and every figure live in tools/jug-force-lab.
+// An unlisted page: any Hold Lab hold, or one from the pile, on a wall, a
+// pull you set, and where the force goes. The model and every figure live
+// in tools/jug-force-lab.
 
 const G = 9.81;
 const TABS = ["Pull", "Wall", "Hold", "Shape"] as const;
@@ -33,11 +51,21 @@ const VIEWS: [View, string][] = [
   ["front", "Front"],
   ["back", "Behind"],
 ];
-const TOGGLES: [string, string][] = [
-  ["bolt_mount", "Bolt + one screw"],
-  ["auto_seat", "Automatic screw seat"],
-  ["auto_spacing", "Automatic screw spacing"],
+const CUTS: [CutAxis, string][] = [
+  ["none", "No cut"],
+  ["x", "Cut across"],
+  ["z", "Cut a layer"],
 ];
+type CutAxis = "none" | "x" | "z";
+// Mounting switches every lab shares, named as the labs name them.
+const SWITCHES: Record<string, string> = {
+  bolt_mount: "Bolt + one screw",
+  auto_seat: "Automatic screw seat",
+  auto_spacing: "Automatic screw spacing",
+  auto_screw_count: "Choose the screw count from the size",
+};
+// A signed model link lasts an hour; fetch a new one well before then.
+const LINK_LIFETIME_MS = 45 * 60 * 1000;
 
 const fmt = (v: number, digits = 0) =>
   v.toLocaleString("en", {
@@ -58,85 +86,104 @@ interface RowSpec {
   shown?: (v: number) => string;
 }
 
-const LOAD_ROWS: Record<"pull" | "wall", RowSpec[]> = {
-  pull: [
-    {
-      key: "force",
-      label: "Force",
-      min: 0,
-      max: 3000,
-      step: 10,
-      unit: "N",
-      help: "A hard dynamic catch on a jug is around 1,000 to 1,500 N.",
-      shown: (v) => `${kg(v)} kg`,
-    },
-    {
-      key: "pull_angle",
-      label: "Pull out from the wall",
-      min: -30,
-      max: 60,
-      step: 1,
-      unit: "°",
-      help: "0 is straight down. More leans the pull out, like a body swinging away below.",
-    },
-    {
-      key: "side_angle",
-      label: "Side pull",
-      min: -60,
-      max: 60,
-      step: 1,
-      unit: "°",
-      help: "Swings the pull along the hold, as in a gaston or a cross-through.",
-    },
-    {
-      key: "position",
-      label: "Hand position across",
-      min: -80,
-      max: 80,
-      step: 1,
-      unit: "mm",
-      help: "Where along the hold the hand sits. 0 is the middle.",
-    },
-    {
-      key: "depth",
-      label: "Finger depth in the grip",
-      min: 0,
-      max: 95,
-      step: 1,
-      unit: "%",
-      help: "0 is on top of the lip; higher sinks the fingers down the incut toward the wall.",
-    },
-  ],
-  wall: [
-    {
-      key: "wall_angle",
-      label: "Wall angle",
-      min: -15,
-      max: 90,
-      step: 1,
-      unit: "°",
-      help: "Past vertical: 0 is a vertical wall, 40 a typical board, 90 a roof.",
-      shown: (v) => (v === 0 ? "vertical" : v > 0 ? "overhang" : "slab"),
-    },
-  ],
+const PULL_ROWS: RowSpec[] = [
+  {
+    key: "force",
+    label: "Force",
+    min: 0,
+    max: 3000,
+    step: 10,
+    unit: "N",
+    help: "A hard dynamic catch on a jug is around 1,000 to 1,500 N.",
+    shown: (v) => `${kg(v)} kg`,
+  },
+  {
+    key: "pull_angle",
+    label: "Pull out from the wall",
+    min: -30,
+    max: 60,
+    step: 1,
+    unit: "°",
+    help: "0 is straight down. More leans the pull out, like a body swinging away below.",
+  },
+  {
+    key: "side_angle",
+    label: "Side pull",
+    min: -60,
+    max: 60,
+    step: 1,
+    unit: "°",
+    help: "Swings the pull along the hold, as in a gaston or a cross-through.",
+  },
+  {
+    key: "position",
+    label: "Hand position across",
+    min: -80,
+    max: 80,
+    step: 1,
+    unit: "mm",
+    help: "Where along the hold the hand sits. 0 is the middle.",
+  },
+  {
+    key: "height",
+    label: "Grip height off the wall",
+    min: 2,
+    max: 98,
+    step: 1,
+    unit: "%",
+    help: "Where the fingers land, as a share of the hold's height off the wall: low is deep in by the wall, high is out on the top.",
+  },
+  {
+    key: "width",
+    label: "Hand width",
+    min: 10,
+    max: 120,
+    step: 1,
+    unit: "mm",
+    help: "How far across the fingers spread: about 60 mm for four fingers, 20 to 35 for one or two in a pocket.",
+  },
+];
+const WALL_ANGLE: RowSpec = {
+  key: "wall_angle",
+  label: "Wall angle",
+  min: -15,
+  max: 90,
+  step: 1,
+  unit: "°",
+  help: "Past vertical: 0 is a vertical wall, 40 a typical board, 90 a roof.",
+  shown: (v) => (v === 0 ? "vertical" : v > 0 ? "overhang" : "slab"),
 };
 
-export function ForceLab() {
+type Bounds = { min: [number, number, number]; max: [number, number, number] };
+
+export function ForceLab({ pile }: { pile: PileHold[] }) {
   const box = useRef<HTMLDivElement>(null);
   const scene = useRef<ForceScene | null>(null);
   const meshKey = useRef("");
+  const pointer = useRef<{ x: number; y: number } | null>(null);
   const [schema, setSchema] = useState<ForceSchema | null>(null);
   const [tab, setTab] = useState<Tab>("Pull");
+  const [choice, setChoice] = useState("kind:jug");
+  const [settings, setSettings] = useState<Record<string, Parameters>>({});
+  const [presets, setPresets] = useState<Record<string, string>>({});
+  const [turn, setTurn] = useState(0);
+  const [link, setLink] = useState<{
+    fileId: string;
+    url: string;
+    at: number;
+  } | null>(null);
   const [load, setLoad] = useState<Load | null>(null);
   const [wall, setWall] = useState("plywood_18");
   const [hold, setHold] = useState("pla");
   const [screwLength, setScrewLength] = useState(50);
   const [screw, setScrew] = useState("no10");
-  const [settings, setSettings] = useState<Parameters>({});
-  const [preset, setPreset] = useState("");
   const [mode, setMode] = useState<Mode>("stress");
   const [xray, setXray] = useState(false);
   const [view, setView] = useState<View>("three");
+  const [cutAxis, setCutAxis] = useState<CutAxis>("none");
+  const [cutAt, setCutAt] = useState(0);
+  const [picking, setPicking] = useState(false);
+  const [bounds, setBounds] = useState<Bounds | null>(null);
   const [result, setResult] = useState<Analysis | null>(null);
   const [backImage, setBackImage] = useState<string>();
   const [status, setStatus] = useState({
@@ -144,6 +191,14 @@ export function ForceLab() {
     error: false,
   });
   const [viewerFailed, setViewerFailed] = useState(false);
+
+  const kind = choice.startsWith("kind:") ? choice.slice(5) : null;
+  const pileHold = choice.startsWith("pile:")
+    ? (pile.find((p) => p.id === choice.slice(5)) ?? null)
+    : null;
+  const kindSchema = kind && schema ? schema.kinds[kind] : null;
+  const kindSettings =
+    kind && kindSchema ? (settings[kind] ?? kindSchema.defaults) : null;
 
   // The schema, then the first analysis.
   useEffect(() => {
@@ -154,7 +209,7 @@ export function ForceLab() {
         setLoad(s.load.defaults);
         setScrewLength(s.screw_length);
         setScrew(s.screw);
-        setSettings({ ...s.jug.defaults });
+        setChoice(`kind:${s.default_kind}`);
       })
       .catch((error: Error) => {
         if (error.name !== "AbortError")
@@ -191,39 +246,107 @@ export function ForceLab() {
     };
   }, []);
 
+  // A pile hold needs a signed link to its model, fetched when picked and
+  // again before it expires.
+  useEffect(() => {
+    if (!pileHold) return;
+    if (
+      link?.fileId === pileHold.fileId &&
+      Date.now() - link.at < LINK_LIFETIME_MS
+    )
+      return;
+    let live = true;
+    queueMicrotask(() =>
+      setStatus({ text: "Fetching the hold from the pile…", error: false }),
+    );
+    freshPreviewUrl(pileHold.fileId)
+      .then((url) => {
+        if (!live) return;
+        if (url) setLink({ fileId: pileHold.fileId, url, at: Date.now() });
+        else
+          setStatus({
+            text: "This hold's model could not be loaded.",
+            error: true,
+          });
+      })
+      .catch(() => {
+        if (live)
+          setStatus({
+            text: "This hold's model could not be loaded.",
+            error: true,
+          });
+      });
+    return () => {
+      live = false;
+    };
+  }, [pileHold, link]);
+
+  // What to load, and the key that says when its mesh changes.
+  const request = useMemo((): { source: Source; key: string } | null => {
+    if (kind && kindSettings)
+      return {
+        source: { kind, settings: kindSettings, turn },
+        key: JSON.stringify([kind, kindSettings, turn]),
+      };
+    if (pileHold && link?.fileId === pileHold.fileId)
+      return {
+        source: {
+          pile: {
+            url: link.url,
+            orientation: pileHold.orientation,
+            title: pileHold.title,
+          },
+          turn,
+        },
+        key: JSON.stringify([pileHold.fileId, turn]),
+      };
+    return null;
+  }, [kind, kindSettings, pileHold, link, turn]);
+
+  const wantGrid = cutAxis !== "none";
+
   // Re-solve shortly after anything changes; a newer request cancels an
   // older one. The mesh is fetched only when the hold's shape changed.
   useEffect(() => {
-    if (!schema || !load) return;
+    if (!schema || !load || !request) return;
     const controller = new AbortController();
-    const key = JSON.stringify(settings);
     const timer = setTimeout(async () => {
-      setStatus({ text: "Solving…", error: false });
+      const needMesh = meshKey.current !== request.key;
+      setStatus({
+        text: needMesh && pileHold ? "Analysing the pile hold…" : "Solving…",
+        error: false,
+      });
       try {
-        const needMesh = meshKey.current !== key;
         const next = await analyze(
           {
-            settings,
+            source: request.source,
             load,
             wall,
             hold,
             screw,
             screw_length: screwLength,
             mesh: needMesh,
+            grid: wantGrid,
           },
           controller.signal,
         );
-        const geometry =
-          next.mesh.vertices && next.mesh.faces
-            ? holdGeometry(next.mesh.vertices, next.mesh.faces)
-            : undefined;
-        if (geometry) meshKey.current = key;
+        let geometry;
+        if (next.mesh.vertices && next.mesh.faces) {
+          geometry = holdGeometry(next.mesh.vertices, next.mesh.faces);
+          meshKey.current = request.key;
+          geometry.computeBoundingBox();
+          const b = geometry.boundingBox!;
+          setBounds({
+            min: [b.min.x, b.min.y, b.min.z],
+            max: [b.max.x, b.max.y, b.max.z],
+          });
+        }
         scene.current?.show(next, geometry);
         setBackImage(scene.current?.pressureImage());
         setResult(next);
         const count = next.fasteners.length;
         setStatus({
-          text: `${count} ${count === 1 ? "fastener" : "fasteners"} · ${next.wall.label} · ${next.hold.label}`,
+          text: `${next.source.label} · ${count} ${count === 1 ? "fastener" : "fasteners"} · ${next.wall.label} · ${next.hold.label}`,
           error: false,
         });
       } catch (error) {
@@ -235,44 +358,135 @@ export function ForceLab() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [schema, load, wall, hold, screw, screwLength, settings]);
+  }, [
+    schema,
+    load,
+    wall,
+    hold,
+    screw,
+    screwLength,
+    request,
+    wantGrid,
+    pileHold,
+  ]);
 
   useEffect(() => scene.current?.setMode(mode, xray), [mode, xray]);
 
-  const halfWidth = useMemo(() => {
-    const p = result?.parameters;
-    if (!p) return 80;
-    return Math.max(
-      20,
-      Math.floor((Number(p.width) * Number(p.size ?? 100)) / 200 - 4),
-    );
-  }, [result?.parameters]);
+  const cut: Cut = useMemo(
+    () => (cutAxis === "none" ? null : { axis: cutAxis, value: cutAt }),
+    [cutAxis, cutAt],
+  );
+  useEffect(() => scene.current?.setCut(cut), [cut, result]);
+
+  const halfWidth = bounds
+    ? Math.max(5, Math.floor(Math.max(-bounds.min[0], bounds.max[0])))
+    : 80;
 
   function changeLoad(key: string, value: number) {
     setLoad((current) =>
       current
-        ? { ...current, [key]: key === "depth" ? value / 100 : value }
+        ? {
+            ...current,
+            [key]: key === "height" ? value / 100 : value,
+            // Moving the hand by slider replaces a picked spot.
+            point:
+              key === "position" || key === "height" ? null : current.point,
+          }
         : current,
     );
   }
 
-  function applyPreset(name: string) {
-    if (!schema) return;
-    setPreset(name);
-    setSettings({ ...(name ? schema.jug.presets[name] : schema.jug.defaults) });
+  function choose(value: string) {
+    setChoice(value);
+    meshKey.current = "";
     scene.current?.refit();
+    setLoad((current) => (current ? { ...current, point: null } : current));
+  }
+
+  function applyPreset(name: string) {
+    if (!kind || !kindSchema) return;
+    setPresets((p) => ({ ...p, [kind]: name }));
+    setSettings((s) => ({
+      ...s,
+      [kind]: { ...(name ? kindSchema.presets[name] : kindSchema.defaults) },
+    }));
+    scene.current?.refit();
+  }
+
+  function changeSetting(key: string, value: number | boolean | string) {
+    if (!kind || !kindSettings) return;
+    setSettings((s) => ({ ...s, [kind]: { ...kindSettings, [key]: value } }));
+    setPresets((p) => ({ ...p, [kind]: "" }));
+  }
+
+  function chooseCut(axis: CutAxis) {
+    setCutAxis(axis);
+    if (bounds && axis !== "none") {
+      const i = axis === "x" ? 0 : 2;
+      setCutAt(Math.round((bounds.min[i] + bounds.max[i]) / 2));
+    }
+  }
+
+  // A click (not a drag) on the hold places the hand there.
+  function onPointerDown(event: React.PointerEvent) {
+    pointer.current = { x: event.clientX, y: event.clientY };
+  }
+  function onPointerUp(event: React.PointerEvent) {
+    const start = pointer.current;
+    pointer.current = null;
+    if (!picking || !start) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5)
+      return;
+    const spot = scene.current?.pick(event.clientX, event.clientY);
+    if (!spot) return;
+    setLoad((current) => (current ? { ...current, point: spot } : current));
+    setPicking(false);
   }
 
   const loadValue = (key: string) =>
     load
-      ? key === "depth"
-        ? Math.round(load.depth * 100)
+      ? key === "height"
+        ? Math.round(load.height * 100)
         : (load[key as keyof Load] as number)
       : 0;
+  const loadInitial = (key: string) =>
+    schema
+      ? key === "height"
+        ? schema.load.defaults.height * 100
+        : (schema.load.defaults[key as keyof Load] as number)
+      : 0;
+
+  const cutAxisIndex = cutAxis === "x" ? 0 : 2;
 
   return (
     <div className="lab">
       <aside className="lab-controls" aria-label="Force lab controls">
+        <label className="lab-field">
+          <span>Hold</span>
+          <select
+            value={choice}
+            disabled={!schema}
+            onChange={(e) => choose(e.target.value)}
+          >
+            <optgroup label="Hold Lab generators">
+              {schema &&
+                Object.entries(schema.kinds).map(([key, k]) => (
+                  <option key={key} value={`kind:${key}`}>
+                    {k.label} Lab
+                  </option>
+                ))}
+            </optgroup>
+            {pile.length > 0 && (
+              <optgroup label="From the pile">
+                {pile.map((p) => (
+                  <option key={p.id} value={`pile:${p.id}`}>
+                    {p.title} ({p.type})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </label>
         <div
           className="lab-tabs"
           role="tablist"
@@ -302,29 +516,54 @@ export function ForceLab() {
             aria-labelledby={`force-tab-${name}`}
             hidden={tab !== name}
           >
-            {name === "Pull" &&
-              LOAD_ROWS.pull.map((row) => (
-                <Row
-                  key={row.key}
-                  spec={
-                    row.key === "position"
-                      ? { ...row, min: -halfWidth, max: halfWidth }
-                      : row
-                  }
-                  value={loadValue(row.key)}
-                  initial={
-                    schema
-                      ? row.key === "depth"
-                        ? schema.load.defaults.depth * 100
-                        : (schema.load.defaults[
-                            row.key as keyof Load
-                          ] as number)
-                      : 0
-                  }
-                  disabled={!load}
-                  onChange={changeLoad}
-                />
-              ))}
+            {name === "Pull" && (
+              <>
+                {PULL_ROWS.map((row) => (
+                  <Row
+                    key={row.key}
+                    prefix="load"
+                    spec={
+                      row.key === "position"
+                        ? { ...row, min: -halfWidth, max: halfWidth }
+                        : row
+                    }
+                    value={loadValue(row.key)}
+                    initial={loadInitial(row.key)}
+                    disabled={!load}
+                    onChange={changeLoad}
+                  />
+                ))}
+                <div className={styles.pick}>
+                  <button
+                    type="button"
+                    className="button button-outline"
+                    aria-pressed={picking}
+                    disabled={!result || viewerFailed}
+                    onClick={() => setPicking((p) => !p)}
+                  >
+                    <Crosshair size={14} aria-hidden="true" />
+                    {picking ? "Click the hold…" : "Pick the spot on the hold"}
+                  </button>
+                  {load?.point && (
+                    <button
+                      type="button"
+                      className="button button-outline"
+                      onClick={() =>
+                        setLoad((c) => (c ? { ...c, point: null } : c))
+                      }
+                    >
+                      <X size={14} aria-hidden="true" />
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="lab-hint">
+                  {load?.point
+                    ? "The fingers bear on the spot you picked. Moving the position or height sliders goes back to them."
+                    : "Or click the hold in the 3D view to put the fingers exactly where they go."}
+                </p>
+              </>
+            )}
             {name === "Wall" && (
               <>
                 <label className="lab-field">
@@ -347,20 +586,40 @@ export function ForceLab() {
                     {schema.materials.walls[wall].note}
                   </p>
                 )}
-                {LOAD_ROWS.wall.map((row) => (
-                  <Row
-                    key={row.key}
-                    spec={row}
-                    value={loadValue(row.key)}
-                    initial={schema?.load.defaults.wall_angle ?? 0}
-                    disabled={!load}
-                    onChange={changeLoad}
-                  />
-                ))}
+                <Row
+                  prefix="load"
+                  spec={WALL_ANGLE}
+                  value={loadValue("wall_angle")}
+                  initial={loadInitial("wall_angle")}
+                  disabled={!load}
+                  onChange={changeLoad}
+                />
               </>
             )}
             {name === "Hold" && (
               <>
+                <label className="lab-field">
+                  <span>Turn on the wall</span>
+                  <select
+                    value={turn}
+                    disabled={!schema}
+                    onChange={(e) => {
+                      setTurn(Number(e.target.value));
+                      setLoad((c) => (c ? { ...c, point: null } : c));
+                      scene.current?.refit();
+                    }}
+                  >
+                    {(schema?.turns ?? [0]).map((t) => (
+                      <option key={t} value={t}>
+                        {t === 0
+                          ? "As designed"
+                          : t === 180
+                            ? "Upside down (180°)"
+                            : `${t}°`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="lab-field">
                   <span>Printed in</span>
                   <select
@@ -400,6 +659,7 @@ export function ForceLab() {
                   <PullOut schema={schema} wall={wall} screw={screw} />
                 )}
                 <Row
+                  prefix="hold"
                   spec={{
                     key: "screw_length",
                     label: "Screw length",
@@ -416,44 +676,78 @@ export function ForceLab() {
                 />
               </>
             )}
-            {name === "Shape" && schema && (
+            {name === "Shape" && pileHold && (
+              <p className="lab-hint">
+                This hold is from the pile, so its shape is fixed.{" "}
+                {result?.source.kind === "pile" &&
+                  `${result.source.holes} mounting ${result.source.holes === 1 ? "hole was" : "holes were"} found in its STL. `}
+                <Link href={`/holds/${pileHold.id}`}>Open its page.</Link>
+              </p>
+            )}
+            {name === "Shape" && kind && kindSchema && kindSettings && (
               <>
                 <label className="lab-field">
-                  <span>Jug Lab starting point</span>
+                  <span>{kindSchema.label} Lab starting point</span>
                   <select
-                    value={preset}
+                    value={presets[kind] ?? ""}
                     onChange={(e) => applyPreset(e.target.value)}
                   >
                     <option value="">Default</option>
-                    {Object.keys(schema.jug.presets).map((n) => (
+                    {Object.keys(kindSchema.presets).map((n) => (
                       <option key={n}>{n}</option>
                     ))}
                   </select>
                 </label>
-                {TOGGLES.map(([key, label]) => (
-                  <label className="lab-toggle" key={key}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings[key])}
-                      onChange={(e) =>
-                        setSettings((s) => ({ ...s, [key]: e.target.checked }))
-                      }
-                    />
-                    {label}
+                {kindSchema.shapes && (
+                  <label className="lab-field">
+                    <span>{kindSchema.shapeLabel ?? "Body shape"}</span>
+                    <select
+                      value={String(kindSettings.shape)}
+                      onChange={(e) => changeSetting("shape", e.target.value)}
+                    >
+                      {Object.entries(kindSchema.shapes).map(([k, label]) => (
+                        <option key={k} value={k}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
-                ))}
-                {schema.jug.controls.map((control: Control) => (
-                  <Row
-                    key={control.key}
-                    spec={control}
-                    value={Number(settings[control.key])}
-                    initial={Number(schema.jug.defaults[control.key])}
-                    disabled={false}
-                    onChange={(key, v) =>
-                      setSettings((s) => ({ ...s, [key]: v }))
-                    }
-                  />
-                ))}
+                )}
+                {Object.entries(kindSettings)
+                  .filter(
+                    ([key, value]) =>
+                      typeof value === "boolean" && key !== "screws",
+                  )
+                  .map(([key, value]) => (
+                    <label className="lab-toggle" key={key}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(value)}
+                        onChange={(e) => changeSetting(key, e.target.checked)}
+                      />
+                      {SWITCHES[key] ??
+                        kindSchema.toggles.find((t) => t.key === key)?.label ??
+                        key.replace(/_/g, " ")}
+                    </label>
+                  ))}
+                {kindSchema.controls
+                  .filter(
+                    (control: Control) =>
+                      (!control.shapes ||
+                        control.shapes.includes(String(kindSettings.shape))) &&
+                      !(control.hidden_by && kindSettings[control.hidden_by]),
+                  )
+                  .map((control: Control) => (
+                    <Row
+                      key={control.key}
+                      prefix={`shape-${kind}`}
+                      spec={control}
+                      value={Number(kindSettings[control.key])}
+                      initial={Number(kindSchema.defaults[control.key])}
+                      disabled={false}
+                      onChange={changeSetting}
+                    />
+                  ))}
               </>
             )}
           </div>
@@ -502,9 +796,11 @@ export function ForceLab() {
           </div>
           <div
             ref={box}
-            className="lab-viewer"
+            className={`lab-viewer ${picking ? styles.picking : ""}`}
             role="img"
-            aria-label={`Interactive 3D force model of the jug on its wall. ${VIEWER_CONTROLS}`}
+            aria-label={`Interactive 3D force model of the hold on its wall. ${VIEWER_CONTROLS}`}
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
           >
             {viewerFailed && (
               <p className="lab-viewer-note">
@@ -512,6 +808,47 @@ export function ForceLab() {
               </p>
             )}
             {result && <Legend result={result} mode={mode} />}
+          </div>
+          <div className="lab-board-controls">
+            <label htmlFor="force-cut">Inside the hold</label>
+            <select
+              id="force-cut"
+              value={cutAxis}
+              onChange={(e) => chooseCut(e.target.value as CutAxis)}
+            >
+              {CUTS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            {cutAxis !== "none" && bounds && (
+              <>
+                <input
+                  type="range"
+                  aria-label={
+                    cutAxis === "x" ? "Cut position across" : "Layer height"
+                  }
+                  min={Math.floor(bounds.min[cutAxisIndex])}
+                  max={Math.ceil(bounds.max[cutAxisIndex])}
+                  step={0.5}
+                  value={cutAt}
+                  onChange={(e) => setCutAt(e.target.valueAsNumber)}
+                />
+                <span className={styles.cutValue}>
+                  {cutAxis === "x"
+                    ? `${fmt(cutAt, 1)} mm across`
+                    : `${fmt(cutAt, 1)} mm off the wall`}
+                </span>
+              </>
+            )}
+            <p>
+              {cutAxis === "x"
+                ? "Cuts the hold across to show the stress inside its side profile."
+                : cutAxis === "z"
+                  ? "Shows one print layer: red is where the layers are pulled apart."
+                  : "Cut the hold open to see the stress inside it."}
+            </p>
           </div>
           <p className="lab-caption">
             <span>Drag to turn · Shift to pan · scroll or pinch to zoom</span>
@@ -561,19 +898,21 @@ export function ForceLab() {
 }
 
 function Row({
+  prefix,
   spec,
   value,
   initial,
   disabled,
   onChange,
 }: {
+  prefix: string;
   spec: RowSpec | Control;
   value: number;
   initial: number;
   disabled: boolean;
   onChange: (key: string, value: number) => void;
 }) {
-  const id = `force-${spec.key}`;
+  const id = `force-${prefix}-${spec.key}`;
   const shown = "shown" in spec ? spec.shown : undefined;
   const set = (v: number) => {
     if (!Number.isFinite(v)) return;
@@ -634,8 +973,7 @@ function Row({
 
 function Legend({ result, mode }: { result: Analysis; mode: Mode }) {
   if (mode === "stress") {
-    let range = 1e-6;
-    for (const s of result.mesh.sigma) range = Math.max(range, Math.abs(s));
+    const range = stressScale(result.mesh.sigma);
     return (
       <div className={styles.legend}>
         <b>Stress across the print layers</b>
@@ -645,7 +983,9 @@ function Legend({ result, mode }: { result: Analysis; mode: Mode }) {
           <span>0 MPa</span>
           <span>+{fmt(range, 2)}</span>
         </span>
-        <span>Pushed together · pulled apart</span>
+        <span>
+          Pushed together · pulled apart. The ring marks the most stressed spot.
+        </span>
       </div>
     );
   }
@@ -659,7 +999,7 @@ function Legend({ result, mode }: { result: Analysis; mode: Mode }) {
           <span>50%</span>
           <span>100%</span>
         </span>
-        <span>Peak in the hold: {pct(result.summary.worst_layer.use)}</span>
+        <span>The ring marks the peak: {pct(result.summary.peak.use)}</span>
       </div>
     );
   return (

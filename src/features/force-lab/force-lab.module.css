@@ -200,3 +200,27 @@
   color: var(--ink);
   font-weight: 600;
 }
+
+.pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pick :global(.button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pick :global(.button)[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--selection);
+}
+.picking,
+.picking :global(canvas) {
+  cursor: crosshair !important;
+}
+.cutValue {
+  font-family: var(--measure);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
