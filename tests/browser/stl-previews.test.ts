@@ -101,6 +101,12 @@ before(async () => {
       read("../fixtures/preview-shape.stl"),
     ],
   };
+  // The plywood and the wall the previews draw the hold on and against.
+  for (const name of ["table", "wall", "bench", "panel-front", "panel-back"])
+    files[`/images/plywood/${name}.webp`] = [
+      "image/webp",
+      read(`../../public/images/plywood/${name}.webp`),
+    ];
   server = createServer((request, response) => {
     requests.push(request.url ?? "");
     const file = files[(request.url ?? "").replace("?expired", "")];
@@ -145,7 +151,7 @@ async function pixels(target: Locator) {
   };
 }
 
-// The fixture is drawn green on a neutral background.
+// The fixture is drawn green, on plywood and against a wall that are not.
 function assertHold(patch: { r: number; g: number; b: number }, what: string) {
   assert.ok(
     patch.g > patch.r + 25 && patch.g > patch.b + 25,
@@ -183,8 +189,9 @@ for (const setup of SETUPS)
         `${setup.name} has no WebGL here, so nothing can be checked. On Linux without a screen, run under xvfb-run.`,
       );
 
-      // The card: the hold in the middle, and above it plain background.
-      // Noise in place of the picture fails both.
+      // The card: the hold in the middle, and above it the wall across the
+      // room, out of focus and so smooth. Noise in place of the picture
+      // fails both.
       const thumbnail = card.locator(".stl-preview-image");
       await thumbnail.waitFor();
       assert.equal(
@@ -196,8 +203,8 @@ for (const setup of SETUPS)
       for (const x of [0.06, 0.94]) {
         const corner = cardPatch(x, 0.06);
         assert.ok(
-          corner.spread < 12,
-          `The thumbnail's top corners should be plain background, but vary by ${corner.spread}`,
+          corner.spread < 40,
+          `The thumbnail's top corners should be smooth, blurred wall, but vary by ${corner.spread}`,
         );
       }
 

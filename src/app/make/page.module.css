@@ -35,9 +35,8 @@
   margin-top: 0;
   padding: 20px 24px;
   border-radius: 3px;
-  background-color: var(--visual-bg);
-  background-image:
-    linear-gradient(var(--ply-shade), var(--ply-shade)), var(--ply-photo);
+  background-color: var(--ply-bg);
+  background-image: var(--ply-photo);
   background-position: center;
   background-size: cover;
   object-fit: contain;
@@ -108,5 +107,4 @@
 }
 .card:nth-child(3n) {
   --ply-photo: var(--ply-sheet);
-  --ply-shade: var(--ply-shade-sheet);
 }

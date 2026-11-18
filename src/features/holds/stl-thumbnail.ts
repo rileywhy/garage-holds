@@ -27,7 +27,7 @@ export function getStlThumbnail(
     if (bytes.byteLength > MAX_STL_PREVIEW_BYTES)
       throw new Error("This STL is too large for a browsing preview.");
     const { renderStlThumbnail } = await import("./stl-renderer");
-    const thumbnail = renderStlThumbnail(bytes, file.orientation, color);
+    const thumbnail = await renderStlThumbnail(bytes, file.orientation, color);
     thumbnails.set(key, thumbnail);
     if (thumbnails.size > MAX_CACHED_THUMBNAILS)
       thumbnails.delete(thumbnails.keys().next().value!);

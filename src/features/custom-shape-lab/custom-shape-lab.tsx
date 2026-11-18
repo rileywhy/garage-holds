@@ -899,10 +899,7 @@ export function CustomShapeLab() {
           )}
         </div>
         <p className="lab-caption">
-          <span>
-            drag or two-finger swipe to turn · shift to pan · scroll or pinch to
-            zoom
-          </span>
+          <span>drag to turn · shift to pan · scroll or pinch to zoom</span>
           <span>
             {view === "board"
               ? `mounted on a ${boardAngle}° board`
