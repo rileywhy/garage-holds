@@ -19,6 +19,7 @@ else:
     from parameters import CONTROLS, parse_parameters
 
 from tools.hold_mounting import (
+    FOOT_MIN_SEAT,
     FOOT_SEAT_FLOOR,
     MANUAL_MIN_SEAT,
     automatic_seat,
@@ -257,7 +258,11 @@ def build(requested, quality="preview"):
             if p.auto_seat
             else p.seat_depth
         )
-        lowest = FOOT_SEAT_FLOOR if p.auto_seat else MANUAL_MIN_SEAT
+        lowest = (
+            max(FOOT_MIN_SEAT, min(target, FOOT_SEAT_FLOOR))
+            if p.auto_seat
+            else MANUAL_MIN_SEAT
+        )
         holes = (
             fit_bolt_and_screw(
                 p,

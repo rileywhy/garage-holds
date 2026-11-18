@@ -20,12 +20,16 @@ import trimesh
 # MIN_SEAT was 2 mm (0.5 in the Crimp and Jug Labs, 3 on a sloper) until
 # November 2026: printed holds had too little plastic under their screw
 # heads. No automatic seat now leaves less than 5 mm; a hold that cannot
-# take that grows, or is refused. A seat set by hand is the maker's own
-# choice and may still go down to MANUAL_MIN_SEAT.
+# take that grows, or is refused. A foothold is the exception: one too
+# shallow for its 5 mm floor keeps its own automatic seat, as before, but
+# never less than FOOT_MIN_SEAT (growing a 10 mm foothold to carry 5 mm
+# made the small ones half as big again). A seat set by hand is the
+# maker's own choice and may still go down to MANUAL_MIN_SEAT.
 SEAT_SHARE = 0.4
 SEAT_MAX = 20.0
 SEAT_FLOOR = 8.0
 FOOT_SEAT_FLOOR = 5.0
+FOOT_MIN_SEAT = 3.0
 MIN_SEAT = 5.0
 MANUAL_MIN_SEAT = 2.0
 
