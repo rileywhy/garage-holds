@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import type { Control, Parameters } from "@/features/hold-lab/api";
 import { isDarkTheme } from "@/features/model-viewer/viewer";
-import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
+import { NO_3D_HELP, VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   analyze,
   fetchSchema,
@@ -508,7 +508,7 @@ export function ForceLab() {
           >
             {viewerFailed && (
               <p className="lab-viewer-note">
-                This browser could not start the 3D view.
+                {NO_3D_HELP} The forces below still work.
               </p>
             )}
             {result && <Legend result={result} mode={mode} />}

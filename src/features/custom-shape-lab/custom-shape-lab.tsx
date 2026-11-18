@@ -6,6 +6,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import type { ViewName } from "@/features/model-viewer/viewer";
 import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
+import { LAB_COPY } from "@/features/labs/conventions";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -892,10 +893,7 @@ export function CustomShapeLab() {
           aria-label={`Interactive 3D hold preview. ${VIEWER_CONTROLS}`}
         >
           {viewerFailed && (
-            <p>
-              3D viewing is unavailable in this browser. Validated STL export
-              remains available.
-            </p>
+            <p className="lab-viewer-note">{LAB_COPY.noViewer}</p>
           )}
         </div>
         <p className="lab-caption">
