@@ -61,6 +61,16 @@ const ARROWS: Partial<Record<string, [number, number]>> = {
 const BENCH_MM = 300;
 const BENCH_THICKNESS_MM = 12;
 
+// The camera sits this far from the point the view turns around.
+const CAMERA_DISTANCE_MM = 300;
+// Zooming toward the pointer and panning both move that point. It stays
+// within this reach of the hold, so the hold cannot be lost off screen.
+const PIVOT_REACH_MM = BENCH_MM / 2;
+// Clipping planes far enough apart that nothing within the pivot's reach is
+// ever cut, wherever the view has turned. An orthographic camera can start
+// drawing behind itself.
+const CLIP_MM = 2000;
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
@@ -70,7 +80,14 @@ export interface ViewerOptions {
 export class Viewer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.OrthographicCamera(-80, 80, 60, -60, 0.1, 2000);
+  private camera = new THREE.OrthographicCamera(
+    -80,
+    80,
+    60,
+    -60,
+    -CLIP_MM,
+    CLIP_MM,
+  );
   private controls: OrbitControls;
   private material: THREE.MeshStandardMaterial;
   private mesh: THREE.Mesh | null = null;
@@ -78,6 +95,7 @@ export class Viewer {
   private board: BoardPanel;
   // The bench the hold lies on: a plywood offcut with a pencilled 10 mm grid.
   private grid = new THREE.Group();
+  private slab: THREE.Mesh;
   private boardAngle = DEFAULT_BOARD_ANGLE;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
   private resizeObserver: ResizeObserver;
@@ -156,6 +174,7 @@ export class Viewer {
     // the labs draw next to the viewer.
     this.controls.minZoom = 0.15;
     this.controls.maxZoom = 12;
+    this.controls.maxTargetRadius = PIVOT_REACH_MM;
     if (!container.hasAttribute("tabindex")) container.tabIndex = 0;
     container.addEventListener("keydown", this.onKey);
     container.addEventListener("wheel", this.onWheel, {
@@ -186,12 +205,12 @@ export class Viewer {
     pencil.transparent = true;
     pencil.opacity = dark ? 0.5 : 0.32;
     lines.position.y = -0.3;
-    const slab = new THREE.Mesh(
+    this.slab = new THREE.Mesh(
       new THREE.BoxGeometry(BENCH_MM, BENCH_THICKNESS_MM, BENCH_MM),
       plywoodMaterial(dark, plywood),
     );
-    slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
-    this.grid.add(slab, lines);
+    this.slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
+    this.grid.add(this.slab, lines);
     this.scene.add(this.grid);
     this.board = new BoardPanel(
       dark,
@@ -262,7 +281,8 @@ export class Viewer {
     const centre = box.getCenter(new THREE.Vector3());
     this.camera.position
       .copy(centre)
-      .addScaledVector(direction.normalize(), 300);
+      .addScaledVector(direction.normalize(), CAMERA_DISTANCE_MM);
+    this.controls.cursor.copy(centre);
     this.controls.target.copy(centre);
     this.camera.lookAt(centre);
     this.controls.update();
@@ -332,8 +352,11 @@ export class Viewer {
       .clone()
       .sub(this.controls.target)
       .normalize();
+    this.controls.cursor.copy(centre);
     this.controls.target.copy(centre);
-    this.camera.position.copy(centre).addScaledVector(direction, 300);
+    this.camera.position
+      .copy(centre)
+      .addScaledVector(direction, CAMERA_DISTANCE_MM);
     this.camera.lookAt(centre);
     this.halfHeight = this.framedHeight();
     this.camera.zoom = 1;
@@ -390,6 +413,9 @@ export class Viewer {
   }
 
   private render() {
+    // Seen from underneath, the bench would cover the hold's back, so only
+    // its pencil lines stay. The margin keeps it in a level side view.
+    this.slab.visible = this.camera.position.y - this.controls.target.y > -1;
     this.renderer.render(this.scene, this.camera);
   }
 
