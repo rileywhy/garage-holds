@@ -50,7 +50,7 @@ retains their dimensions.
   grow; depth also grows if needed. The automatic seat is 40% of the
   projection (at most 20 mm) and can lower to 8 mm before the body grows;
   only a body that cannot take that even at its largest seats lower (to
-  3 mm). Manual seats can lower further to fit. Changes appear in the sliders and status.
+  5 mm, never less). Manual seats can lower further to fit. Changes appear in the sliders and status.
 
 Preview camera orbit, pan, and zoom survive edits. Presets and loaded settings
 refit while keeping the viewing direction. **board preview** defaults to 40°

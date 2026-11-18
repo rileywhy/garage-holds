@@ -18,6 +18,7 @@ import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.hold_mounting import (
+    MANUAL_MIN_SEAT,
     MIN_SEAT,
     assert_closed,
     automatic_seat,
@@ -217,13 +218,13 @@ def _mounting(p, solid, relaxed=False):
     target = round(automatic_seat(p.projection) if p.auto_seat else p.seat_depth, 1)
     cone = (p.head_diameter - p.shank_diameter) / 2
     # Prefer a larger body to a shallow automatic screw seat: it comes down
-    # to its floor, and below that (to 3 mm, the lowest it ever came) only
-    # once the body has grown as far as it will (relaxed). A manual seat can
+    # to its floor, and below that (to MIN_SEAT) only once the body has
+    # grown as far as it will (relaxed). A manual seat can
     # lower further when its requested height cannot fit.
     if not p.auto_seat:
         floor = 0.5
     else:
-        floor = 3.0 if relaxed else lowest_seat(target)
+        floor = MIN_SEAT if relaxed else max(MIN_SEAT, lowest_seat(target))
     for seat in np.unique(np.append(np.arange(target, floor - 1e-9, -0.5), floor))[
         ::-1
     ]:
@@ -291,7 +292,9 @@ def build(requested: Parameters, quality="preview") -> Model:
                     1,
                 )
                 lowest = (
-                    lowest_seat(target) if p.auto_seat and not relaxed else MIN_SEAT
+                    MANUAL_MIN_SEAT
+                    if not p.auto_seat
+                    else MIN_SEAT if relaxed else max(MIN_SEAT, lowest_seat(target))
                 )
                 holes = fit_bolt_and_screw(p, solid, mesh.bounds, target, floor=lowest)
                 screws = [(h.x, h.y) for h in holes if not h.bolt]

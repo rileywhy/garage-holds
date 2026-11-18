@@ -39,6 +39,8 @@ else:
     )
 
 from tools.hold_mounting import (
+    MANUAL_MIN_SEAT,
+    MIN_SEAT,
     automatic_seat,
     closed_mesh,
     drill,
@@ -583,6 +585,7 @@ def build(requested, quality="preview"):
         # A taller pinch has no more room above the wall for a recess, so
         # an automatic seat comes down to fit instead of the body growing.
         target = automatic_seat(depth) if p.auto_seat else p.seat_depth
+        lowest = MIN_SEAT if p.auto_seat else MANUAL_MIN_SEAT
         proxy = mounting_proxy(solid, region)
         # The bolt's anti-rotation screw sits in line below it, where the
         # lower of two screws would.
@@ -594,9 +597,10 @@ def build(requested, quality="preview"):
                 np.array(proxy.bounding_box()).reshape(2, 3),
                 target,
                 screw_target=np.array(targets[0]),
+                floor=lowest,
             )
             if p.bolt_mount
-            else screw_layout(p, proxy, target, targets=targets)
+            else screw_layout(p, proxy, target, targets=targets, floor=lowest)
         )
         grown = replace(p, height=min(LIMITS["height"][1], p.height + 4))
         # Screws belong in a line up the pinch. A layout that could only set

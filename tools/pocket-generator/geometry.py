@@ -24,6 +24,7 @@ else:
     from parameters import CONTROLS, parse_parameters
 
 from tools.hold_mounting import (
+    MANUAL_MIN_SEAT,
     MIN_SEAT,
     _inside,
     assert_closed,
@@ -964,7 +965,11 @@ def build(requested, quality="preview"):
             break
         depth = p.depth * p.size / 100
         target = automatic_seat(depth) if p.auto_seat else p.seat_depth
-        lowest = lowest_seat(target) if p.auto_seat and not relaxed else MIN_SEAT
+        lowest = (
+            MANUAL_MIN_SEAT
+            if not p.auto_seat
+            else MIN_SEAT if relaxed else max(MIN_SEAT, lowest_seat(target))
+        )
         proxy = mounting_proxy(solid, cut, depth)
         holes = (
             fit_bolt_and_screw(
