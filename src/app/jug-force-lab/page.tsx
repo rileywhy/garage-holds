@@ -2,35 +2,37 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { ForceLab } from "@/features/force-lab/force-lab";
+import { listPileHolds } from "@/features/force-lab/pile";
 
 // Unlisted and temporary: not in the labs list, the navigation or the
 // sitemap, and kept out of search results. Remove this route,
 // src/features/force-lab, api/jug_force.py and tools/jug-force-lab
 // together when it has served its purpose.
 export const metadata: Metadata = {
-  title: "Jug Force Lab",
+  title: "Force Lab",
   description:
-    "Load a Jug Lab hold on a wall and see the force on each screw, the wall and the print layers.",
+    "Load any Hold Lab hold, or one from the pile, on a wall and see the force on each screw, the wall and inside the print.",
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default function JugForceLabPage() {
+export default async function ForceLabPage() {
+  const pile = await listPileHolds();
   return (
     <main className="main-container lab-page">
       <nav className="lab-nav" aria-label="Hold Labs">
-        <Link href="/make/jug" className="lab-nav-back">
-          <ChevronLeft size={14} aria-hidden="true" /> Jug Lab
+        <Link href="/make" className="lab-nav-back">
+          <ChevronLeft size={14} aria-hidden="true" /> Hold Labs
         </Link>
       </nav>
       <div className="page-intro">
-        <h1>Jug Force Lab</h1>
+        <h1>Force Lab</h1>
         <p>
-          A Jug Lab hold, its screws and the wall behind it, loaded by a pull
-          you set. Change the pull, the wall or the hold and the model
-          re-solves.
+          Any Hold Lab hold, or one from the pile, with its screws and the wall
+          behind it, loaded by a pull you set. Change the pull, the wall or the
+          hold and the model re-solves; cut it open to see the stress inside.
         </p>
       </div>
-      <ForceLab />
+      <ForceLab pile={pile} />
     </main>
   );
 }

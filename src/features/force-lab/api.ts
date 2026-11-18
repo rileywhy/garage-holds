@@ -1,7 +1,7 @@
-// The Jug Force Lab's contract with api/jug_force.py (see
+// The force lab's contract with api/jug_force.py (see
 // tools/jug-force-lab/contract.py). Python owns every limit, default and
 // material figure; the page fetches them at load.
-import type { Control, Parameters } from "@/features/hold-lab/api";
+import type { Control, Parameters, Toggle } from "@/features/hold-lab/api";
 import { labRequest } from "@/features/labs/lab-request";
 
 export const FORCE_API = "/api/jug_force";
@@ -12,7 +12,9 @@ export interface Load {
   pull_angle: number;
   side_angle: number;
   position: number;
-  depth: number;
+  height: number;
+  width: number;
+  point: [number, number, number] | null;
 }
 
 export interface Wall {
@@ -37,15 +39,25 @@ export interface Hold {
   label: string;
   layer_tension: number;
   layer_shear: number;
+  in_layer: number;
   note: string;
 }
 
+// One Hold Lab generator's settings, as its own lab serves them.
+export interface KindSchema {
+  label: string;
+  controls: Control[];
+  presets: Record<string, Parameters>;
+  defaults: Parameters;
+  shapes: Record<string, string> | null;
+  shapeLabel: string | null;
+  toggles: Toggle[];
+}
+
 export interface ForceSchema {
-  jug: {
-    controls: Control[];
-    presets: Record<string, Parameters>;
-    defaults: Parameters;
-  };
+  kinds: Record<string, KindSchema>;
+  default_kind: string;
+  turns: number[];
   materials: {
     walls: Record<string, Wall>;
     holds: Record<string, Hold>;
@@ -53,10 +65,22 @@ export interface ForceSchema {
     // Ultimate pull-out per mm of thread, N/mm: wall → screw → value.
     pullout_per_mm: Record<string, Record<string, number>>;
   };
-  load: { defaults: Load; limits: Record<keyof Load, [number, number]> };
+  load: {
+    defaults: Load;
+    limits: Record<Exclude<keyof Load, "point">, [number, number]>;
+  };
   screw_length: number;
   screw: string;
 }
+
+// What to load: a generator with its settings, or a pile hold by its
+// signed model link.
+export type Source =
+  | { kind: string; settings: Parameters; turn: number }
+  | {
+      pile: { url: string; orientation: string; title: string };
+      turn: number;
+    };
 
 export interface Fastener {
   kind: "screw" | "bolt";
@@ -91,11 +115,25 @@ export interface Layer {
   use: number;
 }
 
+// The stress in every brick of the solve, for cut-away views: flat brick
+// index ((i * ny) + j) * nz + k.
+export interface StressGrid {
+  origin: [number, number, number];
+  h: number;
+  shape: [number, number, number];
+  index: number[];
+  sigma: number[];
+  use: number[];
+}
+
 export interface Analysis {
+  source: { label: string; kind: string; holes: number };
   load: Load & {
     point: [number, number, number];
     direction: [number, number, number];
     components: [number, number, number];
+    normal: [number, number, number];
+    pressing: boolean;
   };
   wall: Wall & { key: string };
   hold: Hold & { key: string };
@@ -127,20 +165,28 @@ export interface Analysis {
     lifted: number;
     max_pressure: number;
     worst_layer: Layer;
+    peak: {
+      point: [number, number, number];
+      use: number;
+      sigma: number;
+      across: boolean;
+    };
     total_tension: number;
   };
   parameters: Parameters;
   notes: string[];
+  grid?: StressGrid;
 }
 
 export interface AnalysisRequest {
-  settings: Parameters;
+  source: Source;
   load: Load;
   wall: string;
   hold: string;
   screw: string;
   screw_length: number;
   mesh: boolean;
+  grid: boolean;
 }
 
 export async function fetchSchema(signal?: AbortSignal): Promise<ForceSchema> {
