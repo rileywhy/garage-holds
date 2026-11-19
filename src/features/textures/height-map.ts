@@ -1,4 +1,7 @@
+import { clamp01, makeRockSampler, ROCK_PATTERNS } from "./rock-patterns";
+
 export const PATTERNS = {
+  ...ROCK_PATTERNS,
   "sweeping-strata": "Sweeping Strata",
   strata: "Broken Strata",
   flecks: "Scattered Flecks",
@@ -13,6 +16,8 @@ export interface TextureRecipe {
   pattern: TexturePattern;
   seed: number;
   density: number;
+  detail?: number;
+  contrast?: number;
 }
 
 export interface HeightMap {
@@ -25,9 +30,24 @@ const wrap = (n: number) => n - Math.floor(n);
 
 // The same periodic height field feeds the PNG and the displaced mesh.
 export function makeHeightMap(
-  { pattern, seed, density }: TextureRecipe,
+  { pattern, seed, density, detail = 0.5, contrast = 1 }: TextureRecipe,
   size = 1024,
 ): HeightMap {
+  if (Object.hasOwn(ROCK_PATTERNS, pattern)) {
+    const sample = makeRockSampler(
+      pattern as keyof typeof ROCK_PATTERNS,
+      seed,
+      density,
+      detail,
+    );
+    const pixels = new Uint8Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+        pixels[y * size + x] = Math.round(
+          255 * clamp01(0.5 + contrast * (sample(x / size, y / size) - 0.5)),
+        );
+    return { size, pixels };
+  }
   let state = seed >>> 0;
   const random = () => {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
@@ -117,8 +137,9 @@ export function makeHeightMap(
         height =
           0.8 * ((1 + Math.cos(TAU * (density * y + x + bend))) / 2) ** 1.5;
       }
+      const relief = clamp01(height * contrast);
       pixels[row * size + column] = Math.round(
-        255 * (pattern === "dimples" ? 1 - height : height),
+        255 * (pattern === "dimples" ? 1 - relief : relief),
       );
     }
   }

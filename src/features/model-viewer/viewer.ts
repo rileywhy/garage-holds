@@ -95,6 +95,7 @@ export class Viewer {
   private controls: OrbitControls;
   private material: THREE.MeshStandardMaterial;
   private mesh: THREE.Mesh | null = null;
+  private raycaster = new THREE.Raycaster();
   private model = new THREE.Group();
   private board: BoardPanel;
   // The bench the hold lies on: a plywood offcut with a pencilled 10 mm grid.
@@ -254,6 +255,20 @@ export class Viewer {
     if (first) this.setView(this.view);
     else if (fit) this.fit();
     this.render();
+  }
+
+  pickHold(clientX: number, clientY: number) {
+    if (!this.mesh) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(
+        (2 * (clientX - rect.left)) / rect.width - 1,
+        1 - (2 * (clientY - rect.top)) / rect.height,
+      ),
+      this.camera,
+    );
+    const hit = this.raycaster.intersectObject(this.mesh, false)[0];
+    return hit ? this.mesh.worldToLocal(hit.point) : null;
   }
 
   setView(view: ViewName) {

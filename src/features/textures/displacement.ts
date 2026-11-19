@@ -4,19 +4,29 @@ import {
   type BufferAttribute,
 } from "three";
 import { type HeightMap, sampleHeight } from "./height-map";
+import { type PaintMask, sampleCoverage } from "./paint-mask";
+import { clamp01, smooth } from "./rock-patterns";
 
 export interface ReliefSettings {
   tileMm: number;
   depthMm: number;
   direction: 1 | -1;
-  baseline: 0 | 1;
+  baseline: number;
+  rotation?: number;
+  offsetX?: number;
+  offsetY?: number;
+  mask?: PaintMask | null;
 }
 
 const TRIANGLE_BUDGET = 500_000;
 
 // Split every edge at its midpoint. Each shared edge gets the same samples,
 // so displacement cannot open cracks where the original triangles meet.
-export function refineSurface(source: BufferGeometry, edgeMm = 1.6) {
+export function refineSurface(
+  source: BufferGeometry,
+  edgeMm = 1.6,
+  triangleBudget = TRIANGLE_BUDGET,
+) {
   const positions = source.getAttribute("position");
   const indices = source.getIndex();
   const count = indices?.count ?? positions.count;
@@ -38,7 +48,7 @@ export function refineSurface(source: BufferGeometry, edgeMm = 1.6) {
   let levels = 0;
   while (
     longest > edgeMm &&
-    (count / 3) * 4 ** (levels + 1) <= TRIANGLE_BUDGET
+    (count / 3) * 4 ** (levels + 1) <= triangleBudget
   ) {
     longest /= 2;
     levels++;
@@ -65,6 +75,7 @@ export function refineSurface(source: BufferGeometry, edgeMm = 1.6) {
     split(point(i), point(i + 1), point(i + 2), levels);
   const surface = new BufferGeometry();
   surface.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+  surface.computeBoundingBox();
   return surface;
 }
 
@@ -82,19 +93,31 @@ export function displaceSurface(
   const result = surface.clone();
   result.computeBoundingBox();
   const back = result.boundingBox!.min.z;
+  // Extend the fade for deep relief so vertical displacement cannot fold
+  // back on itself as the surface approaches the protected mounting plane.
+  const fadeDistance = Math.max(4, 1.6 * settings.depthMm);
+  const angle = ((settings.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(angle),
+    sin = Math.sin(angle);
   const points = result.getAttribute("position") as BufferAttribute;
   for (let i = 0; i < points.count; i++) {
     const z = points.getZ(i);
-    const fade = Math.max(0, Math.min(1, (z - back - 1) / 4));
+    const fade = smooth(clamp01((z - back - 1) / fadeDistance));
     if (!fade) continue;
-    const height = Math.abs(
+    const x = points.getX(i),
+      y = points.getY(i);
+    const coverage = settings.mask ? sampleCoverage(settings.mask, x, y) : 1;
+    if (!coverage) continue;
+    const height =
       sampleHeight(
         tile,
-        points.getX(i) / settings.tileMm,
-        -points.getY(i) / settings.tileMm,
-      ) - settings.baseline,
+        (x * cos + y * sin + (settings.offsetX ?? 0)) / settings.tileMm,
+        (x * sin - y * cos + (settings.offsetY ?? 0)) / settings.tileMm,
+      ) - settings.baseline;
+    points.setZ(
+      i,
+      z + settings.depthMm * settings.direction * height * fade * coverage,
     );
-    points.setZ(i, z + settings.depthMm * settings.direction * height * fade);
   }
   result.computeVertexNormals();
   result.computeBoundingBox();

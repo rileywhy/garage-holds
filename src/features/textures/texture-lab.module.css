@@ -42,6 +42,19 @@
   margin: 0;
   color: var(--ink);
 }
+.workbench {
+  position: relative;
+}
+.paintTarget {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: crosshair;
+}
+.controls summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
 @media (max-width: 900px) {
   .layout:global(.lab) {
     grid-template-areas:
