@@ -109,6 +109,8 @@ export const CLIENT_ROUTES = [
   "/make",
   "/make/crimp",
   "/make/custom-shape",
+  "/make/texture",
+  "/orca-textures",
   "/make/foot",
   "/make/jug",
   "/make/pinch",

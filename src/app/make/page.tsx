@@ -18,6 +18,14 @@ export default function HoldLabsPage() {
       <div className="page-intro">
         <h1>Hold Labs</h1>
       </div>
+      <p>
+        <Link href="/make/texture" className="button button-outline">
+          Open Texture Lab
+        </Link>{" "}
+        <Link href="/orca-textures" className="button button-outline">
+          OrcaSlicer texture guide
+        </Link>
+      </p>
       <div className={styles.grid}>
         {LABS.map(({ name, href, image, status }) => (
           <Link

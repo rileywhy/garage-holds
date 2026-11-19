@@ -23,6 +23,14 @@ export function LabNav({ current }: { current: string }) {
             </Link>
           </li>
         ))}
+        <li>
+          <Link
+            href="/make/texture"
+            aria-current={current === "texture" ? "page" : undefined}
+          >
+            texture
+          </Link>
+        </li>
       </ul>
     </nav>
   );
