@@ -3109,9 +3109,8 @@ svg {
   .lab-stage {
     display: contents;
   }
-  /* Only the model and view buttons stay pinned. Success text, export and
-     board settings scroll away, leaving room to work on the sliders. All
-     new rules are scoped to the four shared labs, not Custom Shape. */
+  /* Pin the 3D preview and its toolbar. Status, export and board controls
+     scroll away, leaving room to work on the sliders. */
   .lab .lab-stage-preview {
     --lab-preview-height: min(260px, 26svh);
     grid-area: stage;
