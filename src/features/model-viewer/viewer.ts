@@ -77,6 +77,8 @@ export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
   color?: number;
+  // Light across the surface to reveal shallow texture.
+  reliefLighting?: boolean;
 }
 
 export class Viewer {
@@ -99,6 +101,7 @@ export class Viewer {
   private grid = new THREE.Group();
   private slab: THREE.Mesh;
   private boardAngle = DEFAULT_BOARD_ANGLE;
+  private readonly reliefLighting: boolean;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
   // Light from the sky and, more dimly, back up off the floor.
   private skyLight = new THREE.HemisphereLight(0xffffff, FLOOR_DIM, 2.2);
@@ -149,7 +152,8 @@ export class Viewer {
     private container: HTMLElement,
     options: ViewerOptions,
   ) {
-    const { dark } = options;
+    const { dark, reliefLighting } = options;
+    this.reliefLighting = Boolean(reliefLighting);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(dark ? 0x242628 : 0xe4e4df);
@@ -182,10 +186,15 @@ export class Viewer {
     container.addEventListener("gesturestart", this.onGesture);
     container.addEventListener("gesturechange", this.onGesture);
     this.scene.add(this.skyLight);
+    if (reliefLighting) this.skyLight.intensity = 0.7;
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
-    key.position.set(-60, 130, 80);
+    if (reliefLighting) key.position.set(-90, 28, 65);
+    else key.position.set(-60, 130, 80);
     this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0xdde6ff, 1.8);
+    const rim = new THREE.DirectionalLight(
+      0xdde6ff,
+      reliefLighting ? 0.45 : 1.8,
+    );
     rim.position.set(80, 50, -100);
     this.scene.add(rim);
     // A soft fill reveals the rounded underside instead of leaving it dark
@@ -250,7 +259,8 @@ export class Viewer {
   setView(view: ViewName) {
     this.view = view;
     this.board.mesh.visible = view === "board";
-    this.fillLight.intensity = view === "board" ? 1.8 : 1.2;
+    this.fillLight.intensity =
+      view === "board" ? 1.8 : this.reliefLighting ? 0.28 : 1.2;
     // An overhanging board faces the floor, so more comes back up at it;
     // without that its climbing side reads as stained.
     this.skyLight.groundColor.set(view === "board" ? FLOOR_BRIGHT : FLOOR_DIM);

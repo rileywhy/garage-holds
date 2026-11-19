@@ -37,7 +37,7 @@ export function TextureLab() {
   const [seed, setSeed] = useState(73);
   const [density, setDensity] = useState(2);
   const [tileMm, setTileMm] = useState(60);
-  const [depthMm, setDepthMm] = useState(0.3);
+  const [depthMm, setDepthMm] = useState(0.65);
   const [reverse, setReverse] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [source, setSource] = useState<{
@@ -87,7 +87,11 @@ export function TextureLab() {
     if (!preview.current) return;
     let active = true;
     try {
-      viewer.current = new Viewer(preview.current, { dark: isDarkTheme() });
+      viewer.current = new Viewer(preview.current, {
+        dark: isDarkTheme(),
+        color: 0x8eabb9,
+        reliefLighting: true,
+      });
     } catch {
       queueMicrotask(() => {
         if (active) setViewerError(true);
@@ -181,7 +185,7 @@ export function TextureLab() {
   }
 
   return (
-    <div className="lab">
+    <div className={`lab ${styles.layout}`}>
       <aside className={`lab-controls ${styles.controls}`}>
         <section className={styles.section} aria-labelledby="texture-source">
           <h2 id="texture-source">Hold</h2>
@@ -307,34 +311,33 @@ export function TextureLab() {
           </label>
         </section>
       </aside>
-      <section
-        className={`lab-stage ${styles.stage}`}
-        aria-labelledby="texture-preview"
-      >
-        <div className={styles.actions}>
-          <h2 id="texture-preview">Hold preview</h2>
-          <label>
-            <input
-              type="checkbox"
-              checked={showOriginal}
-              onChange={(event) => setShowOriginal(event.target.checked)}
-            />{" "}
-            Show original
-          </label>
-        </div>
-        <div
-          className="lab-viewer"
-          ref={preview}
-          tabIndex={0}
-          aria-label="Interactive hold preview"
-          title={VIEWER_CONTROLS}
-        >
-          {viewerError && (
-            <p className="lab-viewer-note">
-              WebGL is unavailable. You can still generate and download
-              textures.
-            </p>
-          )}
+      <section className="lab-stage" aria-labelledby="texture-preview">
+        <div className="lab-stage-preview">
+          <div className={styles.actions}>
+            <h2 id="texture-preview">Hold preview</h2>
+            <label>
+              <input
+                type="checkbox"
+                checked={showOriginal}
+                onChange={(event) => setShowOriginal(event.target.checked)}
+              />{" "}
+              Show original
+            </label>
+          </div>
+          <div
+            className="lab-viewer"
+            ref={preview}
+            tabIndex={0}
+            aria-label="Interactive hold preview"
+            title={VIEWER_CONTROLS}
+          >
+            {viewerError && (
+              <p className="lab-viewer-note">
+                WebGL is unavailable. You can still generate and download
+                textures.
+              </p>
+            )}
+          </div>
         </div>
         <div className={styles.details}>
           <canvas
