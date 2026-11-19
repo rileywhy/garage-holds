@@ -9,6 +9,46 @@ import {
   displaceSurface,
   refineSurface,
 } from "../src/features/textures/displacement";
+import {
+  createPaintMask,
+  paintSegment,
+  sampleCoverage,
+} from "../src/features/textures/paint-mask";
+import {
+  ROCK_PATTERNS,
+  makeRockSampler,
+} from "../src/features/textures/rock-patterns";
+
+test("rock presets are distinct, seeded and continuous across tile seams", () => {
+  const maps = new Set<string>();
+  for (const pattern of Object.keys(
+    ROCK_PATTERNS,
+  ) as (keyof typeof ROCK_PATTERNS)[]) {
+    const recipe = { pattern, seed: 73, density: 5 };
+    const tile = makeHeightMap(recipe, 64);
+    assert.deepEqual(tile, makeHeightMap(recipe, 64));
+    assert.notDeepEqual(tile, makeHeightMap({ ...recipe, detail: 0 }, 64));
+    maps.add(Buffer.from(tile.pixels).toString("base64"));
+    const height = makeRockSampler(pattern, 73, 5, 0.5);
+    assert.ok(Math.abs(height(0, 0.37) - height(1, 0.37)) < 1e-9);
+    assert.ok(Math.abs(height(0.42, 0) - height(0.42, 1)) < 1e-9);
+  }
+  assert.equal(maps.size, Object.keys(ROCK_PATTERNS).length);
+});
+
+test("a fast stroke paints a continuous path with feathered edges and can be erased", () => {
+  const mask = createPaintMask({ x: -20, y: -20 }, { x: 20, y: 20 }, false);
+  const start = { x: -10, y: 0 },
+    end = { x: 10, y: 0 };
+  paintSegment(mask, start, end, { radius: 7, softness: 0.7, erase: false });
+  assert.equal(sampleCoverage(mask, 0, 0), 1);
+  const feather = sampleCoverage(mask, 0, 5);
+  assert.ok(feather > 0 && feather < 1);
+  assert.equal(sampleCoverage(mask, 0, 9), 0);
+  paintSegment(mask, start, end, { radius: 3, softness: 0.4, erase: true });
+  assert.equal(sampleCoverage(mask, 0, 0), 0);
+  assert.equal(sampleCoverage(mask, 0, 5), feather);
+});
 
 test("sweeping strata is deterministic, sparse, and samples periodically", () => {
   const recipe = { pattern: "sweeping-strata", density: 2, seed: 73 } as const;
