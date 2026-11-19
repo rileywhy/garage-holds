@@ -67,9 +67,8 @@ export async function loadHoldLink(input: string, signal: AbortSignal) {
   if (link.kind) {
     const schema = await loadSchema(link.kind);
     signal.throwIfAborted();
-    const settings =
-      readLink(link.search, schema.defaults, schema.presets)?.parameters ??
-      schema.defaults;
+    const design = readLink(link.search, schema.defaults, schema.presets);
+    const settings = design?.parameters ?? schema.defaults;
     const data = await readModel(
       await post(link.kind, "stl", settings, signal),
     );
@@ -79,7 +78,10 @@ export async function loadHoldLink(input: string, signal: AbortSignal) {
     geometry.scale(radius, radius, radius);
     geometry.computeBoundingBox();
     geometry.translate(0, 0, -geometry.boundingBox!.min.z);
-    return { geometry, label: `${KIND_LABELS[link.kind]} Lab hold` };
+    return {
+      geometry,
+      label: design?.preset ?? `${KIND_LABELS[link.kind]} Lab hold`,
+    };
   }
   const model = await textureHoldFile(link.id);
   signal.throwIfAborted();

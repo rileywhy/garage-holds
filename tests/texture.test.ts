@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  texturePngFilename,
+  texturedStlFilename,
+} from "../src/features/textures/export-name";
 import { BufferGeometry, Float32BufferAttribute } from "three";
 import {
   makeHeightMap,
@@ -18,6 +22,31 @@ import {
   ROCK_PATTERNS,
   makeRockSampler,
 } from "../src/features/textures/rock-patterns";
+
+test("texture exports identify the hold and recipe with portable filenames", () => {
+  assert.equal(
+    texturedStlFilename({
+      hold: "Crête / nº 2: FINAL.STL",
+      pattern: "granite-crystals",
+      tileMm: 60,
+      depthMm: 1.25,
+      reverse: true,
+      painted: true,
+      seed: 73,
+    }),
+    "crete-no-2-final--granite-crystals--tile60mm-depth1.25mm-reversed-painted-seed73.stl",
+  );
+  assert.equal(
+    texturePngFilename({
+      pattern: "granite-crystals",
+      seed: 73,
+      density: 3,
+      contrast: 1.25,
+      detail: 0.5,
+    }),
+    "granite-crystals--seed73-density3-contrast1.25-grain0.5.png",
+  );
+});
 
 test("rock presets are distinct, seeded and continuous across tile seams", () => {
   const maps = new Set<string>();

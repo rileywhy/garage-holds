@@ -7,6 +7,10 @@ import { LocalDate } from "@/components/local-date";
 import { deleteLabPreset } from "./actions";
 import { PRESET_LAB_NAMES } from "./saved-presets";
 import type { AccountPreset } from "./repository";
+import {
+  canImportPreset,
+  textureLabHref,
+} from "@/features/textures/source-options";
 
 // The lab presets on the Saved page: shapes saved in the labs, apart from
 // the bookmarked designs. Each opens its lab with the shape already loaded.
@@ -56,6 +60,14 @@ export function PresetList({ presets }: { presets: AccountPreset[] }) {
                 >
                   Open in lab
                 </Link>
+                {canImportPreset(preset.lab) && (
+                  <Link
+                    className="button button-outline"
+                    href={textureLabHref("preset", preset.id)}
+                  >
+                    Texture this hold
+                  </Link>
+                )}
                 <button
                   type="button"
                   className="button button-outline"

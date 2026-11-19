@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,13 @@ import { makeHeightMap, PATTERNS, type TexturePattern } from "./height-map";
 import { loadHoldLink } from "./hold-source";
 import { createPaintMask, paintSegment, type PaintMask } from "./paint-mask";
 import { ROCK_PATTERNS } from "./rock-patterns";
+import {
+  loadSavedPresets,
+  PRESET_LAB_NAMES,
+  PRESET_LABS,
+} from "@/features/lab-presets/saved-presets";
+import { canImportPreset, type HoldSourceOption } from "./source-options";
+import { texturedStlFilename, texturePngFilename } from "./export-name";
 import styles from "./texture-lab.module.css";
 
 const DEFAULT_DENSITY: Partial<Record<TexturePattern, number>> = {
@@ -92,7 +100,17 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-export function TextureLab() {
+export function TextureLab({
+  savedOptions,
+  initialSource,
+  initialError,
+  savedUnavailable,
+}: {
+  savedOptions: HoldSourceOption[];
+  initialSource?: { link: string; label?: string };
+  initialError: string;
+  savedUnavailable: boolean;
+}) {
   const [pattern, setPattern] = useState<TexturePattern>("font-sandstone");
   const [seed, setSeed] = useState(73);
   const [density, setDensity] = useState(4);
@@ -121,13 +139,15 @@ export function TextureLab() {
   }>();
   const [link, setLink] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
+  const [browserOptions, setBrowserOptions] = useState<HoldSourceOption[]>([]);
   const [exportError, setExportError] = useState("");
   const [viewerError, setViewerError] = useState(false);
   const request = useRef<AbortController | null>(null);
   const preview = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const viewer = useRef<Viewer | null>(null);
+  const sourceOptions = [...savedOptions, ...browserOptions];
 
   const tile = useMemo(
     () => makeHeightMap({ pattern, seed, density, contrast, detail }),
@@ -173,6 +193,29 @@ export function TextureLab() {
   useEffect(() => () => surface.dispose(), [surface]);
   useEffect(() => () => mesh.dispose(), [mesh]);
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    let active = true;
+    function refresh() {
+      if (!active) return;
+      setBrowserOptions(
+        PRESET_LABS.filter(canImportPreset).flatMap((lab) =>
+          loadSavedPresets(lab).map((preset) => ({
+            id: `local:${lab}:${preset.id}`,
+            lab,
+            label: preset.name,
+            link: `/make/${lab}${preset.search}`,
+            group: "This browser",
+          })),
+        ),
+      );
+    }
+    queueMicrotask(refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     if (!preview.current) return;
@@ -242,9 +285,29 @@ export function TextureLab() {
     }
   }
 
+  function importLink(link: string, label?: string) {
+    void load(async (signal) => {
+      const model = await loadHoldLink(link, signal);
+      return label ? { ...model, label } : model;
+    });
+  }
+
+  const importInitialSource = useEffectEvent(() => {
+    if (initialSource) importLink(initialSource.link, initialSource.label);
+  });
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) importInitialSource();
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function openLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void load((signal) => loadHoldLink(link, signal));
+    importLink(link);
   }
 
   function openFile(file: File) {
@@ -264,7 +327,13 @@ export function TextureLab() {
       if (blob)
         download(
           blob,
-          `${pattern}-${seed}-${density}-c${contrast}-g${detail}.png`,
+          texturePngFilename({
+            pattern,
+            seed,
+            density,
+            contrast,
+            detail: Object.hasOwn(ROCK_PATTERNS, pattern) ? detail : undefined,
+          }),
         );
       else setExportError("Could not export this PNG.");
     }, "image/png");
@@ -355,7 +424,15 @@ export function TextureLab() {
     const data = new STLExporter().parse(object, { binary: true });
     download(
       new Blob([data.buffer as ArrayBuffer], { type: "model/stl" }),
-      `${pattern}-approximation.stl`,
+      texturedStlFilename({
+        hold: source?.label ?? "Sample hold",
+        pattern,
+        tileMm,
+        depthMm,
+        reverse,
+        painted: Boolean(mask),
+        seed,
+      }),
     );
   }
 
@@ -364,6 +441,48 @@ export function TextureLab() {
       <aside className={`lab-controls ${styles.controls}`}>
         <section className={styles.section} aria-labelledby="texture-source">
           <h2 id="texture-source">Hold</h2>
+          {sourceOptions.length > 0 && (
+            <label className="lab-field">
+              Import from Saved
+              <select
+                aria-label="Import from Saved"
+                value=""
+                disabled={loading}
+                onChange={(event) => {
+                  const picked = sourceOptions.find(
+                    (option) => option.id === event.target.value,
+                  );
+                  if (picked) importLink(picked.link, picked.label);
+                }}
+              >
+                <option value="" disabled>
+                  Choose a hold or preset
+                </option>
+                {(["Lab presets", "Saved holds", "This browser"] as const).map(
+                  (group) => {
+                    const options = sourceOptions.filter(
+                      (option) => option.group === group,
+                    );
+                    return options.length ? (
+                      <optgroup key={group} label={group}>
+                        {options.map(({ id, label, lab }) => (
+                          <option key={id} value={id}>
+                            {lab
+                              ? `${label} · ${PRESET_LAB_NAMES[lab]}`
+                              : label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null;
+                  },
+                )}
+              </select>
+            </label>
+          )}
+          <p className={styles.note}>
+            {savedUnavailable && <>Some saved items could not be loaded. </>}
+            <Link href="/saved">Browse Saved holds and presets</Link>
+          </p>
           <form onSubmit={openLink} className={styles.section}>
             <label className="lab-field">
               Garage Holds link

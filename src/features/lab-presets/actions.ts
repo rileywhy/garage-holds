@@ -63,6 +63,7 @@ export async function saveLabPreset(
       search,
     );
     revalidatePath("/saved");
+    revalidatePath("/make/texture");
     return presets;
   });
 }
@@ -81,6 +82,7 @@ export async function renameLabPreset(
       rawName,
     );
     revalidatePath("/saved");
+    revalidatePath("/make/texture");
     return presets;
   });
 }
@@ -92,6 +94,7 @@ export async function deleteLabPreset(
   return attempt(async (supabase, userId) => {
     const presets = await deleteAccountPreset(supabase, userId, lab, id);
     revalidatePath("/saved");
+    revalidatePath("/make/texture");
     return presets;
   });
 }
