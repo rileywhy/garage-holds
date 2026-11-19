@@ -1,0 +1,45 @@
+.controls label {
+  font-size: 0.95rem;
+}
+.controls h2,
+.stage h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.section,
+.stage {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.section + .section {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.map {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.note {
+  margin: 0;
+  color: var(--muted);
+}
+.error {
+  margin: 0;
+  color: var(--ink);
+}
