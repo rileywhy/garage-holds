@@ -37,7 +37,7 @@ export function TextureLab() {
   const [seed, setSeed] = useState(73);
   const [density, setDensity] = useState(2);
   const [tileMm, setTileMm] = useState(60);
-  const [depthMm, setDepthMm] = useState(0.3);
+  const [depthMm, setDepthMm] = useState(0.65);
   const [reverse, setReverse] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [source, setSource] = useState<{
@@ -87,7 +87,11 @@ export function TextureLab() {
     if (!preview.current) return;
     let active = true;
     try {
-      viewer.current = new Viewer(preview.current, { dark: isDarkTheme() });
+      viewer.current = new Viewer(preview.current, {
+        dark: isDarkTheme(),
+        color: 0x8eabb9,
+        reliefLighting: true,
+      });
     } catch {
       queueMicrotask(() => {
         if (active) setViewerError(true);
