@@ -36,6 +36,10 @@ import {
 } from "./grades";
 import { HoldCard } from "./hold-card";
 import { LabCarousel } from "../labs/lab-carousel";
+import {
+  canImportStl,
+  textureLabHref,
+} from "@/features/textures/source-options";
 
 // Typing pauses this long before the address changes and the server is
 // asked for the matching page.
@@ -330,6 +334,18 @@ export function CatalogBrowser({
                     saved={savedIds.includes(hold.id)}
                     signedIn={signedIn}
                     key={hold.id}
+                    actions={
+                      savedOnly &&
+                      hold.status === "published" &&
+                      hold.files.some(canImportStl) && (
+                        <Link
+                          className="button button-outline"
+                          href={textureLabHref("hold", hold.id)}
+                        >
+                          Texture this hold
+                        </Link>
+                      )
+                    }
                   />
                 ))}
               </div>
