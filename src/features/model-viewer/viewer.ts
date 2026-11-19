@@ -101,6 +101,7 @@ export class Viewer {
   private grid = new THREE.Group();
   private slab: THREE.Mesh;
   private boardAngle = DEFAULT_BOARD_ANGLE;
+  private readonly reliefLighting: boolean;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
   // Light from the sky and, more dimly, back up off the floor.
   private skyLight = new THREE.HemisphereLight(0xffffff, FLOOR_DIM, 2.2);
@@ -149,9 +150,10 @@ export class Viewer {
 
   constructor(
     private container: HTMLElement,
-    private readonly options: ViewerOptions,
+    options: ViewerOptions,
   ) {
     const { dark, reliefLighting } = options;
+    this.reliefLighting = Boolean(reliefLighting);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(dark ? 0x242628 : 0xe4e4df);
@@ -258,7 +260,7 @@ export class Viewer {
     this.view = view;
     this.board.mesh.visible = view === "board";
     this.fillLight.intensity =
-      view === "board" ? 1.8 : this.options.reliefLighting ? 0.28 : 1.2;
+      view === "board" ? 1.8 : this.reliefLighting ? 0.28 : 1.2;
     // An overhanging board faces the floor, so more comes back up at it;
     // without that its climbing side reads as stained.
     this.skyLight.groundColor.set(view === "board" ? FLOOR_BRIGHT : FLOOR_DIM);
