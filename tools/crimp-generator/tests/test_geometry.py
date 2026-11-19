@@ -12,7 +12,6 @@ import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import (
-    MIN_SEAT,
     _inside_contours,
     _inside_mask,
     _solid,
@@ -20,6 +19,7 @@ from geometry import (
     cross_section,
     estimate_material,
 )
+from tools.hold_mounting import MIN_SEAT, SHALLOW_MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -101,7 +101,7 @@ class GeometryTests(unittest.TestCase):
             Parameters(
                 width=20,
                 end_rounding=0.5,
-                edge_depth=2,
+                edge_depth=4,
                 body_height=10,
                 lip_radius=0,
                 body_rounding=0,
@@ -395,6 +395,19 @@ class GeometryTests(unittest.TestCase):
         for name, preset in PRESETS.items():
             with self.subTest(preset=name):
                 self.assertGreaterEqual(build(preset).seat_depth, MIN_SEAT)
+
+    def test_every_small_edge_the_slider_allows_takes_its_screws(self):
+        # An edge too shallow for a 5 mm seat keeps its own and may come
+        # down to 3 mm; a deeper one keeps 5 mm and grows the body if it
+        # must. With 5 mm required of every edge, the defaults refused all
+        # of 2 to 6 mm and no test noticed.
+        (edge,) = [c for c in CONTROLS if c["key"] == "edge_depth"]
+        for depth in np.arange(edge["min"], 10.01, 0.5):
+            with self.subTest(edge_depth=float(depth)):
+                p = Parameters(edge_depth=float(depth))
+                model = build(p)
+                least = MIN_SEAT if seat_height(p) > MIN_SEAT else SHALLOW_MIN_SEAT
+                self.assertGreaterEqual(model.seat_depth, least)
 
     def test_a_manual_seat_below_the_automatic_one_is_drilled_where_asked(self):
         shape = dict(edge_depth=10, lip_radius=12, width=78, taper=-46)

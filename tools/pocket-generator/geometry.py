@@ -24,16 +24,14 @@ else:
     from parameters import CONTROLS, parse_parameters
 
 from tools.hold_mounting import (
-    MANUAL_MIN_SEAT,
-    MIN_SEAT,
     _inside,
     assert_closed,
     automatic_seat,
     closed_mesh,
     drill,
     fit_bolt_and_screw,
-    lowest_seat,
     screw_layout,
+    seat_floors,
 )
 
 # The least material behind a closed pocket, and the least face around the
@@ -965,11 +963,8 @@ def build(requested, quality="preview"):
             break
         depth = p.depth * p.size / 100
         target = automatic_seat(depth) if p.auto_seat else p.seat_depth
-        lowest = (
-            MANUAL_MIN_SEAT
-            if not p.auto_seat
-            else MIN_SEAT if relaxed else max(MIN_SEAT, lowest_seat(target))
-        )
+        floors = seat_floors(target, auto=p.auto_seat)
+        lowest = floors[-1] if relaxed else floors[0]
         proxy = mounting_proxy(solid, cut, depth)
         holes = (
             fit_bolt_and_screw(
@@ -998,7 +993,8 @@ def build(requested, quality="preview"):
         if holes and (not crowded or grown == p):
             p = replace(p, seat_depth=holes[0].seat)
             break
-        if grown == p and p.auto_seat and not relaxed:
+        # Starting again only helps when the seat may now come lower.
+        if grown == p and len(floors) > 1 and not relaxed:
             p, relaxed = start, True
             continue
         if grown == p:

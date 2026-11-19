@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { Barlow, Barlow_Condensed } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { AccountMenu } from "@/features/auth/account-menu";
@@ -15,16 +15,23 @@ import "./globals.css";
 import "./workshop.css";
 import "./intros.css";
 
-// Self-hosted at build time, so the font-src 'self' policy still holds.
-const barlow = Barlow({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+// Served from the site itself, so the font-src 'self' policy holds and a
+// build needs no network. Latin only, as Google's subset was; the files
+// and their licence are in ./fonts.
+const barlow = localFont({
+  src: [
+    { path: "./fonts/barlow-400-latin.woff2", weight: "400" },
+    { path: "./fonts/barlow-500-latin.woff2", weight: "500" },
+    { path: "./fonts/barlow-600-latin.woff2", weight: "600" },
+  ],
   variable: "--font-barlow",
   display: "swap",
 });
-const barlowCondensed = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+const barlowCondensed = localFont({
+  src: [
+    { path: "./fonts/barlow-condensed-600-latin.woff2", weight: "600" },
+    { path: "./fonts/barlow-condensed-700-latin.woff2", weight: "700" },
+  ],
   variable: "--font-barlow-condensed",
   display: "swap",
 });

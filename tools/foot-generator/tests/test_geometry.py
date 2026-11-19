@@ -1,6 +1,7 @@
 import random
 import sys
 import unittest
+from unittest import mock
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -10,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import build
 from parameters import CONTROLS, PRESETS, design_document, parse_parameters
 
-from tools.hold_mounting import FOOT_SEAT_FLOOR, automatic_seat, lowest_seat
+from tools.hold_mounting import FOOT_SEAT_FLOOR, automatic_seat, lowest_seat, seat_floors
 
 SHAPES = ("edge", "ball", "rock", "dish", "rectangle")
 
@@ -211,6 +212,41 @@ class FootTests(unittest.TestCase):
                     min(h.seat for h in model.holes),
                     lowest_seat(target, FOOT_SEAT_FLOOR),
                 )
+
+    def test_a_hold_with_no_lower_seat_to_try_is_refused_after_one_pass(self):
+        # A foothold already on the 5 mm minimum has nothing to gain from
+        # starting again: the second pass used to rerun the whole growth
+        # loop at the same floor before refusing.
+        tried = self.refused_fits(PRESETS["Board edge"])
+        self.assertEqual({floor for _, floor in tried}, {5.0})
+        self.assertEqual(len(tried), len(set(tried)), "a body was tried twice")
+
+    def test_a_shallow_hold_starts_again_on_a_lower_seat(self):
+        # At half size the toe is too shallow for 5 mm and keeps its own
+        # seat; once the body has grown as far as it will, it starts again
+        # as designed with the seat allowed down to 3 mm.
+        start = replace(PRESETS["Board edge"], size=50)
+        tried = self.refused_fits(start)
+        self.assertEqual(seat_floors(automatic_seat(18 * 0.5), floor=FOOT_SEAT_FLOOR), (3.5, 3.0))
+        self.assertEqual(tried[0][1], 3.5)
+        self.assertIn((start.edge_depth, 3.0), tried)
+        self.assertGreaterEqual(min(floor for _, floor in tried), 3.0)
+
+    def refused_fits(self, p):
+        """Builds p with screws that never fit; the (edge depth, floor) of
+        every fit tried before it is refused."""
+        import geometry
+
+        tried = []
+
+        def no_room(q, solid, target, targets=None, *, floor):
+            tried.append((q.edge_depth, floor))
+            return []
+
+        with mock.patch.object(geometry, "screw_layout", no_room):
+            with self.assertRaisesRegex(ValueError, "largest size the sliders allow"):
+                build(replace(p, bolt_mount=False))
+        return tried
 
     def test_manual_seat_survives_turning_screws_off(self):
         # Dragging the seat slider sets auto_seat off; turning the mounting
