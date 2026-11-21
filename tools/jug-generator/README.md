@@ -21,6 +21,17 @@ rise, so the trough behind its lip is about 70 mm deep and its shelf about
 about 243 mm wide, nearly twice the other two and 5% inside a 256 mm printer
 bed).
 
+The Handlebar preset switches the Shape tab's body shape to Handlebar: an oval
+bar (32 mm thick, 15% wider up the wall) arched 45 mm off the wall over 100 mm
+of hand room, on two flared feet. Each foot takes two countersunk screws side
+by side up the wall, drilled straight in and opening out of the foot's outer
+shoulder, so the hold never pivots on one screw per end; there is no bolt
+option, since the middle stands clear of the wall. Its controls are overall
+size, hand room, finger gap and bar thickness, plus the screw hardware and
+seat (automatic seats follow the shared rule, 20 mm on the preset). Print it
+on its wall face with supports under the bar. Saved jugs without a shape load
+as jugs.
+
 Grip controls are overall size (75–140%), more/less bite, grip reach, arc rise,
 and lip comfort. Size scales geometry before hole fitting, leaving hardware
 diameters unchanged. The bite slider maps 0–180% to 20–60° incut; 90% is the midpoint and maps to 56°. It is not a grade. Grip reach spans 15–100 mm, centred on 57.5 mm. Width goes up to 400 mm.

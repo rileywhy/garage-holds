@@ -134,6 +134,8 @@ function CrimpProfile({
 }
 
 function caption(kind: Kind, p: Parameters) {
+  if (kind === "jug" && p.shape === "handlebar")
+    return `${p.bar_thickness} mm bar · ${p.bar_clearance} mm finger gap · ${p.bar_span} mm hand room`;
   if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
   if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
   if (kind === "pocket")

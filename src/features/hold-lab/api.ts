@@ -51,6 +51,10 @@ export interface Schema {
   // label, and what the menu is called when it is not the body's shape.
   shapes?: Record<string, string>;
   shapeLabel?: string;
+  // Jug Lab: shapes with no solid middle for the bolt to go through.
+  boltless?: string[];
+  // Jug Lab: shapes the variation seed does not change.
+  seedless?: string[];
   // Foot and Pinch Labs: the generator can pick the screw count from the
   // body size.
   autoScrewCount?: boolean;
