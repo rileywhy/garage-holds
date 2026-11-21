@@ -448,30 +448,41 @@ def mouth_outline(cut, face):
     return np.column_stack([np.interp(at, along, closed[:, k]) for k in (0, 1)])
 
 
-def wall_offsets(cut, face, mouth, normals, depths):
+def wall_offsets(cut, face, mouth, normals, depths, sections=None):
     """For each mouth vertex, how far along its outward normal the cavity
     wall sits at that vertex's depth below the face: negative where the
     wall has moved in (a floor rising with the floor angle, a roof curling
     down with the scoop), positive where it leans out (an undercut roof).
-    Read off the cutter's own section, so any cavity shape is followed."""
-    sections = {}
-    offsets = np.zeros(len(mouth))
-    for i, (m, n, d) in enumerate(zip(mouth, normals, depths)):
-        key = round(float(d), 1)
-        if key not in sections:
-            polygon = largest(cut.slice(face - key))
-            sections[key] = (polygon, np.roll(polygon, -1, axis=0) - polygon)
-        a, e = sections[key]
-        dm = a - m
-        det = e[:, 0] * n[1] - e[:, 1] * n[0]
-        ok = np.abs(det) > 1e-9
-        t = np.where(
-            ok, (e[:, 0] * dm[:, 1] - e[:, 1] * dm[:, 0]) / np.where(ok, det, 1), np.inf
-        )
-        s = np.where(ok, (n[0] * dm[:, 1] - n[1] * dm[:, 0]) / np.where(ok, det, 1), -1)
-        hits = t[(s >= -1e-9) & (s <= 1 + 1e-9) & ok]
-        offsets[i] = hits[np.argmin(np.abs(hits))] if len(hits) else 0.0
-    return offsets
+    Read off the cutter's own section, so any cavity shape is followed.
+    Slicing the cutter is the costly part, so a caller that asks again of
+    the same cutter and face passes one dict to keep its sections in."""
+    if sections is None:
+        sections = {}
+    keys = [round(float(d), 1) for d in depths]
+    for key in set(keys) - sections.keys():
+        polygon = largest(cut.slice(face - key))
+        sections[key] = (polygon, np.roll(polygon, -1, axis=0) - polygon)
+    # Every vertex against every edge of its own section at once: sections
+    # are padded to one length with empty edges, which no normal can hit.
+    used = sorted(set(keys))
+    longest = max(len(sections[key][0]) for key in used)
+    starts = np.zeros((len(used), longest, 2))
+    edges = np.zeros((len(used), longest, 2))
+    for k, key in enumerate(used):
+        polygon, edge = sections[key]
+        starts[k, : len(polygon)], edges[k, : len(edge)] = polygon, edge
+    rows = [used.index(key) for key in keys]
+    e = edges[rows]
+    dm = starts[rows] - np.asarray(mouth)[:, None, :]
+    n = np.asarray(normals)[:, None, :]
+    det = e[..., 0] * n[..., 1] - e[..., 1] * n[..., 0]
+    ok = np.abs(det) > 1e-9
+    safe = np.where(ok, det, 1)
+    t = np.where(ok, (e[..., 0] * dm[..., 1] - e[..., 1] * dm[..., 0]) / safe, np.inf)
+    s = np.where(ok, (n[..., 0] * dm[..., 1] - n[..., 1] * dm[..., 0]) / safe, -1)
+    hit = (s >= -1e-9) & (s <= 1 + 1e-9) & ok
+    nearest = np.where(hit, np.abs(t), np.inf).argmin(axis=1)
+    return np.where(hit.any(axis=1), t[np.arange(len(t)), nearest], 0.0)
 
 
 def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None, with_wedge=False):
@@ -492,7 +503,8 @@ def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None, with_wedge=False):
         deficit = np.zeros(len(mouth))
     if slopes is None:
         slopes = np.zeros(len(mouth))
-    base = wall_offsets(cut, face, mouth, normals, deficit)
+    sections = {}
+    base = wall_offsets(cut, face, mouth, normals, deficit, sections)
     corners = mouth + normals * base[:, None]
     along = np.column_stack((np.ones(len(mouth)), slopes))
     along /= np.linalg.norm(along, axis=1)[:, None]
@@ -503,8 +515,13 @@ def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None, with_wedge=False):
     for _ in range(6):
         # The wall below each vertex as the straight line from the lip
         # corner to the wall at the tangent depth.
-        here = wall_offsets(cut, face, mouth, normals, deficit + depths) - base
-        below = wall_offsets(cut, face, mouth, normals, deficit + depths + 1.0) - base
+        here = (
+            wall_offsets(cut, face, mouth, normals, deficit + depths, sections) - base
+        )
+        below = (
+            wall_offsets(cut, face, mouth, normals, deficit + depths + 1.0, sections)
+            - base
+        )
         down = np.column_stack((here, -depths))
         down /= np.linalg.norm(down, axis=1)[:, None]
         # Where the wall's own direction at the tangent depth differs from
@@ -532,7 +549,9 @@ def lip_arcs(p, cut, face, mouth, deficit=None, slopes=None, with_wedge=False):
         radii = even_out(radii, mouth)
         tangent = radii * spread
         depths = np.maximum(0.5, -down[:, 1] * tangent)
-        here = wall_offsets(cut, face, mouth, normals, deficit + depths) - base
+        here = (
+            wall_offsets(cut, face, mouth, normals, deficit + depths, sections) - base
+        )
         down = np.column_stack((here, -depths))
         down /= np.linalg.norm(down, axis=1)[:, None]
         corner = np.arccos(np.clip((along * down).sum(axis=1), -1, 1))

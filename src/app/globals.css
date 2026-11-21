@@ -2983,6 +2983,21 @@ svg {
 .lab-profile-label {
   fill: var(--accent);
 }
+.lab-profile-finger {
+  fill: none;
+  stroke: var(--error-ink);
+  stroke-width: 1.5;
+}
+.lab-profile-finger path {
+  fill: var(--error-ink);
+  fill-opacity: 0.18;
+}
+.lab-profile-tape {
+  fill: var(--paper);
+  fill-opacity: 0.9;
+  stroke: var(--muted);
+  stroke-width: 1;
+}
 .lab-metrics {
   margin: 0;
   display: grid;
