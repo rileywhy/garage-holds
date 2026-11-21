@@ -169,3 +169,54 @@ export function sampleHeight(
     pixels[ny * size + nx] * (x - ix);
   return (a * (1 - (y - iy)) + b * (y - iy)) / 255;
 }
+
+export interface SeamlessTurn {
+  degrees: number;
+  // Tiles of the unrotated pattern spanned by one edge of the rotated PNG.
+  repeats: number;
+  cos: number;
+  sin: number;
+}
+
+const MAX_REPEATS_SQUARED = 25;
+const TURNS: SeamlessTurn[] = [];
+// Visit the smallest repeat for each angle first, e.g. (1, 0) before (2, 0).
+for (let squared = 1; squared <= MAX_REPEATS_SQUARED; squared++)
+  for (let a = -5; a <= 5; a++)
+    for (let b = -5; b <= 5; b++) {
+      if (a * a + b * b !== squared) continue;
+      const repeats = Math.sqrt(squared);
+      const degrees = (Math.atan2(b, a) * 180) / Math.PI;
+      if (TURNS.some((turn) => Math.abs(turn.degrees - degrees) < 1e-9))
+        continue;
+      TURNS.push({ degrees, repeats, cos: a / repeats, sin: b / repeats });
+    }
+
+// A square PNG only tiles after rotation when its edges land on whole tiles
+// of the original pattern, so the angle snaps to the nearest such direction.
+export function seamlessTurn(degrees: number): SeamlessTurn {
+  const gap = (turn: SeamlessTurn) =>
+    Math.abs(((((turn.degrees - degrees) % 360) + 540) % 360) - 180);
+  return TURNS.reduce((best, turn) =>
+    gap(turn) < gap(best) - 1e-9 ? turn : best,
+  );
+}
+
+export function rotateHeightMap(
+  map: HeightMap,
+  { repeats, cos, sin }: SeamlessTurn,
+  size = repeats === 1 ? map.size : 2 * map.size,
+): HeightMap {
+  if (repeats === 1 && cos === 1) return map;
+  const pixels = new Uint8Array(size * size);
+  for (let row = 0; row < size; row++)
+    for (let column = 0; column < size; column++) {
+      // Sample pixel corners so a quarter turn is an exact permutation.
+      const x = (column / size) * repeats,
+        y = (row / size) * repeats;
+      pixels[row * size + column] = Math.round(
+        255 * sampleHeight(map, x * cos - y * sin, x * sin + y * cos),
+      );
+    }
+  return { size, pixels };
+}

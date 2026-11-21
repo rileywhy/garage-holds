@@ -12,7 +12,6 @@ export interface ReliefSettings {
   depthMm: number;
   direction: 1 | -1;
   baseline: number;
-  rotation?: number;
   offsetX?: number;
   offsetY?: number;
   mask?: PaintMask | null;
@@ -83,7 +82,8 @@ const edge = (a: number[], b: number[]) =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const midpoint = (a: number[], b: number[]) => a.map((v, i) => (v + b[i]) / 2);
 
-// Input is in millimetres, with the back at the lowest Z. Planar projection
+// Input is in millimetres, with the back at the lowest Z. Image rows run
+// down, so +Y on the hold reads up the PNG. Planar projection
 // moves Z only and fades from the back, so it also works on triangle soup.
 export function displaceSurface(
   surface: BufferGeometry,
@@ -96,9 +96,6 @@ export function displaceSurface(
   // Extend the fade for deep relief so vertical displacement cannot fold
   // back on itself as the surface approaches the protected mounting plane.
   const fadeDistance = Math.max(4, 1.6 * settings.depthMm);
-  const angle = ((settings.rotation ?? 0) * Math.PI) / 180;
-  const cos = Math.cos(angle),
-    sin = Math.sin(angle);
   const points = result.getAttribute("position") as BufferAttribute;
   for (let i = 0; i < points.count; i++) {
     const z = points.getZ(i);
@@ -111,8 +108,8 @@ export function displaceSurface(
     const height =
       sampleHeight(
         tile,
-        (x * cos + y * sin + (settings.offsetX ?? 0)) / settings.tileMm,
-        (x * sin - y * cos + (settings.offsetY ?? 0)) / settings.tileMm,
+        (x + (settings.offsetX ?? 0)) / settings.tileMm,
+        (-y + (settings.offsetY ?? 0)) / settings.tileMm,
       ) - settings.baseline;
     points.setZ(
       i,
