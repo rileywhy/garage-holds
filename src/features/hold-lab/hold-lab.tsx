@@ -739,6 +739,7 @@ export function HoldLab({
                   />
                 ))}
               {name === "Shape" &&
+                "seed" in schema.defaults &&
                 !schema.seedless?.includes(String(parameters.shape)) && (
                   <div className="lab-seed">
                     <label className="lab-field">

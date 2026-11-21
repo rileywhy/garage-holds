@@ -28,6 +28,7 @@ const NOUNS: Record<Kind, string> = {
   foot: "foothold",
   pocket: "pocket hold",
   pinch: "pinch",
+  roundpinch: "round pinch",
 };
 
 function outline(
@@ -142,6 +143,8 @@ function caption(kind: Kind, p: Parameters) {
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
     } · ${p.incut} mm incut`;
+  if (kind === "roundpinch")
+    return `${p.width} mm span · ${p.rounding} mm rounding · incut ${p.thumb_incut} mm thumb side below, ${p.finger_incut} mm finger side above`;
   if (kind === "pinch")
     return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;

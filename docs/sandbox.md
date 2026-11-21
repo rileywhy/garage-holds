@@ -20,15 +20,16 @@ Stop the existing sandbox before starting another copy.
 The ignored `.env.local` points the labs at loopback addresses (the commented
 lines at the end of `.env.example` are these):
 
-| Service    | Address                          |
-| ---------- | -------------------------------- |
-| Next.js    | http://127.0.0.1:3000            |
-| Crimp API  | http://127.0.0.1:8766/api/crimp  |
-| Sloper API | http://127.0.0.1:8771/api/sloper |
-| Jug API    | http://127.0.0.1:8781/api/jug    |
-| Foot API   | http://127.0.0.1:8785/api/foot   |
-| Pocket API | http://127.0.0.1:8795/api/pocket |
-| Pinch API  | http://127.0.0.1:8796/api/pinch  |
+| Service         | Address                              |
+| --------------- | ------------------------------------ |
+| Next.js         | http://127.0.0.1:3000                |
+| Crimp API       | http://127.0.0.1:8766/api/crimp      |
+| Sloper API      | http://127.0.0.1:8771/api/sloper     |
+| Jug API         | http://127.0.0.1:8781/api/jug        |
+| Foot API        | http://127.0.0.1:8785/api/foot       |
+| Pocket API      | http://127.0.0.1:8795/api/pocket     |
+| Pinch API       | http://127.0.0.1:8796/api/pinch      |
+| Round Pinch API | http://127.0.0.1:8798/api/roundpinch |
 
 The Custom Shape Lab's generator is a Next.js route (`/api/custom-shape`)
 that runs the Python in `tools/custom-shape-generator`; its own GUI starts
@@ -107,4 +108,5 @@ Run the Python checks with:
 .\.venv\Scripts\python.exe -m unittest discover -s tools/foot-generator/tests
 .\.venv\Scripts\python.exe -m unittest discover -s tools/pocket-generator/tests
 .\.venv\Scripts\python.exe -m unittest discover -s tools/pinch-generator/tests
+.\.venv\Scripts\python.exe -m unittest discover -s tools/round-pinch-generator/tests
 ```

@@ -16,6 +16,7 @@ Free, open-source tools for designing 3D printable climbing holds for home walls
 | [Foot](https://garageholds.com/make/foot)                 | Board edges, toe-in edges, chips, smears, balls and dishes (experimental)     |
 | [Pocket](https://garageholds.com/make/pocket)             | Mono, two- and three-finger pockets (experimental)                            |
 | [Pinch](https://garageholds.com/make/pinch)               | Blocks to squeeze, with lean, undercut and offset on each side (experimental) |
+| [Round Pinch](https://garageholds.com/make/roundpinch)    | A rounder, more incut pinch, on trial beside the Pinch Lab (experimental)     |
 | [Custom Shape](https://garageholds.com/make/custom-shape) | Paint your own silhouette and turn it into a hold (being reworked)            |
 
 Every lab keeps its settings in the address bar, so a Copy link button shares the exact hold.

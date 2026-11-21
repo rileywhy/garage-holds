@@ -6,7 +6,14 @@
 // starting-point menu under "My presets".
 
 export type PresetLab =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "roundpinch"
+  | "custom-shape";
 export const PRESET_LABS: PresetLab[] = [
   "crimp",
   "sloper",
@@ -14,8 +21,15 @@ export const PRESET_LABS: PresetLab[] = [
   "foot",
   "pocket",
   "pinch",
+  "roundpinch",
   "custom-shape",
 ];
+// The labs whose presets can be kept on the account: the ones the
+// lab_presets table's lab check accepts. The Round Pinch Lab is on trial and
+// saves to this browser only, until a migration adds it to that check.
+export const ACCOUNT_PRESET_LABS: PresetLab[] = PRESET_LABS.filter(
+  (lab) => lab !== "roundpinch",
+);
 export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   crimp: "Crimp Lab",
   sloper: "Sloper Lab",
@@ -23,6 +37,7 @@ export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   foot: "Foot Lab",
   pocket: "Pocket Lab",
   pinch: "Pinch Lab",
+  roundpinch: "Round Pinch Lab",
   "custom-shape": "Custom Shape Lab",
 };
 
@@ -125,7 +140,7 @@ export function defaultPresetName(lab: PresetLab, parameters: object): string {
                     : number(p.pocket_depth) &&
                       `${number(p.pocket_depth)} mm deep`,
                 ]
-              : lab === "pinch"
+              : lab === "pinch" || lab === "roundpinch"
                 ? [
                     number(p.width) && `${number(p.width)} mm pinch`,
                     typeof p.offset === "number" && p.offset > 0

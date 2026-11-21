@@ -1,4 +1,4 @@
-// Where the six labs differ. Everything else about them is one shell,
+// Where the parametric labs differ. Everything else about them is one shell,
 // hold-lab.tsx: the same generator contract, controls, presets, links,
 // viewer and export.
 import { VIEW_ORDER, type ViewName } from "@/features/model-viewer/viewer";
@@ -60,6 +60,8 @@ export const LAB_KINDS: Record<Kind, LabKind> = {
     seedHint:
       "Seeds wave the sides in and out along the pinch; the back stays put. Reset returns to the clean default.",
   },
+  // No seed: the round pinch has no character control.
+  roundpinch: { ...rounded, color: 0xc2410c, views: VIEW_ORDER },
 };
 
 // What a preview does to the lab once it lands: the settings the sliders
