@@ -112,34 +112,6 @@ def recess_radius(hole, z):
     return hole.head / 2
 
 
-def assert_recesses_enclosed(case, model):
-    """Every recess, its shank and its bore sit inside the body with 1 mm
-    to spare, at every height from the wall until the bore leaves through
-    the top; there, a vertical line around each hole leaves the body once,
-    above its recess."""
-    case.assertTrue(model.holes)
-    solid = loft(model.parameters, "preview")[0]
-    for hole in model.holes:
-        cone = 0 if hole.bolt else (hole.head - hole.shank) / 2
-        exits = []
-        for a in np.linspace(0, 2 * math.pi, 24, endpoint=False):
-            r = hole.head / 2 + 0.5
-            hits = crossings(
-                solid, hole.x + r * math.cos(a), hole.y + r * math.sin(a)
-            )
-            case.assertEqual(len(hits), 1)
-            case.assertGreater(hits[0], hole.seat + cone + 1)
-            exits.append(hits[0])
-        turn = np.linspace(0, 2 * math.pi, 48, endpoint=False)
-        for z in np.arange(0.5, min(exits) - 0.5, 1.0):
-            rings = solid.slice(z).to_polygons()
-            r = recess_radius(hole, z) + 1.0
-            circle = np.column_stack(
-                (hole.x + r * np.cos(turn), hole.y + r * np.sin(turn))
-            )
-            case.assertTrue(_inside(circle, rings).all(), f"z={z}")
-
-
 def across(outline, z):
     """Where a closed (x, z) outline crosses the height z: its leftmost and
     rightmost points there."""
@@ -443,7 +415,28 @@ class PinchTests(unittest.TestCase):
         # out and back in (RIL-37).
         for p in UNDERCUT if DEEP else UNDERCUT[:3]:
             with self.subTest(values=asdict(p)):
-                assert_recesses_enclosed(self, build(p))
+                model = build(p)
+                self.assertTrue(model.holes)
+                solid = loft(model.parameters, "preview")[0]
+                for hole in model.holes:
+                    cone = 0 if hole.bolt else (hole.head - hole.shank) / 2
+                    exits = []
+                    for a in np.linspace(0, 2 * math.pi, 24, endpoint=False):
+                        r = hole.head / 2 + 0.5
+                        hits = crossings(
+                            solid, hole.x + r * math.cos(a), hole.y + r * math.sin(a)
+                        )
+                        self.assertEqual(len(hits), 1)
+                        self.assertGreater(hits[0], hole.seat + cone + 1)
+                        exits.append(hits[0])
+                    turn = np.linspace(0, 2 * math.pi, 48, endpoint=False)
+                    for z in np.arange(0.5, min(exits) - 0.5, 1.0):
+                        rings = solid.slice(z).to_polygons()
+                        r = recess_radius(hole, z) + 1.0
+                        circle = np.column_stack(
+                            (hole.x + r * np.cos(turn), hole.y + r * np.sin(turn))
+                        )
+                        self.assertTrue(_inside(circle, rings).all(), f"z={z}")
 
     def test_body_has_no_facet_creases(self):
         # The lofted body is sampled finely enough that the preview shades

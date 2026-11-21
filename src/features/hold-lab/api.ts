@@ -1,5 +1,5 @@
-// The generator contract behind the Crimp, Sloper, Jug, Foot, Pocket and
-// Pinch Labs. GET /api/<kind> returns the control schema; POST runs an
+// The generator contract behind the Crimp, Sloper, Jug, Foot, Pocket, Pinch and
+// Round Pinch Labs. GET /api/<kind> returns the control schema; POST runs an
 // action on a set of settings. Python is the one source of limits, defaults
 // and presets, so a lab fetches its schema at load instead of repeating any
 // of it here.
@@ -9,7 +9,8 @@ import {
   labRequest,
 } from "@/features/labs/lab-request";
 
-export type Kind = "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch";
+export type Kind =
+  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "roundpinch";
 export const KIND_LABELS: Record<Kind, string> = {
   crimp: "Crimp",
   sloper: "Sloper",
@@ -17,6 +18,7 @@ export const KIND_LABELS: Record<Kind, string> = {
   foot: "Foot",
   pocket: "Pocket",
   pinch: "Pinch",
+  roundpinch: "Round Pinch",
 };
 
 export interface Control {
@@ -165,6 +167,7 @@ const DESIGN_VERSIONS: Record<Kind, number> = {
   foot: 2,
   pocket: 1,
   pinch: 1,
+  roundpinch: 1,
 };
 // Settings that older files leave out, with the value that keeps the saved
 // shape as it was: crimps saved before the count control had two screws

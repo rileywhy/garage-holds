@@ -408,11 +408,6 @@ export function HoldLab({
     setPresetName(saved.find((p) => p.id === savedId(preset))?.name ?? "");
     setNaming(true);
   }
-  // A seed only varies a shape whose character it drives: the pinch's
-  // rounded style has none.
-  const character = schema?.controls.find((c) => c.key === "character");
-  const seeded =
-    !character?.shapes || character.shapes.includes(String(parameters.shape));
   // One click: the shape on screen, named after its settings. Rename after.
   async function saveAsPreset() {
     if (!schema || !design) return;
@@ -741,7 +736,7 @@ export function HoldLab({
                     auto={autoToggle(control.key)}
                   />
                 ))}
-              {name === "Shape" && seeded && (
+              {name === "Shape" && "seed" in schema.defaults && (
                 <div className="lab-seed">
                   <label className="lab-field">
                     <span>Variation seed</span>

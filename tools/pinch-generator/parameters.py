@@ -29,14 +29,6 @@ class Parameters:
     base_flare: float = 0
     character: float = 0
     seed: int = 0
-    # The rounded pinch only (rounded.py): the round each side rolls over,
-    # how far each side cuts back under it, the fall of the top toward the
-    # ends, and the crescent the pinch bends into.
-    rounding: float = 16
-    thumb_incut: float = 9
-    finger_incut: float = 9
-    arch: float = 70
-    bend: float = 0
     # Mounting, shared with the other labs. A wider pinch levers harder, so
     # by default it takes more screws as it grows (see SCREW_SPAN).
     auto_screw_count: bool = True
@@ -65,9 +57,6 @@ def control(key, label, group, low, high, step, unit, help, **extra):
     )
 
 
-# The classic pinch's tops; the rounded pinch is a body of its own.
-CLASSIC = ["flat", "domed", "ridged"]
-
 CONTROLS = [
     control(
         "width",
@@ -77,7 +66,7 @@ CONTROLS = [
         110,
         1,
         "mm",
-        "Thumb to fingers, before overall scale: across the top edges of a classic pinch, across the widest point of a rounded one. Most hands pinch 40–60 mm comfortably; wider is harder.",
+        "Thumb to fingers, across the top edges, before overall scale. Most hands pinch 40–60 mm comfortably; wider is harder.",
     ),
     control(
         "depth",
@@ -98,7 +87,6 @@ CONTROLS = [
         1,
         "°",
         "Negative undercuts the side, a lip to pinch behind: the more undercut, the better it holds. Positive leans it in toward the top, a wedge that slips. Relative to the wall's normal, not a grade.",
-        shapes=CLASSIC,
     ),
     control(
         "finger_angle",
@@ -109,7 +97,6 @@ CONTROLS = [
         1,
         "°",
         "The same for the side your fingers wrap: negative undercuts, positive leans in.",
-        shapes=CLASSIC,
     ),
     control(
         "offset",
@@ -130,7 +117,6 @@ CONTROLS = [
         0.5,
         "mm",
         "Bows each side in, deepest a third of the way up from the wall, so it curves in under the edge instead of running straight. Before overall scale; eased when the pinch would get too thin.",
-        shapes=CLASSIC,
     ),
     control(
         "edge_radius",
@@ -141,40 +127,6 @@ CONTROLS = [
         0.5,
         "mm",
         "Rounds the edges your thumb and fingers wrap, and the ridge on a ridged top. Smaller bites; bigger is kinder and slopier.",
-        shapes=CLASSIC,
-    ),
-    control(
-        "rounding",
-        "Rounding",
-        "Grip",
-        6,
-        30,
-        0.5,
-        "mm",
-        "The round each side rolls over, from its widest point onto the top: what your thumb and finger pads wrap. Bigger is kinder and slopier. Before overall scale; limited by the span and the depth.",
-        shapes=["rounded"],
-    ),
-    control(
-        "thumb_incut",
-        "Thumb incut",
-        "Grip",
-        0,
-        16,
-        0.5,
-        "mm",
-        "How far the thumb side cuts back under its round, a hollow to pinch behind: the deeper, the better it holds. Zero is a straight side. Before overall scale; eased when the hollow would be too steep to print or the pinch too thin.",
-        shapes=["rounded"],
-    ),
-    control(
-        "finger_incut",
-        "Finger incut",
-        "Grip",
-        0,
-        16,
-        0.5,
-        "mm",
-        "The same for the side your fingers wrap: a hollow for the fingertips under the round.",
-        shapes=["rounded"],
     ),
     control(
         "top_rise",
@@ -185,7 +137,7 @@ CONTROLS = [
         0.5,
         "mm",
         "How far the middle of the top stands above the line between its edges, before overall scale.",
-        shapes=["domed", "ridged", "rounded"],
+        shapes=["domed", "ridged"],
     ),
     control(
         "size",
@@ -246,29 +198,6 @@ CONTROLS = [
         0.5,
         "mm",
         "Widens the foot of each side into the wall, before overall scale. Zero runs the sides straight to the wall.",
-        shapes=CLASSIC,
-    ),
-    control(
-        "arch",
-        "Arch",
-        "Shape",
-        0,
-        100,
-        1,
-        "%",
-        "How the top falls away toward each end, seen from the side: a level top that drops at the ends at 0, a full arch standing tallest in the middle at 100.",
-        shapes=["rounded"],
-    ),
-    control(
-        "bend",
-        "Bend",
-        "Shape",
-        0,
-        25,
-        0.5,
-        "mm",
-        "Bends the pinch into a crescent, fingers on the outside and thumb on the inside. Before overall scale; limited by the length.",
-        shapes=["rounded"],
     ),
     control(
         "character",
@@ -279,7 +208,6 @@ CONTROLS = [
         0.05,
         "",
         "Seeded waviness along the sides for a less uniform pinch. Zero is smooth.",
-        shapes=CLASSIC,
     ),
     control(
         "screw_count",
@@ -309,15 +237,9 @@ CONTROLS = [
 # overall scale, and one more for every 30 mm past that, up to six.
 SCREW_SPAN = 60
 SCREW_STEP = 30
-SHAPES = {
-    "rounded": "Rounded, incut sides",
-    "flat": "Classic, flat top",
-    "domed": "Classic, domed top",
-    "ridged": "Classic, ridged top",
-}
+SHAPES = {"flat": "Flat top", "domed": "Domed top", "ridged": "Ridged top"}
 
 BASE = Parameters()
-ROUNDED = replace(BASE, shape="rounded")
 # Each preset fits as written: nothing has to grow or give.
 PRESETS = {
     "Block pinch": BASE,
@@ -384,72 +306,6 @@ PRESETS = {
         offset=40,
         edge_radius=11,
     ),
-    # The rounded pinches (rounded.py): a full round on each side over a
-    # hollow cut back beneath it.
-    "Rounded pinch": ROUNDED,
-    "Rounded wide pinch": replace(
-        ROUNDED,
-        width=96,
-        depth=52,
-        rounding=22,
-        thumb_incut=10,
-        finger_incut=10,
-        top_rise=9,
-        height=125,
-    ),
-    # A crescent, like the incut pinches of commercial sets: fingers
-    # round the outside of the curve, thumb in the hollow of the inside.
-    "Crescent pinch": replace(
-        ROUNDED,
-        width=58,
-        depth=46,
-        thumb_incut=8,
-        finger_incut=10,
-        height=132,
-        end_rounding=85,
-        arch=85,
-        bend=14,
-    ),
-    # Plump all over: an oval on the wall under a full arch.
-    "Egg pinch": replace(
-        ROUNDED,
-        width=74,
-        depth=56,
-        rounding=26,
-        top_rise=10,
-        height=112,
-        end_rounding=100,
-        arch=100,
-        taper=15,
-    ),
-    "Rounded hour glass": replace(
-        ROUNDED,
-        width=90,
-        depth=50,
-        rounding=20,
-        hourglass=24,
-        height=142,
-        end_rounding=45,
-        arch=55,
-    ),
-    "Rounded offset pinch": replace(
-        ROUNDED,
-        width=64,
-        depth=54,
-        offset=35,
-        thumb_incut=5,
-        finger_incut=12,
-    ),
-    "Slim rounded pinch": replace(
-        ROUNDED,
-        width=44,
-        depth=42,
-        rounding=14,
-        thumb_incut=6,
-        finger_incut=6,
-        top_rise=5,
-        height=100,
-    ),
 }
 
 
@@ -501,7 +357,7 @@ def schema():
         defaults=asdict(BASE),
         presets={key: asdict(value) for key, value in PRESETS.items()},
         shapes=SHAPES,
-        shapeLabel="Style",
+        shapeLabel="Top",
         autoScrewCount=True,
         controls=CONTROLS,
     )

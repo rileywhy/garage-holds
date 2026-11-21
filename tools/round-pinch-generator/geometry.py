@@ -1,32 +1,42 @@
-"""The rounded pinch: a full, round lip on each side standing over a hollow
-cut back beneath it, so a side is incut and rounded at once.
+"""A round pinch: a full, round lip on each side standing over a hollow cut
+back beneath it, so a side is incut and rounded at once.
 
-The classic pinch (geometry.py) is a polygon with filleted corners: its
-undercut is a straight face, and rounding its edge eats the undercut. Here
-the section is one smooth curve. Each side leaves the wall square, sweeps
-out through a hollow to the widest point of the pinch, and rolls over a
-quarter round onto a domed top. The pads wrap the round and the fingertips
-sit in the hollow under it; neither takes anything from the other.
+The Pinch Lab's section (tools/pinch-generator) is a polygon with filleted
+corners: its undercut is a straight face, and rounding its edge eats the
+undercut. Here the section is one smooth curve. Each side leaves the wall
+square, sweeps out through a hollow to the widest point of the pinch, and
+rolls over a quarter round onto a domed top. The pads wrap the round and
+the fingertips sit in the hollow under it; neither takes anything from the
+other.
 
 Along the wall the section is scaled, not capped: its span follows a
 rounded outline and its depth an arch, so the pinch stands tallest and
 fullest in the middle and rolls down to the wall at each end, and the
-hollows fade out toward the ends with the depth. X, Y and Z are as in
-geometry.py: thumb side at -X, Y up the wall, Z out of it.
+hollows fade out toward the ends with the depth. X runs across the hold,
+thumb side at -X; Y runs up the wall, Z out of it, and the back sits on
+Z=0. The hardware fitting, the growth it may ask for and the model it
+returns are the Pinch Lab's (its build), given this body.
 """
 
+import importlib
 import math
 from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
 
 if __package__:
-    from .solid import lofted_solid
+    from .parameters import CONTROLS, parse_parameters
 else:
-    from solid import lofted_solid
+    from parameters import CONTROLS, parse_parameters
 
-# The least width the pinch keeps between its hollows, as in the classic
-# pinch: a narrower span keeps its own width, uncut.
+# Namespace imports keep this engine separate from the Pinch Lab's modules.
+pinch = importlib.import_module("tools.pinch-generator.geometry")
+lofted_solid = importlib.import_module("tools.pinch-generator.solid").lofted_solid
+
+LIMITS = {control["key"]: (control["min"], control["max"]) for control in CONTROLS}
+# The least width the pinch keeps between its hollows, as in the Pinch
+# Lab: a narrower span keeps its own width, uncut.
 WAIST = 16.0
 # A hollow's steepest slope from the wall's normal. The pinch prints with
 # its back on the bed, so the hollow is an overhang: 45 degrees prints
@@ -259,3 +269,17 @@ def screw_targets(p, proxy, count):
     reach = float(np.clip(level - p.head_diameter / 2, half * 0.4, half * 0.65))
     rows = [0.0] if count == 1 else np.linspace(-reach, reach, count)
     return [(float(bend(p, (y + t) / (length / 2))), y + t) for t in rows]
+
+
+BODY = SimpleNamespace(
+    parse=parse_parameters,
+    fit=fit,
+    loft=loft,
+    targets=screw_targets,
+    limits=LIMITS,
+    rounding="rounding",
+)
+
+
+def build(requested, quality="preview"):
+    return pinch.build(requested, quality, BODY)

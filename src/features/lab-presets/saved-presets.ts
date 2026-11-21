@@ -6,7 +6,14 @@
 // starting-point menu under "My presets".
 
 export type PresetLab =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "roundpinch"
+  | "custom-shape";
 export const PRESET_LABS: PresetLab[] = [
   "crimp",
   "sloper",
@@ -14,6 +21,7 @@ export const PRESET_LABS: PresetLab[] = [
   "foot",
   "pocket",
   "pinch",
+  "roundpinch",
   "custom-shape",
 ];
 export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
@@ -23,6 +31,7 @@ export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   foot: "Foot Lab",
   pocket: "Pocket Lab",
   pinch: "Pinch Lab",
+  roundpinch: "Round Pinch Lab",
   "custom-shape": "Custom Shape Lab",
 };
 
@@ -125,7 +134,7 @@ export function defaultPresetName(lab: PresetLab, parameters: object): string {
                     : number(p.pocket_depth) &&
                       `${number(p.pocket_depth)} mm deep`,
                 ]
-              : lab === "pinch"
+              : lab === "pinch" || lab === "roundpinch"
                 ? [
                     number(p.width) && `${number(p.width)} mm pinch`,
                     typeof p.offset === "number" && p.offset > 0

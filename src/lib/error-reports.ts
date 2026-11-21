@@ -115,6 +115,7 @@ export const CLIENT_ROUTES = [
   "/make/jug",
   "/make/pinch",
   "/make/pocket",
+  "/make/roundpinch",
   "/make/sloper",
   "/phone/[session]",
   "/privacy",

@@ -1,24 +1,102 @@
-"""The rounded pinch (rounded.py): its section, its fall toward the ends,
-what it eases, and where its hardware goes. The sweeps every style shares
-(closed exports, random settings, reopened designs) are in test_geometry."""
+"""The round pinch: its section, its fall toward the ends, what it eases,
+where its hardware goes, and that every setting exports a closed solid."""
 
 import math
+import os
+import random
 import sys
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from geometry import build, loft
-from parameters import PRESETS, ROUNDED
-from rounded import BEND_SHARE, HOLLOW_SLOPE, WAIST
-from test_geometry import across, assert_recesses_enclosed, crossings
+from geometry import BEND_SHARE, HOLLOW_SLOPE, WAIST, build, loft
+from parameters import BASE, CONTROLS, PRESETS, design_document, parse_parameters
 
-PLAIN = replace(ROUNDED, screws=False)
-NAMES = [name for name, p in PRESETS.items() if p.shape == "rounded"]
+from tools.hold_mounting import _inside
+
+# Push CI samples the sweep with fixed seeds. The nightly deep run
+# (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
+# count and HOLD_TESTS_SEED for fresh seeds, printed in its log.
+DEEP = os.environ.get("HOLD_TESTS_DEEP") == "1"
+SEED = int(os.environ.get("HOLD_TESTS_SEED", "0"))
+
+PLAIN = replace(BASE, screws=False)
+NAMES = list(PRESETS)
+
+
+def random_settings(rng):
+    """One setting per control, on its step, anywhere in its range."""
+    values = {}
+    for control in CONTROLS:
+        steps = int(round((control["max"] - control["min"]) / control["step"]))
+        value = control["min"] + rng.randint(0, steps) * control["step"]
+        values[control["key"]] = (
+            int(value) if control["key"] == "screw_count" else round(value, 4)
+        )
+    values.update(
+        screws=rng.random() < 0.85,
+        bolt_mount=rng.random() < 0.3,
+        auto_screw_count=rng.random() < 0.5,
+        auto_seat=rng.random() < 0.6,
+    )
+    return values
+
+
+def crossings(solid, x, y):
+    """The heights where a vertical line through (x, y) crosses the
+    surface, from just off the wall outward."""
+    return [hit.position[2] for hit in solid.ray_cast((x, y, 0.01), (x, y, 500))]
+
+
+def recess_radius(hole, z):
+    """The radius of a hole's cutter at height z: the shank below the seat,
+    the countersink cone above it (none under a bolt), then the head."""
+    cone = 0 if hole.bolt else (hole.head - hole.shank) / 2
+    if z < hole.seat:
+        return hole.shank / 2
+    if z < hole.seat + cone:
+        return hole.shank / 2 + (z - hole.seat)
+    return hole.head / 2
+
+
+def assert_recesses_enclosed(case, model):
+    """Every recess, its shank and its bore sit inside the body with 1 mm
+    to spare, at every height from the wall until the bore leaves through
+    the top; there, a vertical line around each hole leaves the body once,
+    above its recess."""
+    case.assertTrue(model.holes)
+    solid = loft(model.parameters, "preview")[0]
+    for hole in model.holes:
+        cone = 0 if hole.bolt else (hole.head - hole.shank) / 2
+        exits = []
+        for a in np.linspace(0, 2 * math.pi, 24, endpoint=False):
+            r = hole.head / 2 + 0.5
+            hits = crossings(solid, hole.x + r * math.cos(a), hole.y + r * math.sin(a))
+            case.assertEqual(len(hits), 1)
+            case.assertGreater(hits[0], hole.seat + cone + 1)
+            exits.append(hits[0])
+        turn = np.linspace(0, 2 * math.pi, 48, endpoint=False)
+        for z in np.arange(0.5, min(exits) - 0.5, 1.0):
+            rings = solid.slice(z).to_polygons()
+            r = recess_radius(hole, z) + 1.0
+            circle = np.column_stack(
+                (hole.x + r * np.cos(turn), hole.y + r * np.sin(turn))
+            )
+            case.assertTrue(_inside(circle, rings).all(), f"z={z}")
+
+
+def across(outline, z):
+    """Where a closed (x, z) outline crosses the height z: its leftmost and
+    rightmost points there."""
+    a, b = outline, np.roll(outline, -1, axis=0)
+    crossing = (a[:, 1] - z) * (b[:, 1] - z) < 0
+    a, b = a[crossing], b[crossing]
+    x = a[:, 0] + (z - a[:, 1]) / (b[:, 1] - a[:, 1]) * (b[:, 0] - a[:, 0])
+    return x.min(), x.max()
 
 
 def centre(p):
@@ -43,7 +121,7 @@ def steepest(outline, finger):
     return math.degrees(math.atan((run[climb > 1e-9] / climb[climb > 1e-9]).max()))
 
 
-class RoundedPinchTests(unittest.TestCase):
+class RoundPinchTests(unittest.TestCase):
     def test_presets_build_as_written(self):
         self.assertGreaterEqual(len(NAMES), 5)
         for name in NAMES:
@@ -51,6 +129,14 @@ class RoundedPinchTests(unittest.TestCase):
                 model = build(PRESETS[name])
                 self.assertEqual(model.adjusted, {})
                 self.assertTrue(model.holes)
+                export = build(PRESETS[name], "export")
+                for mesh in (model.mesh, export.mesh):
+                    self.assertTrue(mesh.is_watertight and mesh.is_winding_consistent)
+                    self.assertGreater(mesh.volume, 0)
+                self.assertGreater(len(export.mesh.faces), len(model.mesh.faces))
+                np.testing.assert_allclose(
+                    export.mesh.extents, model.mesh.extents, atol=0.6
+                )
                 limit = model.preview()["control_limits"].get("rounding", 30)
                 self.assertGreaterEqual(limit, PRESETS[name].rounding)
 
@@ -68,7 +154,7 @@ class RoundedPinchTests(unittest.TestCase):
             self.assertGreater(widest(outline, finger), 0.3 * 50)
 
     def test_rounding_takes_nothing_from_the_incut(self):
-        # The reason for this style: a bigger round lowers the widest point
+        # The reason for this lab: a bigger round lowers the widest point
         # and leaves the feet, and so the incut, where they were.
         small, large = (centre(replace(PLAIN, rounding=r)) for r in (8, 22))
         for outline in (small, large):
@@ -199,7 +285,7 @@ class RoundedPinchTests(unittest.TestCase):
             dict(offset=40, finger_incut=14, auto_seat=False, seat_depth=10),
         ):
             with self.subTest(**change):
-                assert_recesses_enclosed(self, build(replace(ROUNDED, **change)))
+                assert_recesses_enclosed(self, build(replace(BASE, **change)))
 
     def test_body_has_no_facet_creases(self):
         for name in NAMES:
@@ -214,6 +300,45 @@ class RoundedPinchTests(unittest.TestCase):
                 self.assertLess(
                     np.degrees(faces.face_adjacency_angles[off_wall]).max(), 20
                 )
+
+    def test_random_settings_export_closed_solids(self):
+        # A seeded sweep across every control. The generator may refuse a
+        # setting with a message, but whatever it builds is one closed
+        # solid, within the sliders, and reopens as the same hold.
+        rng = random.Random(SEED)
+        built = 0
+        for index in range(240 if DEEP else 30):
+            values = random_settings(rng)
+            with self.subTest(seed=SEED, index=index, values=values):
+                try:
+                    model = build(parse_parameters(values), "export")
+                except ValueError:
+                    continue
+                built += 1
+                self.assertTrue(model.mesh.is_watertight)
+                self.assertGreater(model.mesh.volume, 0)
+                p = model.parameters
+                self.assertEqual(parse_parameters(asdict(p)), p)
+                again = build(
+                    parse_parameters(design_document(p)["parameters"]), "export"
+                )
+                self.assertEqual(again.parameters, p)
+                np.testing.assert_allclose(
+                    again.mesh.extents, model.mesh.extents, atol=1e-6
+                )
+        self.assertGreater(built, 20 if not DEEP else 150)
+
+    def test_validation(self):
+        for values in (
+            {"width": float("nan")},
+            {"auto_screw_count": 1},
+            {"screw_count": 1.5},
+            {"shape": "domed"},
+            {"unknown": 0},
+        ):
+            with self.assertRaises(ValueError):
+                parse_parameters(values)
+        self.assertEqual(parse_parameters({"rounding": 99}).rounding, 30)
 
     def test_scale_is_direct(self):
         small, large = build(PLAIN), build(replace(PLAIN, size=200))
