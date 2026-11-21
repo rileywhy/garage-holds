@@ -137,8 +137,8 @@
   },
   "pocket": {
     "dimensions": [103.98, 103.98, 48.85],
-    "triangles": 6148,
-    "screws": 2,
+    "triangles": 6666,
+    "screws": 3,
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
@@ -159,7 +159,7 @@
       "character": 0,
       "seed": 0,
       "screws": true,
-      "screw_count": 2,
+      "screw_count": 3,
       "auto_seat": true,
       "seat_depth": 20,
       "shank_diameter": 5.5,
@@ -168,8 +168,8 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 626884,
-    "stlSha256": "5d290cf489413e02d8e5220b26cfdb2d953a0cb85470e6cad1b77bec161bed36"
+    "stlBytes": 650484,
+    "stlSha256": "82e00e9c22b4eca5cfad0af3a1b59b256ac550d19d9525e9bcf4c2beb577f142"
   },
   "pinch": {
     "dimensions": [58.97, 110, 54.97],

@@ -29,7 +29,7 @@ class Parameters:
     seed: int = 0
     # Mounting, shared with the other labs.
     screws: bool = True
-    screw_count: int = 2
+    screw_count: int = 3
     auto_seat: bool = True
     seat_depth: float = 3
     shank_diameter: float = hardware.SHANK_DIAMETER
@@ -69,7 +69,7 @@ CONTROLS = [
         "Opening height",
         "Grip",
         18,
-        45,
+        60,
         1,
         "mm",
         "Room for your fingers to curl. Equal to the width gives a round hole.",
@@ -79,7 +79,7 @@ CONTROLS = [
         "Pocket depth",
         "Grip",
         12,
-        60,
+        90,
         1,
         "mm",
         "Measured into the hold along the floor. One finger pad is about 20 mm, two pads about 40.",
@@ -140,7 +140,7 @@ CONTROLS = [
         "Depth",
         "Shape",
         20,
-        70,
+        100,
         1,
         "mm",
         "Stand-off from the wall at the middle, before overall scale. Open to the wall, this is how deep the pocket runs; closed, it grows to keep a 6 mm floor behind the pocket.",
@@ -203,7 +203,7 @@ CONTROLS = [
         3,
         1,
         "",
-        "Two screws sit beside the pocket. Three adds one below it; one is for small bodies.",
+        "Two screws sit beside the pocket and a third below it. Two or one suit smaller bodies.",
     ),
     control(
         "seat_depth",
@@ -225,7 +225,7 @@ TOGGLES = [
         key="through",
         label="Open to the wall",
         group="Grip",
-        help="The pocket runs back to the wall, which is its floor: the roof and floor curl onto it. Off, the pocket is closed behind with at least 6 mm of floor.",
+        help="The pocket runs back to the wall, which is its floor: the roof and floor curl onto it, and the Depth slider under Shape sets how deep it runs. Off, the pocket is closed behind with at least 6 mm of floor.",
     ),
 ]
 
@@ -234,7 +234,7 @@ BASE = Parameters()
 # the mouth, where a crowned face sits lower than the depth slider; the
 # deep and slopey presets go further and less far. Openings are about 20 mm
 # a finger, and each body is sized to its opening and to screws either side
-# of it (and a third centred below).
+# of it. The default and the three-finger pocket add a third centred below.
 PRESETS = {
     "Two-finger pocket": BASE,
     "Mono": replace(
@@ -246,6 +246,7 @@ PRESETS = {
         width=79,
         height=79,
         depth=54,
+        screw_count=2,
     ),
     "Three-finger pocket": replace(
         BASE,
@@ -256,10 +257,15 @@ PRESETS = {
         width=124,
         height=102,
         depth=54,
-        screw_count=3,
     ),
     "Deep two-finger": replace(
-        BASE, pocket_depth=60, incut=10, width=104, height=104, depth=68
+        BASE,
+        pocket_depth=60,
+        incut=10,
+        width=104,
+        height=104,
+        depth=68,
+        screw_count=2,
     ),
     "Slopey pocket": replace(
         BASE,
@@ -271,6 +277,7 @@ PRESETS = {
         width=100,
         height=100,
         depth=44,
+        screw_count=2,
     ),
     "Pocket rail": replace(
         BASE,
@@ -281,6 +288,7 @@ PRESETS = {
         opening_height=26,
         pocket_depth=46,
         incut=12,
+        screw_count=2,
     ),
 }
 

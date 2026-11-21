@@ -134,7 +134,7 @@ class PocketTests(unittest.TestCase):
             replace(
                 PRESETS["Two-finger pocket"],
                 through=False,
-                pocket_depth=50,
+                pocket_depth=80,
                 incut=14,
                 lip_radius=6,
                 size=60,
@@ -143,7 +143,7 @@ class PocketTests(unittest.TestCase):
         )
         self.assertGreaterEqual(small.floor, FLOOR - 0.1)
         self.assertIn("pocket_depth", small.adjusted)
-        self.assertLessEqual(small.parameters.depth, 70)
+        self.assertLessEqual(small.parameters.depth, 100)
 
     def test_open_pocket_reaches_the_wall(self):
         closed = build(
@@ -170,7 +170,8 @@ class PocketTests(unittest.TestCase):
             return [
                 replace(p, through=not p.through),
                 replace(p, bolt_mount=True),
-                replace(p, screw_count=3),
+                # Two screws where the preset has three, and three where two.
+                replace(p, screw_count=5 - p.screw_count),
                 replace(p, through=not p.through, bolt_mount=True),
             ]
 
@@ -637,8 +638,8 @@ class PocketTests(unittest.TestCase):
         # line, never crowded in beside one of the pair (Riley's screenshot:
         # the three-finger preset had it 11 mm from its neighbour).
         cases = list(PRESETS.items()) + [
-            ("default, three screws", replace(BASE, screw_count=3)),
-            ("closed, three screws", replace(BASE, through=False, screw_count=3)),
+            ("default, two screws", replace(BASE, screw_count=2)),
+            ("closed, three screws", replace(BASE, through=False)),
         ]
         for name, p in cases:
             with self.subTest(name=name):
