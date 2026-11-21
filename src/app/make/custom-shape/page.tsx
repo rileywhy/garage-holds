@@ -1,10 +1,11 @@
-﻿import type { Metadata } from "next";
-import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
-export const metadata: Metadata = {
-  title: "Custom Shape Lab",
+﻿import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
+import { pageMetadata } from "@/lib/page-metadata";
+export const metadata = pageMetadata({
+  title: "Custom Shape Lab: draw a climbing hold, export an STL",
   description:
     "Paint your own climbing hold, place mounting holes, and export a printable STL.",
-};
+  path: "/make/custom-shape",
+});
 export default function Page() {
   return (
     <main className="main-container lab-page">
