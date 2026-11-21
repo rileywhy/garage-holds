@@ -16,10 +16,10 @@ exports agree with previews.
 
 import math
 from dataclasses import asdict, replace
+from types import SimpleNamespace
 
 import manifold3d as manifold
 import numpy as np
-import trimesh
 
 if __package__:
     from .crimp_engine import geometry as crimp
@@ -29,6 +29,7 @@ if __package__:
         SCREW_STEP,
         parse_parameters,
     )
+    from .solid import lofted_solid
 else:
     from crimp_engine import geometry as crimp
     from parameters import (
@@ -37,6 +38,7 @@ else:
         SCREW_STEP,
         parse_parameters,
     )
+    from solid import lofted_solid
 
 from tools.hold_mounting import (
     automatic_seat,
@@ -397,30 +399,7 @@ def loft(p, quality):
             right.append(b)
             along.append(y)
     region = list(zip(right, along)) + list(zip(left[::-1], along[::-1]))
-    vertices = np.vstack(([[0, -length / 2, 0]], *rings, [[0, length / 2, 0]]))
-    n, count = len(contour), len(rings)
-    faces = []
-    for j in range(n):
-        k = (j + 1) % n
-        faces.append((0, 1 + k, 1 + j))
-        for i in range(count - 1):
-            a, b = 1 + i * n + j, 1 + i * n + k
-            faces.extend(((a, b, b + n), (a, b + n, a + n)))
-        a, b = 1 + (count - 1) * n + j, 1 + (count - 1) * n + k
-        faces.append((a, b, len(vertices) - 1))
-    mesh = trimesh.Trimesh(vertices, faces, process=True)
-    if mesh.volume < 0:
-        mesh.invert()
-    solid = manifold.Manifold(
-        manifold.Mesh(
-            np.asarray(mesh.vertices, dtype=np.float32),
-            np.asarray(mesh.faces, dtype=np.uint32),
-        )
-    )
-    if solid.status() != manifold.Error.NoError or solid.is_empty():
-        raise ValueError(
-            "The pinch could not form a closed solid. Try less extreme shape settings."
-        )
+    solid = lofted_solid(rings, [0, -length / 2, 0], [0, length / 2, 0])
     centre = ring(0.0, 1.0)[:, [0, 2]]
     if p.hourglass > 0 or p.taper > 0:
         # The narrowest sections have the least room to round.
@@ -514,9 +493,9 @@ def screw_targets(p, proxy, count):
 
 
 class Model:
-    def __init__(self, mesh, p, requested, profile, holes, cap):
+    def __init__(self, mesh, p, requested, profile, holes, cap, body):
         self.mesh, self.parameters, self.profile = mesh, p, profile
-        self.holes, self.cap = holes, cap
+        self.holes, self.cap, self.body = holes, cap, body
         # Only report changes the person did not ask for: an automatic seat
         # or screw count landing somewhere is the feature, not an adjustment.
         skipped = {"seat_depth"} if p.auto_seat else set()
@@ -541,21 +520,36 @@ class Model:
             material_grams=crimp.estimate_material(self.mesh),
             triangles=len(self.mesh.faces),
             watertight=bool(self.mesh.is_watertight),
-            # Short sides or a narrow top cap the edge rounding; the lab
-            # limits the slider to what was built.
+            # Short sides or a narrow top cap the rounding; the lab limits
+            # the slider to what was built.
             control_limits=(
-                {"edge_radius": math.floor(self.cap * 10) / 10}
-                if self.cap < LIMITS["edge_radius"][1]
+                {self.body.rounding: math.floor(self.cap * 10) / 10}
+                if self.cap < self.body.limits[self.body.rounding][1]
                 else {}
             ),
         )
 
 
-def build(requested, quality="preview"):
+# What build needs of a pinch body: its settings parser, how it eases its
+# sides to stand on enough of a neck, its loft, where its screws aim, its
+# sliders' limits and the name of its rounding control. The Round Pinch Lab
+# (tools/round-pinch-generator) brings its own.
+CLASSIC = SimpleNamespace(
+    parse=parse_parameters,
+    fit=fit_waist,
+    loft=loft,
+    targets=screw_targets,
+    limits=LIMITS,
+    rounding="edge_radius",
+)
+
+
+def build(requested, quality="preview", body=CLASSIC):
     if quality not in QUALITY:
         raise ValueError("Unknown mesh quality.")
-    requested = parse_parameters(asdict(requested))
-    p = fit_waist(requested)
+    limits, loft, screw_targets = body.limits, body.loft, body.targets
+    requested = body.parse(asdict(requested))
+    p = body.fit(requested)
     # A wider pinch levers harder on the wall: chosen from the size, it
     # takes one more screw for every SCREW_STEP its span runs past
     # SCREW_SPAN, after overall scale. A bolt is only ever asked for.
@@ -563,7 +557,7 @@ def build(requested, quality="preview"):
     if automatic:
         past = p.width * p.size / 100 - SCREW_SPAN
         count = 2 + max(0, math.ceil(past / SCREW_STEP))
-        p = replace(p, screw_count=min(LIMITS["screw_count"][1], count))
+        p = replace(p, screw_count=min(limits["screw_count"][1], count))
     holes = []
     # The body may grow for the hardware, but never past what the sliders
     # allow: the design carries the settings built, and a reopened design
@@ -601,7 +595,7 @@ def build(requested, quality="preview"):
             if p.bolt_mount
             else screw_layout(p, proxy, target, targets=targets, floor=lowest)
         )
-        grown = replace(p, height=min(LIMITS["height"][1], p.height + 4))
+        grown = replace(p, height=min(limits["height"][1], p.height + 4))
         # Screws belong in a line up the pinch. A layout that could only set
         # them side by side takes a taller pinch, as screws that do not fit
         # at all would, until the sliders run out; a count chosen from the
@@ -637,4 +631,4 @@ def build(requested, quality="preview"):
     if len(solid.decompose()) != 1:
         raise ValueError(message)
     mesh = closed_mesh(solid, message)
-    return Model(mesh, p, requested, profile, holes, cap)
+    return Model(mesh, p, requested, profile, holes, cap, body)

@@ -2,7 +2,14 @@
 // by LabSlug, like the carousel's artwork framing, then needs its entry
 // before the type checker is satisfied.
 export type LabSlug =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "roundpinch"
+  | "custom-shape";
 
 export interface LabInfo {
   slug: LabSlug;
@@ -61,6 +68,16 @@ export const LABS: LabInfo[] = [
     name: "Pinch Lab",
     short: "pinch",
     href: "/make/pinch",
+    image: "/images/hold-labs/pinch.webp",
+    status: "experimental",
+  },
+  // A second take on the pinch, beside the first while the two are
+  // compared; it borrows the Pinch Lab's artwork until it has its own.
+  {
+    slug: "roundpinch",
+    name: "Round Pinch Lab",
+    short: "round pinch",
+    href: "/make/roundpinch",
     image: "/images/hold-labs/pinch.webp",
     status: "experimental",
   },

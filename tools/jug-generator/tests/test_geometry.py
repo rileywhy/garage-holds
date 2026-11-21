@@ -15,6 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
 from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+
+# The jug-shaped presets; the Handlebar has its own tests (test_handlebar.py).
+JUGS = {name: p for name, p in PRESETS.items() if p.shape == "jug"}
 from tools.hold_mounting import MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
@@ -174,7 +177,7 @@ class GeometryTests(unittest.TestCase):
                 distances.extend(np.linalg.norm(point - (a + t[:, None] * edges), axis=1))
             return min(distances)
 
-        for preset in PRESETS.values():
+        for preset in JUGS.values():
             for bolt in (False, True):
                 for wrap in (0, preset.end_wrap):
                     with self.subTest(width=preset.width, bolt=bolt, wrap=wrap):
@@ -214,7 +217,7 @@ class GeometryTests(unittest.TestCase):
                     np.testing.assert_allclose(a, b)
 
     def test_jug_uses_the_crimp_engine_exactly(self):
-        for p in PRESETS.values():
+        for p in JUGS.values():
             jug, original = (
                 build(p),
                 crimp.build(
@@ -257,7 +260,7 @@ class GeometryTests(unittest.TestCase):
             )
 
     def test_presets_export_closed_solids_with_consistent_mounting(self):
-        for name, p in PRESETS.items():
+        for name, p in JUGS.items():
             with self.subTest(preset=name):
                 a, b = build(p), build(p, "export")
                 self.assertTrue(a.mesh.is_watertight)
@@ -304,7 +307,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(deep[3], {})
 
     def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
-        widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
+        widths = {name: build(p).mesh.extents[0] for name, p in JUGS.items()}
         for name in ("Board jug", "Deep jug"):
             self.assertGreater(widths["Two-handed jug"], 1.9 * widths[name])
         self.assertLessEqual(widths["Two-handed jug"], 256 * 0.95)
@@ -365,7 +368,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(full.adjusted, {})
 
     def test_no_preset_at_any_size_leaves_a_thin_seat(self):
-        for name, preset in PRESETS.items():
+        for name, preset in JUGS.items():
             for size in (75, 85, 100, 140):
                 with self.subTest(name=name, size=size):
                     model = build(replace(preset, size=size))
@@ -376,7 +379,7 @@ class GeometryTests(unittest.TestCase):
         # plywood screws low on the hold were pulled out. Each hole sits at
         # the top of the back face it can come out through: a millimetre
         # higher and it would no longer have its clearance.
-        for name, preset in PRESETS.items():
+        for name, preset in JUGS.items():
             with self.subTest(preset=name):
                 model = build(preset)
                 # The same body without its holes, and where a hole centre
@@ -475,7 +478,7 @@ class GeometryTests(unittest.TestCase):
         self.assertGreater(above.mesh.volume, shallow.mesh.volume)
 
     def test_automatic_span_uses_finished_width(self):
-        for preset in PRESETS.values():
+        for preset in JUGS.values():
             model = build(preset)
             self.assertGreaterEqual(model.parameters.screw_spacing / model.mesh.extents[0], 0.59)
 

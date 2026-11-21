@@ -114,6 +114,10 @@ const labs = {
     "Pinch Lab",
     "A block between thumb and fingers: span,\nside angles and offset. Export an STL.",
   ],
+  roundpinch: [
+    "Round Pinch Lab",
+    "A rounder, more incut pinch: a full round\nover a hollow. Export a printable STL.",
+  ],
   "custom-shape": [
     "Custom Shape Lab",
     "Paint a silhouette, shape the grip, place\nthe screws. Export a printable STL.",
@@ -125,7 +129,8 @@ for (const [slug, [title, text]] of Object.entries(labs))
     eyebrow: "Hold Labs · garageholds.com",
     title,
     text,
-    render: slug,
+    // The Round Pinch Lab borrows the Pinch Lab's render while on trial.
+    render: slug === "roundpinch" ? "pinch" : slug,
   });
 
 async function card({ file, eyebrow, title, text, render }) {

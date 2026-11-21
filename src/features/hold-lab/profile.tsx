@@ -110,6 +110,7 @@ const NOUNS: Record<Kind, string> = {
   foot: "foothold",
   pocket: "pocket hold",
   pinch: "pinch",
+  roundpinch: "round pinch",
 };
 
 function outline(
@@ -219,12 +220,16 @@ function CrimpProfile({
 }
 
 function caption(kind: Kind, p: Parameters) {
+  if (kind === "jug" && p.shape === "handlebar")
+    return `${p.bar_thickness} mm bar · ${p.bar_clearance} mm finger gap · ${p.bar_span} mm hand room`;
   if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
   if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
   if (kind === "pocket")
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
     } · ${p.incut} mm incut`;
+  if (kind === "roundpinch")
+    return `${p.width} mm span · ${p.rounding} mm rounding · incut ${p.thumb_incut} mm thumb side below, ${p.finger_incut} mm finger side above`;
   if (kind === "pinch")
     return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
