@@ -97,7 +97,11 @@
       "arc_rise": 5,
       "size": 100,
       "grip_quality": 90,
-      "screw_arc": 0
+      "screw_arc": 0,
+      "shape": "jug",
+      "bar_span": 100,
+      "bar_clearance": 45,
+      "bar_thickness": 32
     },
     "stlBytes": 1574284,
     "stlSha256": "bfc6376efa499358f2d60aeed71fe41ee7c95c83ce78fa53f8ea3b05bb12d3a5"

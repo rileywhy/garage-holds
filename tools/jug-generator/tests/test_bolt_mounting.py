@@ -12,10 +12,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from geometry import build
 from parameters import PRESETS, parse_parameters
 
+# The jug-shaped presets; the Handlebar has its own tests (test_handlebar.py).
+JUGS = {name: p for name, p in PRESETS.items() if p.shape == "jug"}
+
 
 class BoltMountingTests(unittest.TestCase):
     def test_all_presets_bolt_and_one_screw_export_consistently(self):
-        for name, p in PRESETS.items():
+        for name, p in JUGS.items():
             with self.subTest(preset=name):
                 requested = replace(p, bolt_mount=True)
                 preview, exported = build(requested), build(requested, "export")
