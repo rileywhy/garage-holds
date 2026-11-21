@@ -19,9 +19,9 @@ from dataclasses import asdict, replace
 
 import manifold3d as manifold
 import numpy as np
-import trimesh
 
 if __package__:
+    from . import rounded
     from .crimp_engine import geometry as crimp
     from .parameters import (
         CONTROLS,
@@ -29,7 +29,9 @@ if __package__:
         SCREW_STEP,
         parse_parameters,
     )
+    from .solid import lofted_solid
 else:
+    import rounded
     from crimp_engine import geometry as crimp
     from parameters import (
         CONTROLS,
@@ -37,6 +39,7 @@ else:
         SCREW_STEP,
         parse_parameters,
     )
+    from solid import lofted_solid
 
 from tools.hold_mounting import (
     automatic_seat,
@@ -325,6 +328,14 @@ def waves(p, span):
 
 
 def loft(p, quality):
+    """The body of either pinch: the rounded one's (rounded.py) or the
+    classic one's, with the same results."""
+    if p.shape == "rounded":
+        return rounded.loft(p, quality)
+    return classic_loft(p, quality)
+
+
+def classic_loft(p, quality):
     """The pinch body, its centre section in (x, z), the plan region a
     vertical line can cross from the wall out through the top without
     touching either side (where hardware may go) and its widest point, and
@@ -397,30 +408,7 @@ def loft(p, quality):
             right.append(b)
             along.append(y)
     region = list(zip(right, along)) + list(zip(left[::-1], along[::-1]))
-    vertices = np.vstack(([[0, -length / 2, 0]], *rings, [[0, length / 2, 0]]))
-    n, count = len(contour), len(rings)
-    faces = []
-    for j in range(n):
-        k = (j + 1) % n
-        faces.append((0, 1 + k, 1 + j))
-        for i in range(count - 1):
-            a, b = 1 + i * n + j, 1 + i * n + k
-            faces.extend(((a, b, b + n), (a, b + n, a + n)))
-        a, b = 1 + (count - 1) * n + j, 1 + (count - 1) * n + k
-        faces.append((a, b, len(vertices) - 1))
-    mesh = trimesh.Trimesh(vertices, faces, process=True)
-    if mesh.volume < 0:
-        mesh.invert()
-    solid = manifold.Manifold(
-        manifold.Mesh(
-            np.asarray(mesh.vertices, dtype=np.float32),
-            np.asarray(mesh.faces, dtype=np.uint32),
-        )
-    )
-    if solid.status() != manifold.Error.NoError or solid.is_empty():
-        raise ValueError(
-            "The pinch could not form a closed solid. Try less extreme shape settings."
-        )
+    solid = lofted_solid(rings, [0, -length / 2, 0], [0, length / 2, 0])
     centre = ring(0.0, 1.0)[:, [0, 2]]
     if p.hourglass > 0 or p.taper > 0:
         # The narrowest sections have the least room to round.
@@ -451,6 +439,15 @@ def neck(p, y):
 
 
 def fit_waist(requested):
+    """Ease the sides until the pinch stands on enough of a neck: the
+    rounded pinch's incuts (rounded.fit), or the classic one's swoop and
+    undercut."""
+    if requested.shape == "rounded":
+        return rounded.fit(requested)
+    return classic_waist(requested)
+
+
+def classic_waist(requested):
     """Ease any swoop, then any undercut, until the pinch keeps WAIST
     between its sides (or its own span, when that is narrower) everywhere
     below its edges, all along its length."""
@@ -483,6 +480,13 @@ def mounting_proxy(solid, region):
 
 
 def screw_targets(p, proxy, count):
+    """Where either pinch's screws aim."""
+    if p.shape == "rounded":
+        return rounded.screw_targets(p, proxy, count)
+    return classic_targets(p, proxy, count)
+
+
+def classic_targets(p, proxy, count):
     """Screws in a line up the middle of the pinch, spread up the wall
     where it levers: one in the middle, or evenly from one end of the line
     to the other. The outer two keep to the level part of the top, so each
@@ -517,6 +521,7 @@ class Model:
     def __init__(self, mesh, p, requested, profile, holes, cap):
         self.mesh, self.parameters, self.profile = mesh, p, profile
         self.holes, self.cap = holes, cap
+        self.rounding = "rounding" if p.shape == "rounded" else "edge_radius"
         # Only report changes the person did not ask for: an automatic seat
         # or screw count landing somewhere is the feature, not an adjustment.
         skipped = {"seat_depth"} if p.auto_seat else set()
@@ -541,11 +546,11 @@ class Model:
             material_grams=crimp.estimate_material(self.mesh),
             triangles=len(self.mesh.faces),
             watertight=bool(self.mesh.is_watertight),
-            # Short sides or a narrow top cap the edge rounding; the lab
-            # limits the slider to what was built.
+            # Short sides or a narrow top cap the rounding; the lab limits
+            # the slider to what was built.
             control_limits=(
-                {"edge_radius": math.floor(self.cap * 10) / 10}
-                if self.cap < LIMITS["edge_radius"][1]
+                {self.rounding: math.floor(self.cap * 10) / 10}
+                if self.cap < LIMITS[self.rounding][1]
                 else {}
             ),
         )
@@ -578,7 +583,7 @@ def build(requested, quality="preview"):
         head = p.bolt_head_diameter if p.bolt_mount else p.head_diameter
         if widest < max(head + 3, p.shank_diameter + 4):
             raise ValueError(
-                f"The {'bolt recess does' if p.bolt_mount else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the edge rounding, ease the undercut, or turn holes off."
+                f"The {'bolt recess does' if p.bolt_mount else 'screw recesses do'} not fit across this pinch's top. Widen the span, lower the rounding, ease the undercut or incut, or turn holes off."
             )
         depth = p.depth * p.size / 100
         # A taller pinch has no more room above the wall for a recess, so

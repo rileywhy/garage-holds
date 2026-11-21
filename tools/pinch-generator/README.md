@@ -11,11 +11,32 @@ labelled experimental on the site: it generates, exports a closed solid and
 mounts, and the controls may still move around.
 
 `parameters.py` owns controls, switches and presets; `geometry.py` owns the
-section, the loft and the fitting. The material estimate comes from the
+classic section and loft and the fitting both styles share; `rounded.py` owns
+the rounded style's body; `solid.py` closes either loft into a solid. The material estimate comes from the
 Crimp engine (`crimp_engine.py` loads `tools/crimp-generator` under a
 namespace). Hardware clearance checks, the screw layout, the bolt fitting,
 the cutters and the closed-solid check are the shared ones in
 `tools/hold_mounting.py`.
+
+The lab has two styles, chosen with Style. The rounded one ("Rounded, incut
+sides", `rounded.py`) was added because the classic one trades comfort for
+grip: its undercut is a straight face, and rounding its edge eats the
+undercut. The rounded section is one smooth curve instead. Each side leaves
+the wall square, sweeps out through a hollow to the pinch's widest point,
+and rolls over a quarter round onto a shallow domed top, so the pads wrap
+the round and the fingertips sit in the hollow under it. Rounding and incut
+are separate controls and neither takes from the other. The hollow is
+steepest halfway up and never past 45 degrees, so it prints back-down
+without support, and the incuts ease until 16 mm is left between the
+hollows. Along the wall the section is scaled rather than capped: the span
+follows a rounded outline (Rounded ends, oval to block) and the depth an
+arch (Arch), so the pinch stands fullest in the middle, and the hollows
+fade toward the ends. Bend curves it into a crescent with the fingers on the
+outside. Its hardware keeps inside both feet and off the steep half of each
+round, in a line that follows the bend. Span is measured at the widest
+point here, not across top edges. The classic style, described next, is
+unchanged and still the default, because shared links store only what
+differs from the defaults.
 
 X runs across the hold, thumb side at -X; Y runs up the wall, Z out of it.
 The section across the pinch is a polygon with filleted corners, as the
