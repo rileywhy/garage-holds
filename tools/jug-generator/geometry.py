@@ -1,13 +1,17 @@
 """Jug Lab's calibrated controls mapped onto the shared shape engine."""
 
 import math
+
+import numpy as np
 from dataclasses import asdict, replace
 
 if __package__:
+    from . import handlebar
     from .crimp_engine import geometry as crimp
     from .crimp_engine import parameters as crimp_settings
     from .parameters import parse_parameters
 else:
+    import handlebar
     from crimp_engine import geometry as crimp
     from crimp_engine import parameters as crimp_settings
     from parameters import parse_parameters
@@ -25,7 +29,10 @@ SCALED = (
 
 def engine_parameters(p):
     values = asdict(p)
-    for key in ("end_wrap", "arc_rise", "size", "grip_quality", "screw_arc"):
+    for key in (
+        "end_wrap", "arc_rise", "size", "grip_quality", "screw_arc",
+        "shape", "bar_span", "bar_clearance", "bar_thickness",
+    ):
         values.pop(key)
     factor = p.size / 100
     limits = {item["key"]: item for item in crimp_settings.CONTROLS}
@@ -85,10 +92,72 @@ class Model:
         )
 
 
+class HandlebarModel:
+    """A handlebar answers the lab the way a jug does, so the page and the
+    export need not know which shape they hold."""
+
+    def __init__(self, model, requested):
+        self.mesh = model.mesh
+        self.profile = model.profile
+        self.screws = model.screws
+        self.bolts = model.bolts
+        # Settings a handlebar does not read keep their values, so switching
+        # back to the jug finds them as they were; only the seat it built
+        # and its fixed hardware choices are reported.
+        self.parameters = replace(
+            requested, seat_depth=model.seat_depth, bolt_mount=False
+        )
+        self.adjusted = {
+            key: value
+            for key, value in asdict(self.parameters).items()
+            if not (key == "seat_depth" and requested.auto_seat)
+            and not _same(value, asdict(requested)[key])
+        }
+
+    def preview(self):
+        mesh = self.mesh
+        return dict(
+            material_grams=crimp.estimate_material(mesh),
+            seat_depth=self.parameters.seat_depth,
+            vertices=np.round(mesh.vertices, 5).tolist(),
+            faces=mesh.faces.tolist(),
+            profile=np.round(self.profile, 5).tolist(),
+            screws=self.screws,
+            bolts=self.bolts,
+            control_limits={},
+            control_ranges={},
+            dimensions=np.round(mesh.extents, 2).tolist(),
+            volume_cm3=round(mesh.volume / 1000, 2),
+            triangles=len(mesh.faces),
+            screw_spacing=None,
+            watertight=bool(mesh.is_watertight),
+            parameters=asdict(self.parameters),
+            adjusted=self.adjusted,
+        )
+
+
+def _build_handlebar(p, quality):
+    factor = p.size / 100
+    model = handlebar.build(
+        span=p.bar_span * factor,
+        clearance=p.bar_clearance * factor,
+        thickness=p.bar_thickness * factor,
+        screws=p.screws,
+        shank_diameter=p.shank_diameter,
+        head_diameter=p.head_diameter,
+        auto_seat=p.auto_seat,
+        seat_depth=p.seat_depth,
+        quality=quality,
+    )
+    return HandlebarModel(model, p)
+
+
 def build(requested, quality="preview"):
     if quality not in {"preview", "export"}:
         raise ValueError("Unknown mesh quality.")
     p = parse_parameters(asdict(requested))
+    if p.shape == "handlebar":
+        return _build_handlebar(p, quality)
     base = engine_parameters(p)
     model = crimp.build(
         base,

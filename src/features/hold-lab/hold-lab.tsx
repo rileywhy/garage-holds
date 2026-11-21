@@ -646,15 +646,17 @@ export function HoldLab({
                     />
                     Mounting holes
                   </label>
-                  <label className="lab-toggle">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(parameters.bolt_mount)}
-                      disabled={!screws}
-                      onChange={(e) => change("bolt_mount", e.target.checked)}
-                    />
-                    Bolt + one screw
-                  </label>
+                  {!schema.boltless?.includes(String(parameters.shape)) && (
+                    <label className="lab-toggle">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(parameters.bolt_mount)}
+                        disabled={!screws}
+                        onChange={(e) => change("bolt_mount", e.target.checked)}
+                      />
+                      Bolt + one screw
+                    </label>
+                  )}
                   {Boolean(parameters.bolt_mount) && (
                     <p className="lab-hint">
                       One flat-bottom M10 bolt recess and one countersunk
@@ -736,32 +738,33 @@ export function HoldLab({
                     auto={autoToggle(control.key)}
                   />
                 ))}
-              {name === "Shape" && (
-                <div className="lab-seed">
-                  <label className="lab-field">
-                    <span>Variation seed</span>
-                    <div className="lab-seed-row">
-                      <input
-                        type="number"
-                        min={0}
-                        max={999999}
-                        step={1}
-                        value={Number(parameters.seed)}
-                        onChange={(e) => variation(e.target.valueAsNumber)}
-                      />
-                      <button
-                        className="button button-outline"
-                        type="button"
-                        onClick={newVariation}
-                      >
-                        <Shuffle size={15} />
-                        New variation
-                      </button>
-                    </div>
-                  </label>
-                  <p className="lab-hint">{lab.seedHint}</p>
-                </div>
-              )}
+              {name === "Shape" &&
+                !schema.seedless?.includes(String(parameters.shape)) && (
+                  <div className="lab-seed">
+                    <label className="lab-field">
+                      <span>Variation seed</span>
+                      <div className="lab-seed-row">
+                        <input
+                          type="number"
+                          min={0}
+                          max={999999}
+                          step={1}
+                          value={Number(parameters.seed)}
+                          onChange={(e) => variation(e.target.valueAsNumber)}
+                        />
+                        <button
+                          className="button button-outline"
+                          type="button"
+                          onClick={newVariation}
+                        >
+                          <Shuffle size={15} />
+                          New variation
+                        </button>
+                      </div>
+                    </label>
+                    <p className="lab-hint">{lab.seedHint}</p>
+                  </div>
+                )}
             </div>
           ))}
         <div className="lab-settings-row">
