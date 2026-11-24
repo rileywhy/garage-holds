@@ -5,7 +5,7 @@ import os
 import random
 import sys
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
 from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
+
+# The jug-shaped presets; the Handlebar has its own tests (test_handlebar.py).
+JUGS = {name: p for name, p in PRESETS.items() if p.shape == "jug"}
+from tools.hold_mounting import MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -44,6 +48,16 @@ PINHOLE_JUGS = [
         bolt_head_diameter=30, screw_count=6, auto_spacing=True, screw_spacing=345,
         shank_diameter=9.4, head_diameter=24.5, auto_seat=True, seat_depth=80.0,
         end_wrap=145, arc_rise=22.0, size=86, grip_quality=109, screw_arc=11.0,
+    ),
+    # Undrilled, where the wrapped centre ring touches the trim plane
+    # (nightly seed 42387351262).
+    dict(
+        width=61, edge_depth=67.0, lip_radius=8.0, body_height=124,
+        body_rounding=30.0, end_rounding=51.5, bow=-23.5, taper=-10, character=2.9,
+        seed=277870, screws=False, bolt_mount=False, bolt_diameter=13.8,
+        bolt_head_diameter=23.5, screw_count=6, auto_spacing=True, screw_spacing=258,
+        shank_diameter=6.2, head_diameter=8.7, auto_seat=False, seat_depth=2.0,
+        end_wrap=8, arc_rise=10.5, size=131, grip_quality=56, screw_arc=4.5,
     ),
 ]
 
@@ -83,8 +97,8 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_random_settings_export_closed_solids(self):
-        # A seeded sweep across the control ranges, plus the two settings
-        # that used to be refused at export. The mounting solver may say
+        # A seeded sweep across the control ranges, plus the settings that
+        # used to be refused at export. The mounting solver may say
         # there is no room, in words; anything else must export closed.
         rng = random.Random(2026 + SEED)
         count = 40 if DEEP else 3
@@ -147,9 +161,11 @@ class GeometryTests(unittest.TestCase):
         for name in ("Board jug", "Deep jug"):
             p = PRESETS[name]
             model = build(p)
-            left, middle, right = model.screws
+            left, *inner, right = model.screws
+            self.assertEqual(len(inner), 2)
             self.assertGreaterEqual(right[0] - left[0], p.width * 0.32)
-            self.assertLess(middle[1], min(left[1], right[1]) - 5)
+            for middle in inner:
+                self.assertLess(middle[1], min(left[1], right[1]) - 5)
 
     def test_mounting_clearance_from_body_edges(self):
         def boundary_distance(point, contours):
@@ -161,7 +177,7 @@ class GeometryTests(unittest.TestCase):
                 distances.extend(np.linalg.norm(point - (a + t[:, None] * edges), axis=1))
             return min(distances)
 
-        for preset in PRESETS.values():
+        for preset in JUGS.values():
             for bolt in (False, True):
                 for wrap in (0, preset.end_wrap):
                     with self.subTest(width=preset.width, bolt=bolt, wrap=wrap):
@@ -184,7 +200,7 @@ class GeometryTests(unittest.TestCase):
     def test_deeper_mounting_arc_for_odd_and_even_hole_counts(self):
         for count in range(2, 7):
             with self.subTest(count=count):
-                p = Parameters(screw_count=count, width=240, body_height=125)
+                p = Parameters(screw_count=count, width=240, body_height=125, screw_arc=6)
                 model, exported = build(p), build(p, "export")
                 neutral = build(replace(model.parameters, auto_seat=False, screw_arc=0))
                 self.assertEqual(model.screws, exported.screws)
@@ -201,7 +217,7 @@ class GeometryTests(unittest.TestCase):
                     np.testing.assert_allclose(a, b)
 
     def test_jug_uses_the_crimp_engine_exactly(self):
-        for p in PRESETS.values():
+        for p in JUGS.values():
             jug, original = (
                 build(p),
                 crimp.build(
@@ -244,7 +260,7 @@ class GeometryTests(unittest.TestCase):
             )
 
     def test_presets_export_closed_solids_with_consistent_mounting(self):
-        for name, p in PRESETS.items():
+        for name, p in JUGS.items():
             with self.subTest(preset=name):
                 a, b = build(p), build(p, "export")
                 self.assertTrue(a.mesh.is_watertight)
@@ -269,18 +285,40 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(model.parameters.grip_quality, 90)
         self.assertEqual(model.parameters.incut, 56)
         self.assertGreaterEqual(model._model.lip_radius, 7)
-        self.assertEqual(len(model.screws), 3)
+        self.assertEqual(len(model.screws), 4)
         self.assertAlmostEqual(model.mesh.bounds[0, 2], 0)
 
+    def test_deep_jug_is_deeper_and_more_incut_than_the_board_jug(self):
+        def grip(name):
+            # Measured on the built centre section: the lip rounding and arc
+            # rise both change what the reach and bite settings promise.
+            model = build(PRESETS[name])
+            y, z = model.profile.T
+            top = int(np.argmax(y))
+            wall = top + int(np.argmax(z[top:] < 1e-6))
+            incut = np.degrees(np.arctan2(y[wall - 1] - y[wall], z[wall - 1]))
+            return y[top] - y[wall], model.mesh.extents[2], incut, model.adjusted
+
+        board, deep = grip("Board jug"), grip("Deep jug")
+        # The trough behind the lip, the projection and the shelf's incut.
+        self.assertGreater(deep[0], 1.5 * board[0])
+        self.assertGreater(deep[1], board[1] + 15)
+        self.assertGreater(deep[2], board[2] + 2)
+        self.assertEqual(deep[3], {})
+
     def test_two_handed_jug_is_nearly_twice_as_wide_and_fits_a_bed(self):
-        widths = {name: build(p).mesh.extents[0] for name, p in PRESETS.items()}
+        widths = {name: build(p).mesh.extents[0] for name, p in JUGS.items()}
         for name in ("Board jug", "Deep jug"):
             self.assertGreater(widths["Two-handed jug"], 1.9 * widths[name])
         self.assertLessEqual(widths["Two-handed jug"], 256 * 0.95)
         model = build(PRESETS["Two-handed jug"])
-        self.assertEqual(len(model.screws), 4)
+        self.assertEqual(len(model.screws), 5)
         xs = sorted(x for x, _ in model.screws)
-        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.35)
+        # The row reaches toward both ends, and the end holes sit above
+        # the three between them, near the hold's top corners.
+        self.assertGreater(xs[-1] - xs[0], widths["Two-handed jug"] * 0.78)
+        ys = [y for _, y in sorted(model.screws)]
+        self.assertGreater(min(ys[0], ys[-1]), max(ys[1:-1]) + 8)
 
     def test_body_height_changes_geometry_and_manual_span_is_exact(self):
         low = build(Parameters(body_height=130))
@@ -295,14 +333,83 @@ class GeometryTests(unittest.TestCase):
             self.assertEqual(preview.screws, exported.screws)
             self.assertFalse(preview.parameters.auto_spacing)
 
-    def test_automatic_span_increases_with_hole_count(self):
+    def test_automatic_span_is_at_least_the_span_for_its_hole_count(self):
+        # Each count has its own share of the mounting width, growing with
+        # the count; the row is then spread as far past it as still fits.
         for width in (158, 240):
-            spans = []
             for count in range(2, 7):
                 model = build(Parameters(width=width, screw_count=count))
                 self.assertEqual(len(model.screws), count)
-                spans.append(model.screws[-1][0] - model.screws[0][0])
-            self.assertTrue((np.diff(spans) > 0).all(), spans)
+                span = model.screws[-1][0] - model.screws[0][0]
+                share = 0.60 + 0.02 * (count - 2)
+                self.assertGreaterEqual(span, model.mesh.extents[0] * share - 0.01)
+                self.assertLessEqual(span, model.mesh.extents[0] * crimp.JUG_END_REACH + 0.01)
+
+    def test_a_small_jug_closes_its_row_to_keep_plastic_under_the_heads(self):
+        # At 75% the Deep jug's ends are too thin for a screw. Four screws
+        # were refused there, and three sat on 1.5 mm of plastic; the row
+        # now closes up toward the middle, where the body is thick, and the
+        # hold stays the size it was asked to be.
+        small = replace(PRESETS["Deep jug"], size=75)
+        full = build(PRESETS["Deep jug"])
+        model, exported = build(small), build(small, "export")
+        self.assertEqual(len(model.screws), 4)
+        self.assertEqual(model.screws, exported.screws)
+        self.assertTrue(exported.mesh.is_watertight)
+        self.assertGreaterEqual(model.parameters.seat_depth, MIN_SEAT)
+        share = lambda m: (m.screws[-1][0] - m.screws[0][0]) / m.mesh.extents[0]
+        self.assertLess(share(model), share(full) - 0.05)
+        self.assertLess(model.mesh.extents[1], full.mesh.extents[1])
+        # A seat set by hand drills the same holes at its own depth.
+        manual = build(replace(small, auto_seat=False, seat_depth=6))
+        self.assertEqual(manual.screws, model.screws)
+        np.testing.assert_allclose(manual.mesh.bounds, model.mesh.bounds)
+        # A jug that already fits keeps its full row and its height.
+        self.assertEqual(full.adjusted, {})
+
+    def test_no_preset_at_any_size_leaves_a_thin_seat(self):
+        for name, preset in JUGS.items():
+            for size in (75, 85, 100, 140):
+                with self.subTest(name=name, size=size):
+                    model = build(replace(preset, size=size))
+                    self.assertGreaterEqual(model.parameters.seat_depth, MIN_SEAT)
+
+    def test_every_screw_sits_as_high_as_it_fits(self):
+        # A jug is levered off the wall about its bottom edge, and on weak
+        # plywood screws low on the hold were pulled out. Each hole sits at
+        # the top of the back face it can come out through: a millimetre
+        # higher and it would no longer have its clearance.
+        for name, preset in JUGS.items():
+            with self.subTest(preset=name):
+                model = build(preset)
+                # The same body without its holes, and where a hole centre
+                # may sit in it at the seat the model used.
+                blank = build(replace(preset, screws=False))
+                np.testing.assert_allclose(blank.mesh.extents, model.mesh.extents, atol=1e-6)
+                engine = replace(
+                    engine_parameters(parse_parameters(asdict(preset))),
+                    body_height=model._model.parameters.body_height,
+                )
+                room = crimp._screw_room(
+                    engine, crimp._solid(blank.mesh),
+                    float(model.parameters.seat_depth), edge_clearance=5.0,
+                )
+                screws = np.array(model.screws)
+                self.assertTrue(crimp._inside_mask(screws, room).all())
+                self.assertFalse(crimp._inside_mask(screws + [0, 1.0], room).any())
+
+    def test_inner_screws_lean_toward_the_ends(self):
+        # The back face reaches higher toward a jug's ends, so the inner
+        # pair of four sits 55% of the way out instead of a third.
+        left, inner, _, right = build(PRESETS["Board jug"]).screws
+        self.assertAlmostEqual(inner[0] / left[0], crimp.JUG_SPREAD, places=2)
+        # The Board jug's inner pair used to sit at y = -32; it is now well
+        # above that, and the outer pair higher still.
+        self.assertGreater(inner[1], -25)
+        self.assertGreater(left[1], inner[1] + 8)
+        # A row whose recesses would crowd each other stays evenly spaced.
+        crowded = np.array(build(Parameters(screw_count=6)).screws)[:, 0]
+        np.testing.assert_allclose(np.diff(crowded), np.diff(crowded)[0], atol=1e-6)
 
     def test_manual_span_limit_is_the_largest_slider_value_that_fits(self):
         oversized = build(Parameters(auto_spacing=False, screw_spacing=360))
@@ -320,7 +427,7 @@ class GeometryTests(unittest.TestCase):
         )
 
     def test_screw_arc_control_and_saved_settings(self):
-        self.assertEqual(parse_parameters({}).screw_arc, 3)
+        self.assertEqual(parse_parameters({}).screw_arc, 0)
         self.assertEqual(parse_parameters({"screw_arc": 30}).screw_arc, 20)
         for invalid in (True, "6", float("nan")):
             with self.assertRaises(ValueError):
@@ -371,7 +478,7 @@ class GeometryTests(unittest.TestCase):
         self.assertGreater(above.mesh.volume, shallow.mesh.volume)
 
     def test_automatic_span_uses_finished_width(self):
-        for preset in PRESETS.values():
+        for preset in JUGS.values():
             model = build(preset)
             self.assertGreaterEqual(model.parameters.screw_spacing / model.mesh.extents[0], 0.59)
 

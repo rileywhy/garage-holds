@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowUpRight,
-  Check,
-  Layers3,
   LoaderCircle,
   CircleCheck,
 } from "lucide-react";
@@ -212,9 +210,6 @@ function UploadDesignForm({
       </Link>
       <div className="page-intro">
         <h1>Upload a hold design</h1>
-        <p>
-          Add your model files and the details other makers need to print them.
-        </p>
       </div>
       <div className="upload-layout">
         <form
@@ -387,42 +382,6 @@ function UploadDesignForm({
             </div>
           )}
         </form>
-        <aside className="upload-aside">
-          <Layers3 size={31} strokeWidth={1.3} />
-          <h3>
-            Built for makers.
-            <br />
-            Made for climbing.
-          </h3>
-          <p>
-            The useful details are the ones you wish you’d known before pressing
-            print.
-          </p>
-          <ul>
-            <li>
-              <Check size={15} /> Clear photos of the gripping surface
-            </li>
-            <li>
-              <Check size={15} /> Size and mounting hardware
-            </li>
-            <li>
-              <Check size={15} /> Material, print settings, and texture notes
-            </li>
-            <li>
-              <Check size={15} /> Honest notes about your testing
-            </li>
-          </ul>
-          <div className="aside-divider" />
-          <p className="small-note">
-            Recipes and grade suggestions are creator reports. They don’t
-            certify a printed hold’s strength.
-          </p>
-          <span className="aside-label">EARLY ACCESS</span>
-          <p className="small-note">
-            Files upload straight to storage and publish once every file is
-            verified. Editing and paid bundles are coming.
-          </p>
-        </aside>
       </div>
     </main>
   );

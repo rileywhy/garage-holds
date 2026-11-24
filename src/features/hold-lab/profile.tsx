@@ -1,10 +1,18 @@
 import type { Kind, Parameters, Preview } from "./api";
+import {
+  FINGER,
+  FINGER_TAIL,
+  FINGER_TAPE,
+  fingerRest,
+  placeFinger,
+} from "./fingers";
 
 // The centre cross-section with the wall on the left, as a plain SVG. The
 // crimp's drawing marks the edge depth between the grip points its
 // generator reports; the others show the body with a caption. The pinch's
 // section runs across the hold, so its two gripping sides are the top and
-// bottom of the drawing.
+// bottom of the drawing. Every drawing carries a finger to scale (see
+// fingers.ts), lying straight with its tip toward the wall.
 export function Profile({
   data,
   kind,
@@ -14,10 +22,84 @@ export function Profile({
   kind: Kind;
   parameters: Parameters;
 }) {
-  return kind === "crimp" ? (
-    <CrimpProfile data={data} parameters={parameters} />
-  ) : (
-    <HoldProfile data={data} kind={kind} />
+  return (
+    <>
+      {kind === "crimp" ? (
+        <CrimpProfile data={data} parameters={parameters} />
+      ) : (
+        <HoldProfile data={data} kind={kind} />
+      )}
+      <p className="small-note">
+        The finger is to scale, about median size: {FINGER.pad} mm to the first
+        crease and {FINGER.pad + FINGER.middle} mm to the second.
+      </p>
+    </>
+  );
+}
+
+// The finger on a drawing, and the room it needs there: up to its top, and
+// out to just past its first crease. The rest of it runs on past the hold.
+function fingerOn(kind: Kind, parts: [number, number][][], p: Parameters) {
+  const placed = placeFinger(
+    parts,
+    fingerRest(kind, parts, p),
+    FINGER.thickness,
+  );
+  return {
+    ...placed,
+    top: placed.rest + FINGER.thickness,
+    reach: placed.tip + FINGER.pad + FINGER_TAIL,
+  };
+}
+
+function Finger({
+  at: { rest, tip },
+  px,
+  py,
+  scale,
+}: {
+  at: ReturnType<typeof fingerOn>;
+  px: (z: number) => number;
+  py: (y: number) => number;
+  scale: number;
+}) {
+  const radius = FINGER.thickness / 2;
+  const end = tip + FINGER.pad + FINGER.middle + FINGER_TAIL;
+  const top = py(rest + FINGER.thickness);
+  const arc = radius * scale;
+  // A wrap of tape behind the first crease, with the edge of its last turn
+  // showing.
+  const tape = px(tip + FINGER.pad + FINGER_TAPE.gap);
+  const taped = FINGER_TAPE.width * scale;
+  return (
+    <g className="lab-profile-finger">
+      <path
+        d={`M${px(end)},${top} L${px(tip + radius)},${top} A${arc},${arc} 0 0 0 ${px(tip + radius)},${py(rest)} L${px(end)},${py(rest)}`}
+      />
+      {[FINGER.pad, FINGER.pad + FINGER.middle].map((along) => (
+        <line
+          key={along}
+          x1={px(tip + along)}
+          x2={px(tip + along)}
+          y1={py(rest)}
+          y2={py(rest + radius)}
+        />
+      ))}
+      <rect
+        className="lab-profile-tape"
+        x={tape}
+        y={top}
+        width={taped}
+        height={py(rest) - top}
+      />
+      <line
+        className="lab-profile-tape"
+        x1={tape + taped * 0.35}
+        x2={tape + taped * 0.65}
+        y1={top}
+        y2={py(rest)}
+      />
+    </g>
   );
 }
 
@@ -28,6 +110,7 @@ const NOUNS: Record<Kind, string> = {
   foot: "foothold",
   pocket: "pocket hold",
   pinch: "pinch",
+  roundpinch: "round pinch",
 };
 
 function outline(
@@ -51,17 +134,19 @@ function CrimpProfile({
 }) {
   const ys = data.profile.map(([y]) => y);
   const zs = data.profile.map(([, z]) => z);
-  // Room above for the dimension line, and in front for the gridlines.
+  const finger = fingerOn("crimp", [data.profile], parameters);
+  // Room above for the finger and the dimension line over them, and in
+  // front for the gridlines.
   const low = Math.min(...ys) - 8;
-  const high = Math.max(...ys) + 15;
-  const depth = Math.max(...zs) + 15;
+  const high = finger.top + 22;
+  const depth = Math.max(Math.max(...zs) + 15, finger.reach);
   const scale = Math.min(350 / depth, 190 / (high - low));
   const originX = (480 - Math.max(...zs) * scale) / 2;
   const px = (z: number) => originX + z * scale;
   const py = (y: number) => 24 + (high - y) * scale;
   const [innerY, innerZ] = data.grip_inner ?? [0, 0];
   const [outerY, outerZ] = data.grip_outer ?? [0, 0];
-  const dimensionY = py(Math.max(innerY, outerY) + 8);
+  const dimensionY = py(Math.max(innerY, outerY, finger.top) + 8);
   const gridlines: number[] = [];
   for (let z = 10; z < depth; z += 10) gridlines.push(z);
   const wallLabelY = (py(high) + py(low)) / 2;
@@ -83,6 +168,7 @@ function CrimpProfile({
         />
       ))}
       <path d={outline(data.profile, px, py)} className="lab-profile-body" />
+      <Finger at={finger} px={px} py={py} scale={scale} />
       <line
         x1={px(0)}
         x2={px(0)}
@@ -134,12 +220,16 @@ function CrimpProfile({
 }
 
 function caption(kind: Kind, p: Parameters) {
+  if (kind === "jug" && p.shape === "handlebar")
+    return `${p.bar_thickness} mm bar · ${p.bar_clearance} mm finger gap · ${p.bar_span} mm hand room`;
   if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
   if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
   if (kind === "pocket")
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
     } · ${p.incut} mm incut`;
+  if (kind === "roundpinch")
+    return `${p.width} mm span · ${p.rounding} mm rounding · incut ${p.thumb_incut} mm thumb side below, ${p.finger_incut} mm finger side above`;
   if (kind === "pinch")
     return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
@@ -150,9 +240,10 @@ function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
   const parts = data.profiles ?? [data.profile];
   const ys = parts.flat().map(([y]) => y);
   const zs = parts.flat().map(([, z]) => z);
+  const finger = fingerOn(kind, parts, data.parameters ?? {});
   const low = Math.min(...ys);
-  const high = Math.max(...ys);
-  const depth = Math.max(...zs);
+  const high = Math.max(...ys, finger.top);
+  const depth = Math.max(...zs, finger.reach);
   const scale = Math.min(330 / depth, 170 / (high - low));
   const px = (z: number) => 100 + z * scale;
   const py = (y: number) => 25 + (high - y) * scale;
@@ -167,6 +258,7 @@ function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
         d={parts.map((part) => outline(part, px, py)).join(" ")}
         className="lab-profile-body"
       />
+      <Finger at={finger} px={px} py={py} scale={scale} />
       <line
         x1={px(0)}
         x2={px(0)}

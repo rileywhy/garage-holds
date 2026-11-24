@@ -17,9 +17,10 @@ export function designMetadata(hold: Hold | null): Metadata {
   const photo = hold.photos[0];
   const kind = `climbing ${hold.type.toLowerCase()}`;
   const mount = hold.mount.toLowerCase().replace(" ", "-");
-  const description = `A ${hold.size.toLowerCase()} ${mount} ${kind} to 3D print, with a free STL. ${hold.description}`;
+  const hasStl = hold.files.some((file) => file.extension === "stl");
+  const description = `A ${hold.size.toLowerCase()} ${mount} ${kind} to 3D print${hasStl ? ", with a free STL" : ""}. ${hold.description}`;
   return {
-    title: `${hold.title}: 3D printable ${kind} STL`,
+    title: `${hold.title}: 3D printable ${kind}${hasStl ? " STL" : ""}`,
     description,
     alternates: { canonical: `/holds/${hold.id}` },
     openGraph: {

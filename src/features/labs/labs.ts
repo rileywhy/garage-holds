@@ -2,7 +2,14 @@
 // by LabSlug, like the carousel's artwork framing, then needs its entry
 // before the type checker is satisfied.
 export type LabSlug =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "custom-shape";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "roundpinch"
+  | "custom-shape";
 
 export interface LabInfo {
   slug: LabSlug;
@@ -11,7 +18,6 @@ export interface LabInfo {
   short: string;
   href: string;
   image: string;
-  description: string;
   // A tag on the lab's card: "experimental" for a new lab, "out of order"
   // for one that still opens but is waiting on a rework.
   status?: "experimental" | "out of order";
@@ -26,8 +32,6 @@ export const LABS: LabInfo[] = [
     short: "crimp",
     href: "/make/crimp",
     image: "/images/hold-labs/crimp.webp",
-    description:
-      "Dial in a precise edge, adjust the incut, and soften the lip for your fingertips.",
   },
   {
     slug: "sloper",
@@ -35,8 +39,6 @@ export const LABS: LabInfo[] = [
     short: "sloper",
     href: "/make/sloper",
     image: "/images/hold-labs/sloper.webp",
-    description:
-      "Shape a rounded hold with broad curves and a surface built for open-hand grip.",
   },
   {
     slug: "jug",
@@ -44,8 +46,6 @@ export const LABS: LabInfo[] = [
     short: "jug",
     href: "/make/jug",
     image: "/images/hold-labs/jug.webp",
-    description:
-      "Make a board jug, a deep jug, or a two-handed jug with a comfortable grabbing edge.",
   },
   {
     slug: "foot",
@@ -53,8 +53,6 @@ export const LABS: LabInfo[] = [
     short: "foot",
     href: "/make/foot",
     image: "/images/hold-labs/foot.webp",
-    description:
-      "Board edges, toe-in edges, chips, smears, balls and dishes, sized for one, two or three screws.",
     status: "experimental",
   },
   {
@@ -63,8 +61,6 @@ export const LABS: LabInfo[] = [
     short: "pocket",
     href: "/make/pocket",
     image: "/images/hold-labs/pocket.webp",
-    description:
-      "A mono, two-finger or three-finger pocket in a round body. Set the opening, depth and floor angle, then export an STL.",
     status: "experimental",
   },
   {
@@ -73,8 +69,16 @@ export const LABS: LabInfo[] = [
     short: "pinch",
     href: "/make/pinch",
     image: "/images/hold-labs/pinch.webp",
-    description:
-      "A block to squeeze between thumb and fingers. Set the span, lean or undercut each side, offset the top, then export an STL.",
+    status: "experimental",
+  },
+  // A second take on the pinch, beside the first while the two are
+  // compared; it borrows the Pinch Lab's artwork until it has its own.
+  {
+    slug: "roundpinch",
+    name: "Round Pinch Lab",
+    short: "round pinch",
+    href: "/make/roundpinch",
+    image: "/images/hold-labs/pinch.webp",
     status: "experimental",
   },
   {
@@ -83,8 +87,6 @@ export const LABS: LabInfo[] = [
     short: "custom shape",
     href: "/make/custom-shape",
     image: "/images/hold-labs/custom-shape.webp",
-    description:
-      "Paint your own silhouette, shape the grip, and place mounting holes where you need them.",
     status: "out of order",
   },
 ];

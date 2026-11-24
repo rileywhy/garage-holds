@@ -54,7 +54,6 @@ export function LabCarousel() {
     >
       <div className="lab-carousel-heading">
         <h2>Hold Labs</h2>
-        <p>Shape your own hold. Export an STL.</p>
         <Link href="/make" className="lab-carousel-all">
           Open Hold Labs <ArrowUpRight size={14} />
         </Link>
@@ -92,7 +91,6 @@ export function LabCarousel() {
                 <Link href={lab.href}>
                   {lab.name} <ArrowUpRight size={16} />
                 </Link>
-                <span>{lab.description}</span>
               </figcaption>
             </figure>
           ))}

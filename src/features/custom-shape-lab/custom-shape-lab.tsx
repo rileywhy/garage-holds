@@ -382,7 +382,7 @@ export function CustomShapeLab() {
         commit();
       } else
         setNotice(
-          "Place holes farther inside the lavender material with enough room for the head recess.",
+          "Place holes farther inside the blue material with enough room for the head recess.",
         );
     } else {
       checkpoint();
@@ -728,10 +728,10 @@ export function CustomShapeLab() {
           {tool === "hole"
             ? "Click to add a screw hole. Drag a red hole to reposition it."
             : tool === "smooth"
-              ? "Brush along the lavender edge to soften bumps and fill small notches."
+              ? "Brush along the blue edge to soften bumps and fill small notches."
               : tool === "eraser"
-                ? "Brush over lavender material to remove it. Undo brings it back."
-                : "Paint lavender to add material. Keep your shape connected."}
+                ? "Brush over blue material to remove it. Undo brings it back."
+                : "Paint blue to add material. Keep your shape connected."}
         </p>
         {tool === "smooth" && (
           <label className={styles.slider}>
@@ -766,7 +766,7 @@ export function CustomShapeLab() {
           }}
         />
         <p className={styles.hint}>
-          <span className={styles.blueKey}>Lavender: your hold</span> ·{" "}
+          <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
           <span className={styles.redKey}>Gold: screw holes</span> · Canvas
           width {parameters.scale} mm
         </p>
@@ -899,10 +899,7 @@ export function CustomShapeLab() {
           )}
         </div>
         <p className="lab-caption">
-          <span>
-            drag or two-finger swipe to turn · shift to pan · scroll or pinch to
-            zoom
-          </span>
+          <span>drag to turn · shift to pan · scroll or pinch to zoom</span>
           <span>
             {view === "board"
               ? `mounted on a ${boardAngle}° board`

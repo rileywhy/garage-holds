@@ -38,6 +38,11 @@ export const ARTWORK_FRAMING: Record<
     left: -1.02,
     top: 0.82,
   },
+  roundpinch: {
+    width: 98.78,
+    left: -1.02,
+    top: 0.82,
+  },
   "custom-shape": {
     width: 91.05145413870245,
     left: 4.1555928411633145,

@@ -19,22 +19,64 @@ export function mountOnBoard(group: THREE.Group, angle: number) {
   group.rotation.set(THREE.MathUtils.degToRad(angle), 0, 0);
 }
 
+// The plywood in public/images/plywood, drilled the way a gym drills a wall:
+// holes 200 mm apart along a row, rows 100 mm apart and offset by 100 mm
+// (docs/plywood-images.md). Each image is a square with a hole in its centre.
+// A texture arrives after the first frame, so the caller redraws when it
+// does; until then, and wherever images cannot load, the plain plywood
+// colour stands in.
+export function loadPlywood(
+  name: "bench" | "panel-front" | "panel-back",
+  onLoad: () => void,
+) {
+  const texture = new THREE.TextureLoader().load(
+    `/images/plywood/${name}.webp`,
+    onLoad,
+  );
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+// The wood is lit the same in both themes: only the room behind it changes.
+export function plywoodMaterial(map?: THREE.Texture) {
+  return new THREE.MeshStandardMaterial({
+    color: map ? 0xffffff : 0xc4a57e,
+    map: map ?? null,
+    roughness: 0.92,
+  });
+}
+
+export type BoardFaces = { front: THREE.Texture; back: THREE.Texture };
+
+// The two faces of the board: drilled holes on the climbing side, the T-nuts
+// hammered in behind. The hold bolts on at the hole in the middle.
+export function loadBoardFaces(onLoad: () => void): BoardFaces {
+  return {
+    front: loadPlywood("panel-front", onLoad),
+    back: loadPlywood("panel-back", onLoad),
+  };
+}
+
 export class BoardPanel {
   readonly mesh: THREE.Mesh;
   private edges: THREE.LineSegments;
 
-  constructor(dark: boolean) {
+  constructor(faces?: BoardFaces) {
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    this.mesh = new THREE.Mesh(
-      geometry,
-      new THREE.MeshStandardMaterial({
-        color: dark ? 0x82654e : 0xb99a76,
-        roughness: 0.95,
-      }),
-    );
+    const side = plywoodMaterial();
+    // Box faces run +X, -X, +Y, -Y, +Z (the climbing side), -Z (the back).
+    this.mesh = new THREE.Mesh(geometry, [
+      side,
+      side,
+      side,
+      side,
+      plywoodMaterial(faces?.front),
+      plywoodMaterial(faces?.back),
+    ]);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry),
-      new THREE.LineBasicMaterial({ color: dark ? 0x443b39 : 0x78634e }),
+      new THREE.LineBasicMaterial({ color: 0x78634e }),
     );
     this.mesh.add(this.edges);
     this.mesh.visible = false;
@@ -49,7 +91,12 @@ export class BoardPanel {
 
   dispose() {
     this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
+    for (const material of new Set(
+      this.mesh.material as THREE.MeshStandardMaterial[],
+    )) {
+      material.map?.dispose();
+      material.dispose();
+    }
     this.edges.geometry.dispose();
     (this.edges.material as THREE.Material).dispose();
   }

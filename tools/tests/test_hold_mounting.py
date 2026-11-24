@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.hold_mounting import (  # noqa: E402
     FOOT_SEAT_FLOOR,
+    MIN_SEAT,
     Hole,
     _highest_enclosed_seat,
     _inside,
@@ -122,7 +123,7 @@ class RoomTests(unittest.TestCase):
 class BoltAndScrewTests(unittest.TestCase):
     def test_the_bolt_sits_on_the_centreline_and_the_screw_well_clear_of_it(self):
         solid = box(120, 80, 40)
-        holes = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 12)
+        holes = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 12, floor=MIN_SEAT)
         self.assertEqual(len(holes), 2)
         bolt, screw = holes
         self.assertTrue(bolt.bolt)
@@ -141,7 +142,7 @@ class BoltAndScrewTests(unittest.TestCase):
 
     def test_the_seat_lowers_until_both_recesses_fit(self):
         solid = cone()
-        bolt, screw = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35)
+        bolt, screw = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35, floor=MIN_SEAT)
         self.assertLess(bolt.seat, 35)
         self.assertEqual(bolt.seat, screw.seat)
         self.assertTrue(enclosed(solid, bolt, bolt.seat))
@@ -149,7 +150,7 @@ class BoltAndScrewTests(unittest.TestCase):
 
     def test_a_body_too_small_for_both_gets_no_layout(self):
         solid = box(25, 25, 10)
-        self.assertEqual(fit_bolt_and_screw(Hardware(), solid, bounds(solid), 6), [])
+        self.assertEqual(fit_bolt_and_screw(Hardware(), solid, bounds(solid), 6, floor=MIN_SEAT), [])
 
 
 class ManualSeatTests(unittest.TestCase):
@@ -160,19 +161,20 @@ class ManualSeatTests(unittest.TestCase):
         self.solid = tower()
         self.manual = Hardware(auto_seat=False)
 
-    def fit(self, requested, **options):
+    def fit(self, requested, floor=MIN_SEAT, **options):
         return fit_bolt_and_screw(
             self.manual,
             self.solid,
             bounds(self.solid),
             requested,
             layout_target=8,
+            floor=floor,
             **options,
         )
 
     def test_a_high_seat_stops_at_the_last_height_both_recesses_are_enclosed(self):
         automatic = fit_bolt_and_screw(
-            Hardware(), self.solid, bounds(self.solid), 8
+            Hardware(), self.solid, bounds(self.solid), 8, floor=MIN_SEAT
         )
         bolt, screw = self.fit(35)
         # The same spots as the automatic layout, drilled higher.
@@ -211,16 +213,16 @@ class ManualSeatTests(unittest.TestCase):
 class ScrewLayoutTests(unittest.TestCase):
     def test_one_screw_is_centred_two_spread_and_a_third_below(self):
         solid = box(120, 80, 30)
-        (one,) = screw_layout(Hardware(screw_count=1), solid, 10)
+        (one,) = screw_layout(Hardware(screw_count=1), solid, 10, floor=MIN_SEAT)
         self.assertEqual((one.x, one.y, one.seat), (0, 0, 10))
 
-        left, right = screw_layout(Hardware(screw_count=2), solid, 10)
+        left, right = screw_layout(Hardware(screw_count=2), solid, 10, floor=MIN_SEAT)
         # Toward the sides: the grid point nearest 65% of each half-width.
         self.assertAlmostEqual(left.x, -38.4)
         self.assertAlmostEqual(right.x, 38.4)
         self.assertEqual((left.y, right.y), (0, 0))
 
-        *pair, below = screw_layout(Hardware(screw_count=3), solid, 10)
+        *pair, below = screw_layout(Hardware(screw_count=3), solid, 10, floor=MIN_SEAT)
         self.assertEqual([(h.x, h.y) for h in pair], [(left.x, 0), (right.x, 0)])
         self.assertEqual(below.x, 0)
         self.assertLess(below.y, 0)
@@ -229,7 +231,7 @@ class ScrewLayoutTests(unittest.TestCase):
 
     def test_screws_keep_a_head_and_3_mm_apart_and_lower_their_seat_to_fit(self):
         solid = cone()
-        holes = screw_layout(Hardware(screw_count=3), solid, 35)
+        holes = screw_layout(Hardware(screw_count=3), solid, 35, floor=MIN_SEAT)
         self.assertEqual(len(holes), 3)
         self.assertLess(holes[0].seat, 35)
         for index, hole in enumerate(holes):
@@ -240,7 +242,7 @@ class ScrewLayoutTests(unittest.TestCase):
                 )
 
     def test_no_layout_when_not_every_screw_fits(self):
-        self.assertEqual(screw_layout(Hardware(screw_count=3), box(24, 24, 10), 6), [])
+        self.assertEqual(screw_layout(Hardware(screw_count=3), box(24, 24, 10), 6, floor=MIN_SEAT), [])
 
 
 class SeatRuleTests(unittest.TestCase):
@@ -259,7 +261,7 @@ class SeatRuleTests(unittest.TestCase):
         # On the cone a 35 mm seat lowers to fit; asked to stop above where
         # it fits, the fit finds nothing, and the caller grows the body.
         solid = cone()
-        fitted = screw_layout(Hardware(screw_count=3), solid, 35)[0].seat
+        fitted = screw_layout(Hardware(screw_count=3), solid, 35, floor=MIN_SEAT)[0].seat
         self.assertEqual(
             screw_layout(Hardware(screw_count=3), solid, 35, floor=fitted)[0].seat,
             fitted,
@@ -267,7 +269,7 @@ class SeatRuleTests(unittest.TestCase):
         self.assertEqual(
             screw_layout(Hardware(screw_count=3), solid, 35, floor=fitted + 0.5), []
         )
-        bolt = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35)[0].seat
+        bolt = fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35, floor=MIN_SEAT)[0].seat
         self.assertEqual(
             fit_bolt_and_screw(Hardware(), solid, bounds(solid), 35, floor=bolt + 0.5),
             [],

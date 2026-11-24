@@ -13,14 +13,27 @@ import trimesh
 # steps down no lower than SEAT_FLOOR (FOOT_SEAT_FLOOR on a foothold), or
 # not at all on a hold too shallow for the floor; past that the body grows
 # instead. Only a body that cannot take it even at its largest seats lower,
-# down to MIN_SEAT, as every lab did before (RIL-136). A floor this thick
+# and then no lower than MIN_SEAT (RIL-136). A floor this thick
 # resists the head pulling through about as well as a #10 screw grips 3/4 in
 # ply, and at SEAT_MAX a 2 in screw still bites the whole sheet.
+#
+# MIN_SEAT was 2 mm (0.5 in the Crimp and Jug Labs, 3 on a sloper) until
+# November 2026: printed holds had too little plastic under their screw
+# heads. No automatic seat now leaves less than 5 mm; a hold that cannot
+# take that grows, or is refused. A hold too shallow for that (its own
+# automatic seat is MIN_SEAT or less: a 6 mm crimp, a small foothold)
+# keeps its own seat first and may come down to SHALLOW_MIN_SEAT, never
+# lower; growing it to carry 5 mm made small footholds half as big again
+# and refused every crimp under 7 mm. A seat set by hand is the maker's
+# own choice and may still go down to MANUAL_MIN_SEAT. seat_floors() is
+# the one place every lab takes these floors from.
 SEAT_SHARE = 0.4
 SEAT_MAX = 20.0
 SEAT_FLOOR = 8.0
 FOOT_SEAT_FLOOR = 5.0
-MIN_SEAT = 2.0
+SHALLOW_MIN_SEAT = 3.0
+MIN_SEAT = 5.0
+MANUAL_MIN_SEAT = 2.0
 
 
 def automatic_seat(depth: float) -> float:
@@ -33,6 +46,25 @@ def lowest_seat(target: float, floor: float = SEAT_FLOOR) -> float:
     """How far an automatic seat may come down to fit before the body has
     to grow: to the floor, or nowhere when the target is already below it."""
     return min(target, floor)
+
+
+def seat_floors(
+    target: float, *, auto: bool = True, floor: float = SEAT_FLOOR
+) -> tuple[float, ...]:
+    """The floors a seat aimed at target may step down to, in the order a
+    lab tries them: the first before the body grows, the second (only when
+    lower) once it has grown as far as it will.
+
+    An automatic seat comes down to floor, or not at all when the target is
+    already below it, and then to MIN_SEAT; on a hold too shallow for
+    MIN_SEAT, to SHALLOW_MIN_SEAT. A hand-set seat (auto False) may come
+    down to MANUAL_MIN_SEAT at once to fit, and one set lower than that
+    stays where it was set."""
+    if not auto:
+        return (min(target, MANUAL_MIN_SEAT),)
+    least = MIN_SEAT if target > MIN_SEAT else SHALLOW_MIN_SEAT
+    first = max(least, lowest_seat(target, floor))
+    return (first,) if first <= least else (first, least)
 
 
 def closed_mesh(solid: manifold.Manifold, message: str) -> trimesh.Trimesh:
@@ -111,7 +143,7 @@ def fit_bolt_and_screw(
     layout_target=None,
     enclose_requested=True,
     screw_target=None,
-    floor=MIN_SEAT,
+    floor,
 ):
     """Require a centreline M10 counterbore and a separated anti-rotation screw.
 
@@ -217,7 +249,7 @@ def fit_bolt_and_screw(
     return []
 
 
-def screw_layout(p, solid, target, targets=None, floor=MIN_SEAT):
+def screw_layout(p, solid, target, targets=None, *, floor):
     """One to three countersunk screws, each at the eligible spot nearest its
     target: centred for one, spread toward the sides for two, with a third
     below the middle, unless the caller places the targets itself; a

@@ -30,6 +30,7 @@ test("a design's search title and description say what it is; its card keeps the
     id: "abc",
     title: "wavy deep crimp",
     description: "Big edge, unique look.",
+    files: [{ extension: "stl" }],
     type: "Crimp",
     size: "Medium",
     mount: "Dual mount",
@@ -97,6 +98,7 @@ test("every page and design card has a site name and an image", () => {
   const hold = {
     id: "abc",
     title: "Half-moon crimp",
+    files: [{ extension: "3mf" }],
     description: "A crimp.",
     type: "crimp",
     size: "medium",
@@ -105,6 +107,8 @@ test("every page and design card has a site name and an image", () => {
     photos: [],
   } as unknown as Hold;
   const bare = designMetadata(hold);
+  assert.doesNotMatch(String(bare.title), /STL/i);
+  assert.doesNotMatch(String(bare.description), /STL/i);
   const photographed = designMetadata({
     ...hold,
     photos: [{ id: "p1" }],

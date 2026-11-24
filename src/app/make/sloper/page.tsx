@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Sloper Lab: 3D printable climbing sloper generator",
   description:
-    "Design a printable climbing sloper with adjustable curve, incut, shape and screw holes. Preview it on a 40° board and export an STL.",
+    "Design a printable climbing sloper with adjustable curve, incut, shape and screw holes. Preview it on a 40� board and export an STL.",
   path: "/make/sloper",
 });
 
@@ -18,7 +18,6 @@ export default async function SloperLabPage() {
       <LabNav current="sloper" />
       <div className="page-intro">
         <h1>Sloper Lab</h1>
-        <p>Adjust the curve and slope, then export an STL.</p>
       </div>
       <HoldLab kind="sloper" account={Boolean(user)} />
     </main>

@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Pinch Lab: 3D printable climbing pinch generator",
   description:
-    "Design a printable climbing pinch hold: a block gripped between thumb and fingers, with screw holes or a bolt. Set the span, lean or undercut each side, offset the top, preview it on a 40° board and export an STL.",
+    "Design a printable climbing pinch hold: a block gripped between thumb and fingers, with screw holes or a bolt. Set the span, lean or undercut each side, offset the top, preview it on a 40� board and export an STL.",
   path: "/make/pinch",
 });
 
@@ -18,7 +18,6 @@ export default async function PinchLabPage() {
       <LabNav current="pinch" />
       <div className="page-intro">
         <p className="eyebrow eyebrow-tags">
-          <span>THUMB AND FINGERS</span>
           <span
             className="tag tag-tip"
             tabIndex={0}
@@ -28,10 +27,6 @@ export default async function PinchLabPage() {
           </span>
         </p>
         <h1>Pinch Lab</h1>
-        <p>
-          A block you squeeze between thumb and fingers. Set the span, lean or
-          undercut each side, offset the top for one hand, then export an STL.
-        </p>
       </div>
       <HoldLab kind="pinch" account={Boolean(user)} />
     </main>

@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Foot Lab: 3D printable climbing foothold generator",
   description:
-    "Design a printable climbing foothold: board edges, toe-in edges, chips, smears, balls and dishes with screw holes. Preview it on a 40° board and export an STL.",
+    "Design a printable climbing foothold: board edges, toe-in edges, chips, smears, balls and dishes with screw holes. Preview it on a 40� board and export an STL.",
   path: "/make/foot",
 });
 
@@ -27,10 +27,6 @@ export default async function FootLabPage() {
           </span>
         </p>
         <h1>Foot Lab</h1>
-        <p>
-          Positive edges, neutral chips, slopey wedges, balls and dishes. Pick a
-          starting point, adjust the grip, then export an STL.
-        </p>
       </div>
       <HoldLab kind="foot" account={Boolean(user)} />
     </main>

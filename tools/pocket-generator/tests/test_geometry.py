@@ -134,7 +134,7 @@ class PocketTests(unittest.TestCase):
             replace(
                 PRESETS["Two-finger pocket"],
                 through=False,
-                pocket_depth=50,
+                pocket_depth=80,
                 incut=14,
                 lip_radius=6,
                 size=60,
@@ -143,7 +143,7 @@ class PocketTests(unittest.TestCase):
         )
         self.assertGreaterEqual(small.floor, FLOOR - 0.1)
         self.assertIn("pocket_depth", small.adjusted)
-        self.assertLessEqual(small.parameters.depth, 70)
+        self.assertLessEqual(small.parameters.depth, 100)
 
     def test_open_pocket_reaches_the_wall(self):
         closed = build(
@@ -170,7 +170,8 @@ class PocketTests(unittest.TestCase):
             return [
                 replace(p, through=not p.through),
                 replace(p, bolt_mount=True),
-                replace(p, screw_count=3),
+                # Two screws where the preset has three, and three where two.
+                replace(p, screw_count=5 - p.screw_count),
                 replace(p, through=not p.through, bolt_mount=True),
             ]
 
@@ -591,7 +592,17 @@ class PocketTests(unittest.TestCase):
         cases = [
             dict(
                 opening_width=80, opening_height=45, width=50, height=50, screw_count=3
-            )
+            ),
+            # The bolt grows the body after the lip is fitted (nightly seed
+            # 42255087299): the lip is fitted again on the bigger body.
+            dict(
+                opening_width=32, opening_height=26, pocket_depth=54, incut=23,
+                lip_radius=12.5, size=143, width=77, height=69, depth=54,
+                roundness=52, edge_rounding=26.0, crown=60, taper=13, character=0.1,
+                screw_count=2, seat_depth=13.5, shank_diameter=5.3, head_diameter=10.7,
+                bolt_diameter=11.9, bolt_head_diameter=21.5, screws=True,
+                bolt_mount=True, auto_seat=True, through=False, seed=781724,
+            ),
         ] + [random_settings(rng) for _ in range(count)]
         rebuilt = 0
         for values in cases:
@@ -627,8 +638,8 @@ class PocketTests(unittest.TestCase):
         # line, never crowded in beside one of the pair (Riley's screenshot:
         # the three-finger preset had it 11 mm from its neighbour).
         cases = list(PRESETS.items()) + [
-            ("default, three screws", replace(BASE, screw_count=3)),
-            ("closed, three screws", replace(BASE, through=False, screw_count=3)),
+            ("default, two screws", replace(BASE, screw_count=2)),
+            ("closed, three screws", replace(BASE, through=False)),
         ]
         for name, p in cases:
             with self.subTest(name=name):

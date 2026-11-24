@@ -19,6 +19,7 @@ from geometry import (
     cross_section,
     estimate_material,
 )
+from tools.hold_mounting import MIN_SEAT, SHALLOW_MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -100,7 +101,7 @@ class GeometryTests(unittest.TestCase):
             Parameters(
                 width=20,
                 end_rounding=0.5,
-                edge_depth=2,
+                edge_depth=4,
                 body_height=10,
                 lip_radius=0,
                 body_rounding=0,
@@ -383,8 +384,33 @@ class GeometryTests(unittest.TestCase):
             model.screws[-1][0] - model.screws[0][0], model.parameters.screw_spacing
         )
 
+    def test_an_automatic_seat_never_leaves_a_thin_floor(self):
+        # Printed holds had too little plastic under their screw heads. This
+        # edge only takes its screws on a 3.5 mm seat: it used to be built
+        # that way, and is now refused unless the seat is set by hand.
+        thin = dict(edge_depth=7.5, lip_radius=14.75, width=78, taper=-46)
+        with self.assertRaisesRegex(ValueError, "does not fit"):
+            build(Parameters(**thin))
+        self.assertEqual(build(Parameters(**thin, auto_seat=False, seat_depth=3.5)).seat_depth, 3.5)
+        for name, preset in PRESETS.items():
+            with self.subTest(preset=name):
+                self.assertGreaterEqual(build(preset).seat_depth, MIN_SEAT)
+
+    def test_every_small_edge_the_slider_allows_takes_its_screws(self):
+        # An edge too shallow for a 5 mm seat keeps its own and may come
+        # down to 3 mm; a deeper one keeps 5 mm and grows the body if it
+        # must. With 5 mm required of every edge, the defaults refused all
+        # of 2 to 6 mm and no test noticed.
+        (edge,) = [c for c in CONTROLS if c["key"] == "edge_depth"]
+        for depth in np.arange(edge["min"], 10.01, 0.5):
+            with self.subTest(edge_depth=float(depth)):
+                p = Parameters(edge_depth=float(depth))
+                model = build(p)
+                least = MIN_SEAT if seat_height(p) > MIN_SEAT else SHALLOW_MIN_SEAT
+                self.assertGreaterEqual(model.seat_depth, least)
+
     def test_a_manual_seat_below_the_automatic_one_is_drilled_where_asked(self):
-        shape = dict(edge_depth=7.5, lip_radius=14.75, width=78, taper=-46)
+        shape = dict(edge_depth=10, lip_radius=12, width=78, taper=-46)
         automatic = build(Parameters(**shape))
         low = build(Parameters(**shape, auto_seat=False, seat_depth=2))
         self.assertEqual(low.seat_depth, 2)
@@ -431,6 +457,10 @@ class GeometryTests(unittest.TestCase):
                 width=260, edge_depth=60, incut=0, lip_radius=20, body_height=20,
                 body_rounding=30, end_rounding=60, bow=-60, screw_count=6,
                 head_diameter=15, shank_diameter=4,
+                # The row only fits on about 1 mm of seat, which an
+                # automatic seat no longer accepts; asked for by hand, it
+                # is still the slow fit this test is about.
+                auto_seat=False, seat_depth=1,
             )
         )
         model = build(p, budget_s=12)

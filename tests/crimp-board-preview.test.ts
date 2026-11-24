@@ -4,6 +4,7 @@ import {
   Box3,
   BoxGeometry,
   DirectionalLight,
+  HemisphereLight,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -49,7 +50,7 @@ test("40° means overhang from vertical, with the contact face pointing down and
 });
 
 test("board face meets the hold back and stays bed-sized, so a wide hold overhangs", () => {
-  const board = new BoardPanel(true);
+  const board = new BoardPanel();
   board.placeBehind(
     new Box3(new Vector3(-150, -50, 0), new Vector3(150, 100, 60)),
   );
@@ -74,28 +75,31 @@ test("board face meets the hold back and stays bed-sized, so a wide hold overhan
 
 // Exercise the viewer's camera and geometry paths without creating a GPU context.
 function headlessViewer() {
-  const camera = new OrthographicCamera(-80, 80, 60, -60, 0.1, 2000);
+  const camera = new OrthographicCamera(-80, 80, 60, -60, -2000, 2000);
   const target = new Vector3();
-  const board = new BoardPanel(true);
+  const cursor = new Vector3();
+  const board = new BoardPanel();
   const model = new Group();
   model.add(board.mesh);
   const viewer = Object.assign(Object.create(Viewer.prototype), {
     camera,
-    controls: { target, update() {}, autoRotate: false },
+    controls: { target, cursor, update() {}, autoRotate: false },
     renderer: { render() {}, setSize() {} },
     container: { clientWidth: 800, clientHeight: 600 },
     mesh: null,
     model,
     board,
     fillLight: new DirectionalLight(),
+    skyLight: new HemisphereLight(),
     grid: new Object3D(),
+    slab: new Object3D(),
     material: new MeshStandardMaterial(),
     aspect: 800 / 600,
     halfHeight: 60,
     view: "three-quarter",
     boardAngle: DEFAULT_BOARD_ANGLE,
   }) as Viewer;
-  return { viewer, camera, target, model };
+  return { viewer, camera, target, cursor, model };
 }
 
 function preview(width: number): Preview {
@@ -134,9 +138,12 @@ function preview(width: number): Preview {
 }
 
 test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", () => {
-  const { viewer, camera, target, model } = headlessViewer();
+  const { viewer, camera, target, cursor, model } = headlessViewer();
   viewer.setGeometry(previewGeometry(preview(100)));
   viewer.setView("board");
+  // The view turns around the hold, and panning is limited to its surroundings.
+  assert.deepEqual(cursor.toArray(), target.toArray());
+  const hold = cursor.toArray();
   // A user has orbited, panned, and zoomed away from the default view.
   target.set(15, 35, 25);
   camera.position.set(220, 140, -80);
@@ -156,6 +163,7 @@ test("shape and board-angle edits preserve the camera's orbit, pan, and zoom", (
   assert.deepEqual(target.toArray(), before.target);
   assert.deepEqual(camera.projectionMatrix.toArray(), before.projection);
   assert.equal(camera.zoom, 2.3);
+  assert.deepEqual(cursor.toArray(), hold);
   assert.ok(Math.abs(model.rotation.x - (55 * Math.PI) / 180) < 1e-12);
 
   const direction = camera.position.clone().sub(target).normalize();

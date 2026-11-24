@@ -27,10 +27,6 @@ export default async function SignInPage({
       </Link>
       <div className="page-intro">
         <h1>Sign in to Garage Holds.</h1>
-        <p>
-          Browsing and downloads stay open to everyone. An account lets you
-          publish designs, leave reviews, and keep saved holds across devices.
-        </p>
       </div>
       {isSupabaseConfigured() ? (
         <>

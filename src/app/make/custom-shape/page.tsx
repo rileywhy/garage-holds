@@ -1,4 +1,4 @@
-﻿import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
+import { CustomShapeLab } from "@/features/custom-shape-lab/custom-shape-lab";
 import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Custom Shape Lab: draw a climbing hold, export an STL",
@@ -20,10 +20,6 @@ export default function Page() {
           </span>
         </p>
         <h1>Custom Shape Lab</h1>
-        <p>
-          Paint solid material, carve it back, and place screws. Your silhouette
-          becomes a rounded hold with a flat mounting surface.
-        </p>
       </div>
       <CustomShapeLab />
     </main>

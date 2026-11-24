@@ -48,12 +48,8 @@ export function ReviewSection({
       <div className="detail-section-heading">
         <div>
           <h2>
-            From the board <span className="result-count">{summary.count}</span>
+            Comments <span className="result-count">{summary.count}</span>
           </h2>
-          <p>
-            Printing notes, real-world context, and ideas for the next
-            iteration.
-          </p>
         </div>
         {signedIn ? (
           <button
@@ -155,7 +151,6 @@ export function ReviewSection({
         <div className="review-empty">
           <Star size={24} strokeWidth={1.2} />
           <div>
-            <h3>A fresh start.</h3>
             <p>No reviews yet. Share what you learned from your print.</p>
           </div>
         </div>

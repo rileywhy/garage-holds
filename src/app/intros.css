@@ -1,0 +1,366 @@
+/* Intro layers (src/features/intros). Both sit over a page that is already
+   drawn, take no clicks, and are shown only while <html data-intro> names
+   them. Reduced motion never sees either. */
+.intro-door,
+.intro-light {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  pointer-events: none;
+}
+
+/* A sectional garage door seen from outside: four embossed steel sections
+   with raised panels, hinged at each joint, a lift handle on the bottom
+   section and a rubber seal along its foot. White by day, charcoal at night,
+   with the name on the second section. */
+.intro-door {
+  --door-face: light-dark(#e8e6df, #303235);
+  --door-high: light-dark(#fbfaf6, #43464a);
+  --door-low: light-dark(#b9b6ab, #1a1b1d);
+  --door-metal: light-dark(#8e8c86, #5d6065);
+  grid-template-rows: repeat(4, 1fr);
+  background: var(--door-low);
+  /* The rubber seal under the bottom section. */
+  box-shadow:
+    0 6px 0 #26282a,
+    0 12px 0 #111214;
+}
+/* Light falls off toward the jambs and the header. */
+.intro-door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.16),
+      rgb(0 0 0 / 0) 14% 86%,
+      rgb(0 0 0 / 0.16)
+    ),
+    linear-gradient(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0) 30%);
+}
+.intro-door-section {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2.2%;
+  padding: 2.4vh 2.6%;
+  /* A faint embossed grain over the painted steel. */
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.035) 0 1px,
+      rgb(0 0 0 / 0) 1px 3px,
+      rgb(255 255 255 / 0.05) 3px 4px,
+      rgb(0 0 0 / 0) 4px 7px
+    ),
+    linear-gradient(
+      180deg,
+      var(--door-high) 0,
+      var(--door-face) 7%,
+      var(--door-face) 90%,
+      var(--door-low) 100%
+    );
+  /* The joint: a dark seam, then the next section's lit top edge. */
+  border-bottom: 3px solid rgb(0 0 0 / 0.5);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+/* Raised panels: a pressed groove around a field that stands proud. */
+.intro-door-panel {
+  position: relative;
+  border-radius: 3px;
+  background: var(--door-face);
+  box-shadow:
+    inset 0 4px 4px -2px rgb(0 0 0 / 0.32),
+    inset 4px 0 4px -3px rgb(0 0 0 / 0.2),
+    inset 0 -3px 3px -2px rgb(255 255 255 / 0.55),
+    inset -3px 0 3px -2px rgb(255 255 255 / 0.4);
+}
+.intro-door-panel::after {
+  content: "";
+  position: absolute;
+  inset: clamp(8px, 1.8vh, 16px) clamp(8px, 1.2vw, 16px);
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--door-high),
+    var(--door-face) 22%,
+    var(--door-face) 85%,
+    var(--door-low)
+  );
+  box-shadow:
+    0 2px 3px rgb(0 0 0 / 0.24),
+    0 -1px 1px rgb(255 255 255 / 0.5);
+}
+/* A hinge at each end of every joint, bolted across it. */
+.intro-door-section:nth-child(-n + 3)::before,
+.intro-door-section:nth-child(-n + 3)::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  z-index: 1;
+  width: clamp(14px, 1.6vw, 22px);
+  height: 26px;
+  border-radius: 2px;
+  background:
+    radial-gradient(circle at 50% 22%, #2b2c2e 0 2px, transparent 2.5px),
+    radial-gradient(circle at 50% 78%, #2b2c2e 0 2px, transparent 2.5px),
+    linear-gradient(
+      90deg,
+      var(--door-metal),
+      var(--door-high),
+      var(--door-metal)
+    );
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.35);
+}
+.intro-door-section::before {
+  left: 0.8%;
+}
+.intro-door-section::after {
+  right: 0.8%;
+}
+.intro-door-name {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25em;
+  color: light-dark(#16181b, #eceae4);
+  font-family: var(--display);
+  font-size: clamp(36px, 9vw, 120px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.intro-door-name > .brand-icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background: var(--tape);
+  box-shadow: none;
+}
+/* The lift handle, low and centred on the bottom section. */
+.intro-door-handle {
+  position: absolute;
+  left: 50%;
+  bottom: 24%;
+  z-index: 1;
+  width: clamp(70px, 8vw, 120px);
+  height: 16px;
+  translate: -50% 0;
+  border-radius: 8px;
+  background: linear-gradient(#45474a, #1c1d1f);
+  box-shadow:
+    0 4px 5px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+@media (max-width: 640px) {
+  .intro-door-section {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4%;
+    padding: 2.4vh 5%;
+  }
+  .intro-door-panel:nth-child(n + 3) {
+    display: none;
+  }
+}
+/* Daylight under the door's edge as it lifts. */
+.intro-door-spill {
+  position: absolute;
+  inset: calc(100% + 12px) 0 auto;
+  height: 18vh;
+  background: linear-gradient(rgb(255 236 190 / 0.45), rgb(255 236 190 / 0));
+}
+html[data-intro="door"] .intro-door {
+  display: grid;
+  animation: intro-door-up 2.4s both;
+}
+/* Like an opener: a beat while the motor takes up the chain, a jolt and a
+   little slack, then a steady climb until the door is gone. */
+@keyframes intro-door-up {
+  0%,
+  8% {
+    transform: translateY(0);
+    animation-timing-function: ease-out;
+  }
+  10% {
+    transform: translateY(-0.8%);
+    animation-timing-function: ease-in-out;
+  }
+  13% {
+    transform: translateY(-0.4%);
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 1);
+  }
+  28% {
+    transform: translateY(-12%);
+    animation-timing-function: linear;
+  }
+  100% {
+    transform: translateY(calc(-100% - 18vh - 14px));
+  }
+}
+
+/* The shop light: the room is dark with a strip light hanging in it. The
+   tube catches once, softly, sags, then comes on and lights the page under
+   it before the fitting fades away. One catch, never a strobe. */
+.intro-light-dark,
+.intro-light-room,
+.intro-light-cone {
+  position: absolute;
+  inset: 0;
+}
+.intro-light-dark {
+  background: rgb(6 6 8 / 0.94);
+}
+/* What the lamp does not reach: once it is on, the page under it is lit and
+   the corners of the room stay dark a little longer. */
+.intro-light-room {
+  background: radial-gradient(
+    ellipse 78% 105% at 50% 0%,
+    rgb(6 6 8 / 0) 30%,
+    rgb(6 6 8 / 0.55) 62%,
+    rgb(6 6 8 / 0.92) 100%
+  );
+}
+.intro-light-cone {
+  background: radial-gradient(
+    ellipse 62% 92% at 50% 0%,
+    rgb(255 244 214 / 0.42),
+    rgb(255 244 214 / 0.12) 45%,
+    rgb(255 244 214 / 0) 72%
+  );
+}
+.intro-light-fixture {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(52vw, 620px);
+  height: 74px;
+  translate: -50% 0;
+}
+/* Two cords down from the ceiling. */
+.intro-light-fixture::before,
+.intro-light-fixture::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 30px;
+  background: #4b4d50;
+}
+.intro-light-fixture::before {
+  left: 14%;
+}
+.intro-light-fixture::after {
+  right: 14%;
+}
+.intro-light-housing {
+  position: absolute;
+  inset: 28px 0 auto;
+  height: 24px;
+  background: linear-gradient(#a3a6aa, #6c6f73 55%, #4f5255);
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+}
+.intro-light-tube {
+  position: absolute;
+  inset: 52px 3% auto;
+  height: 11px;
+  border-radius: 6px;
+  background: #5c5e61;
+}
+.intro-light-tube::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fffdf3;
+  box-shadow:
+    0 0 26px 8px rgb(255 249 226 / 0.85),
+    0 0 110px 34px rgb(255 244 214 / 0.42);
+}
+html[data-intro="light"] .intro-light {
+  display: block;
+  animation: intro-light-life 2.6s both;
+}
+html[data-intro="light"] .intro-light-dark {
+  animation: intro-light-dark 2.6s both;
+}
+html[data-intro="light"] .intro-light-room {
+  animation: intro-light-room 2.6s both;
+}
+html[data-intro="light"] .intro-light-cone,
+html[data-intro="light"] .intro-light-tube::before {
+  animation: intro-light-glow 2.6s both;
+}
+/* The fitting stays for a moment once it is on, then fades with its glow. */
+@keyframes intro-light-life {
+  0%,
+  80% {
+    opacity: 1;
+    animation-timing-function: ease-in;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-room {
+  0%,
+  46% {
+    opacity: 1;
+    animation-timing-function: ease-in-out;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-dark {
+  0%,
+  14% {
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.84;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.97;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-light-glow {
+  0%,
+  14% {
+    opacity: 0;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    opacity: 0.5;
+    animation-timing-function: ease-in-out;
+  }
+  29% {
+    opacity: 0.08;
+    animation-timing-function: ease-out;
+  }
+  42%,
+  100% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-door,
+  .intro-light {
+    display: none !important;
+  }
+}

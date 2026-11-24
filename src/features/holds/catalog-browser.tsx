@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
@@ -37,6 +36,10 @@ import {
 } from "./grades";
 import { HoldCard } from "./hold-card";
 import { LabCarousel } from "../labs/lab-carousel";
+import {
+  canImportStl,
+  textureLabHref,
+} from "@/features/textures/source-options";
 
 // Typing pauses this long before the address changes and the server is
 // asked for the matching page.
@@ -62,7 +65,7 @@ export function CatalogBrowser({
   savedIds: string[];
   signedIn: boolean;
   savedOnly?: boolean;
-  // The Saved page's lab presets, shown between the hero and the designs.
+  // The Saved page's lab presets, shown above the designs.
   beforeLibrary?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -70,6 +73,16 @@ export function CatalogBrowser({
   const [pending, startTransition] = useTransition();
   const [filtersOpen, setFiltersOpen] = useState(true);
   const filtersId = savedOnly ? "saved-catalog-filters" : "catalog-filters";
+  // On a phone the open filter list pushes the first design about a screen
+  // and a half down, so it starts closed there unless a filter is in use.
+  const startedFiltered = useRef(activeFilterCount(query) > 0);
+  useEffect(() => {
+    if (
+      !startedFiltered.current &&
+      window.matchMedia("(max-width: 760px)").matches
+    )
+      setFiltersOpen(false);
+  }, []);
   const navigate = (next: Partial<CatalogQuery>) =>
     startTransition(() => {
       router.replace(catalogHref({ ...query, page: 1, ...next }, pathname), {
@@ -104,39 +117,10 @@ export function CatalogBrowser({
     catalogHref({ ...query, page: number }, pathname);
   return (
     <main className={`main-container ${savedOnly ? "" : "equipment-home"}`}>
-      {savedOnly ? (
-        <section className="catalog-hero saved-hero">
-          <div className="hero-copy">
-            <h1>Saved holds for your next print.</h1>
-            <p className="hero-description">
-              Keep the designs you want to come back to. Saved designs follow
-              your account to any device.
-            </p>
-            <a href="#library" className="hero-text-link">
-              Browse your saved designs <ArrowDown size={15} />
-            </a>
-          </div>
-          <div className="saved-hero-icon">
-            <Bookmark size={66} strokeWidth={1} />
-          </div>
-        </section>
-      ) : (
-        <section className="equipment-hero" aria-labelledby="home-title">
-          <div className="equipment-copy">
-            <h1 id="home-title">
-              Climbing holds. <span>Made to print.</span>
-            </h1>
-            <p className="equipment-description">
-              Model files and print recipes for your home wall. Find your next
-              hold in the pile, or shape it yourself in Hold Labs.
-            </p>
-            <a href="#library" className="equipment-browse button button-dark">
-              Browse the pile <ArrowDown size={16} />
-            </a>
-          </div>
-          <LabCarousel />
-        </section>
-      )}
+      <h1 className="sr-only">
+        {savedOnly ? "Saved holds" : "Climbing holds"}
+      </h1>
+      {!savedOnly && <LabCarousel />}
       {beforeLibrary}
       <section id="library" className="library-section" aria-label="Hold pile">
         <div className="library-title-row">
@@ -147,11 +131,6 @@ export function CatalogBrowser({
             </h2>
             {savedOnly && <p>Designs you have bookmarked.</p>}
           </div>
-          <span className="sample-note">
-            {savedOnly
-              ? "Saved to your account"
-              : "Community designs / Model files + print recipes"}
-          </span>
         </div>
         <div
           className={`catalog-layout ${filtersOpen ? "" : "catalog-filters-collapsed"}`}
@@ -355,6 +334,18 @@ export function CatalogBrowser({
                     saved={savedIds.includes(hold.id)}
                     signedIn={signedIn}
                     key={hold.id}
+                    actions={
+                      savedOnly &&
+                      hold.status === "published" &&
+                      hold.files.some(canImportStl) && (
+                        <Link
+                          className="button button-outline"
+                          href={textureLabHref("hold", hold.id)}
+                        >
+                          Texture this hold
+                        </Link>
+                      )
+                    }
                   />
                 ))}
               </div>
@@ -378,7 +369,7 @@ export function CatalogBrowser({
                 <Bookmark size={32} strokeWidth={1.3} />
                 <h3>
                   {savedOnly && !count && !query.query
-                    ? "Your collection starts here."
+                    ? "No saved designs."
                     : "No holds found."}
                 </h3>
                 <p>
@@ -429,13 +420,6 @@ export function CatalogBrowser({
               </nav>
             )}
             <div className="catalog-end">
-              <span>
-                {page.holds.length
-                  ? page.page < page.pageCount
-                    ? "More designs on the next page."
-                    : "You’ve reached the end of this collection."
-                  : "Have a design in mind?"}
-              </span>
               <Link href="/upload">
                 <Plus size={14} /> Add your own
               </Link>

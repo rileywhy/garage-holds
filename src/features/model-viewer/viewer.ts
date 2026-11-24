@@ -1,7 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { BoardPanel, DEFAULT_BOARD_ANGLE, mountOnBoard } from "./board-preview";
-import { WheelGestures } from "./gestures";
+import {
+  BoardPanel,
+  DEFAULT_BOARD_ANGLE,
+  loadBoardFaces,
+  loadPlywood,
+  mountOnBoard,
+  plywoodMaterial,
+} from "./board-preview";
 
 // The interactive preview shared by Crimp Lab and the design pages: an
 // orthographic camera around a hold, shown on a print bed or mounted on an
@@ -50,30 +56,62 @@ const ARROWS: Partial<Record<string, [number, number]>> = {
   ArrowDown: [0, 1],
 };
 
+// The bench is a little larger than the board panel, in whole 10 mm squares.
+const BENCH_MM = 300;
+const BENCH_THICKNESS_MM = 12;
+
+const FLOOR_DIM = 0x4a463f;
+const FLOOR_BRIGHT = 0x9a948a;
+
+// The camera sits this far from the point the view turns around.
+const CAMERA_DISTANCE_MM = 300;
+// Zooming toward the pointer and panning both move that point. It stays
+// within this reach of the hold, so the hold cannot be lost off screen.
+const PIVOT_REACH_MM = BENCH_MM / 2;
+// Clipping planes far enough apart that nothing within the pivot's reach is
+// ever cut, wherever the view has turned. An orthographic camera can start
+// drawing behind itself.
+const CLIP_MM = 2000;
+
 export interface ViewerOptions {
   dark: boolean;
   // The hold's colour; Crimp Lab's print-coloured default when omitted.
   color?: number;
+  // Light across the surface to reveal shallow texture.
+  reliefLighting?: boolean;
 }
 
 export class Viewer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.OrthographicCamera(-80, 80, 60, -60, 0.1, 2000);
+  private camera = new THREE.OrthographicCamera(
+    -80,
+    80,
+    60,
+    -60,
+    -CLIP_MM,
+    CLIP_MM,
+  );
   private controls: OrbitControls;
   private material: THREE.MeshStandardMaterial;
   private mesh: THREE.Mesh | null = null;
+  private raycaster = new THREE.Raycaster();
   private model = new THREE.Group();
   private board: BoardPanel;
-  private grid: THREE.GridHelper;
+  // The bench the hold lies on: a plywood offcut with a pencilled 10 mm grid.
+  private grid = new THREE.Group();
+  private slab: THREE.Mesh;
   private boardAngle = DEFAULT_BOARD_ANGLE;
+  private readonly reliefLighting: boolean;
   private fillLight = new THREE.DirectionalLight(0xffeadd, 1.2);
+  // Light from the sky and, more dimly, back up off the floor.
+  private skyLight = new THREE.HemisphereLight(0xffffff, FLOOR_DIM, 2.2);
   private resizeObserver: ResizeObserver;
   private aspect = 1;
   private halfHeight = 60;
   private view: ViewName = "three-quarter";
   private turning = 0;
-  private wheel = new WheelGestures();
+  private disposed = false;
   // Safari's own pinch events, and whether it is sending the pinch as
   // Ctrl + wheel too (which the controls already zoom on).
   private pinchScale = 1;
@@ -88,18 +126,12 @@ export class Viewer {
     else return;
     event.preventDefault();
   };
-  // Runs before the controls see the event (capture on the container): a
-  // trackpad's two-finger drag turns or pans here, and anything else goes on
-  // to the controls' zoom.
+  // Every scroll zooms, through the controls: a mouse wheel, a trackpad's
+  // two-finger scroll and its pinch. Devices cannot be told apart reliably,
+  // and a wheel that turned the view instead of zooming is worse than a
+  // trackpad that has to drag to turn. This only notes a pinch.
   private onWheel = (event: WheelEvent) => {
     if (event.ctrlKey) this.pinchAsWheel = true;
-    const intent = this.wheel.read(event, event.timeStamp);
-    if (intent === "zoom") return;
-    event.preventDefault();
-    event.stopPropagation();
-    // Scrolling deltas run against the fingers, so negate them: the hold
-    // moves with the fingers, as it does with a drag.
-    this.move(-event.deltaX, -event.deltaY, intent === "pan");
   };
   // Older Safari pinches only through these events, and zooms the page
   // unless they are cancelled.
@@ -121,10 +153,11 @@ export class Viewer {
     private container: HTMLElement,
     options: ViewerOptions,
   ) {
-    const { dark } = options;
+    const { dark, reliefLighting } = options;
+    this.reliefLighting = Boolean(reliefLighting);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(dark ? 0x303039 : 0xeeece5);
+    this.renderer.setClearColor(dark ? 0x242628 : 0xe4e4df);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
     container.append(this.renderer.domElement);
@@ -144,34 +177,58 @@ export class Viewer {
     // the labs draw next to the viewer.
     this.controls.minZoom = 0.15;
     this.controls.maxZoom = 12;
+    this.controls.maxTargetRadius = PIVOT_REACH_MM;
     if (!container.hasAttribute("tabindex")) container.tabIndex = 0;
     container.addEventListener("keydown", this.onKey);
     container.addEventListener("wheel", this.onWheel, {
       capture: true,
-      passive: false,
+      passive: true,
     });
     container.addEventListener("gesturestart", this.onGesture);
     container.addEventListener("gesturechange", this.onGesture);
-    this.scene.add(new THREE.HemisphereLight(0xece8ff, 0x3f3a47, 2.2));
+    this.scene.add(this.skyLight);
+    if (reliefLighting) this.skyLight.intensity = 0.7;
     const key = new THREE.DirectionalLight(0xffefdb, 3.1);
-    key.position.set(-60, 130, 80);
+    if (reliefLighting) key.position.set(-90, 28, 65);
+    else key.position.set(-60, 130, 80);
     this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0xcbc0ff, 1.8);
+    const rim = new THREE.DirectionalLight(
+      0xdde6ff,
+      reliefLighting ? 0.45 : 1.8,
+    );
     rim.position.set(80, 50, -100);
     this.scene.add(rim);
     // A soft fill reveals the rounded underside instead of leaving it dark
     // when the hold is lying on the print bed. Mounted holds need more fill.
     this.fillLight.position.set(80, -60, 120);
     this.scene.add(this.fillLight);
-    this.grid = new THREE.GridHelper(
-      300,
-      30,
-      dark ? 0x5b5469 : 0xb9b4a8,
-      dark ? 0x3d3947 : 0xd8d3c7,
+    const lines = new THREE.GridHelper(
+      BENCH_MM,
+      BENCH_MM / 10,
+      0x4a3a26,
+      0x6b5638,
     );
-    this.grid.position.y = -0.3;
+    const pencil = lines.material as THREE.LineBasicMaterial;
+    pencil.transparent = true;
+    pencil.opacity = 0.3;
+    lines.position.y = -0.3;
+    const edge = plywoodMaterial();
+    // Box faces run +X, -X, +Y (the top), -Y, +Z, -Z.
+    this.slab = new THREE.Mesh(
+      new THREE.BoxGeometry(BENCH_MM, BENCH_THICKNESS_MM, BENCH_MM),
+      [
+        edge,
+        edge,
+        plywoodMaterial(loadPlywood("bench", () => this.render())),
+        edge,
+        edge,
+        edge,
+      ],
+    );
+    this.slab.position.y = -0.45 - BENCH_THICKNESS_MM / 2;
+    this.grid.add(this.slab, lines);
     this.scene.add(this.grid);
-    this.board = new BoardPanel(dark);
+    this.board = new BoardPanel(loadBoardFaces(() => this.render()));
     this.model.add(this.board.mesh);
     this.scene.add(this.model);
     this.material = new THREE.MeshStandardMaterial({
@@ -200,10 +257,28 @@ export class Viewer {
     this.render();
   }
 
+  pickHold(clientX: number, clientY: number) {
+    if (!this.mesh) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(
+        (2 * (clientX - rect.left)) / rect.width - 1,
+        1 - (2 * (clientY - rect.top)) / rect.height,
+      ),
+      this.camera,
+    );
+    const hit = this.raycaster.intersectObject(this.mesh, false)[0];
+    return hit ? this.mesh.worldToLocal(hit.point) : null;
+  }
+
   setView(view: ViewName) {
     this.view = view;
     this.board.mesh.visible = view === "board";
-    this.fillLight.intensity = view === "board" ? 1.8 : 1.2;
+    this.fillLight.intensity =
+      view === "board" ? 1.8 : this.reliefLighting ? 0.28 : 1.2;
+    // An overhanging board faces the floor, so more comes back up at it;
+    // without that its climbing side reads as stained.
+    this.skyLight.groundColor.set(view === "board" ? FLOOR_BRIGHT : FLOOR_DIM);
     this.grid.visible = view !== "board";
     if (view === "board") mountOnBoard(this.model, this.boardAngle);
     else this.model.rotation.set(-Math.PI / 2, 0, 0);
@@ -237,7 +312,8 @@ export class Viewer {
     const centre = box.getCenter(new THREE.Vector3());
     this.camera.position
       .copy(centre)
-      .addScaledVector(direction.normalize(), 300);
+      .addScaledVector(direction.normalize(), CAMERA_DISTANCE_MM);
+    this.controls.cursor.copy(centre);
     this.controls.target.copy(centre);
     this.camera.lookAt(centre);
     this.controls.update();
@@ -307,8 +383,11 @@ export class Viewer {
       .clone()
       .sub(this.controls.target)
       .normalize();
+    this.controls.cursor.copy(centre);
     this.controls.target.copy(centre);
-    this.camera.position.copy(centre).addScaledVector(direction, 300);
+    this.camera.position
+      .copy(centre)
+      .addScaledVector(direction, CAMERA_DISTANCE_MM);
     this.camera.lookAt(centre);
     this.halfHeight = this.framedHeight();
     this.camera.zoom = 1;
@@ -365,10 +444,17 @@ export class Viewer {
   }
 
   private render() {
+    // Plywood images can arrive after the viewer has closed: drawing then
+    // would upload them again through a disposed renderer.
+    if (this.disposed) return;
+    // Seen from underneath, the bench would cover the hold's back, so only
+    // its pencil lines stay. The margin keeps it in a level side view.
+    this.slab.visible = this.camera.position.y - this.controls.target.y > -1;
     this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
+    this.disposed = true;
     this.setTurning(false);
     this.container.removeEventListener("keydown", this.onKey);
     this.container.removeEventListener("wheel", this.onWheel, {
@@ -381,8 +467,15 @@ export class Viewer {
     this.mesh?.geometry.dispose();
     this.material.dispose();
     this.board.dispose();
-    this.grid.geometry.dispose();
-    (this.grid.material as THREE.Material).dispose();
+    this.grid.traverse((part) => {
+      if (!(part instanceof THREE.Mesh || part instanceof THREE.LineSegments))
+        return;
+      part.geometry.dispose();
+      for (const material of new Set([part.material].flat())) {
+        (material as THREE.MeshStandardMaterial).map?.dispose();
+        material.dispose();
+      }
+    });
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

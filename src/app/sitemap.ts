@@ -13,6 +13,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: "daily", priority: 1 },
     { url: `${base}/make`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/make/texture`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/orca-textures`, changeFrequency: "monthly", priority: 0.6 },
     ...LABS.map((lab) => ({
       url: `${base}${lab.href}`,
       changeFrequency: "monthly" as const,

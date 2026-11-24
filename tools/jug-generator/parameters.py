@@ -23,15 +23,45 @@ class Parameters(crimp.Parameters):
     arc_rise: float = 5
     size: float = 100
     grip_quality: float = 90
-    screw_arc: float = 3
+    # Screws sit as high as they fit; the arc slider can lower the inner
+    # ones again.
+    screw_arc: float = 0
     seat_depth: float = 6
+    # Jugs are pulled on hard and from every side: four screws, five on the
+    # two-handed one.
+    screw_count: int = 4
+    # The Handlebar shape: an oval bar arched off the wall on two feet.
+    # Only it reads the bar_ settings; the jug ignores them.
+    shape: str = "jug"
+    bar_span: float = 100
+    bar_clearance: float = 45
+    bar_thickness: float = 32
 
+
+SHAPES = {"jug": "Jug", "handlebar": "Handlebar"}
+# The controls each shape reads. Size and the screw hardware apply to both;
+# a handlebar always takes two screws per foot, so it has no count, span,
+# arc or bolt.
+HANDLEBAR_CONTROLS = (
+    "size",
+    "bar_span",
+    "bar_clearance",
+    "bar_thickness",
+    "shank_diameter",
+    "head_diameter",
+    "seat_depth",
+)
+
+
+# A jug's row leans toward its ends, where screws can sit higher.
+SCREW_COUNT_HELP = "Two to six holes across the hold, placed as high as they fit and leaning toward the ends. Turn mounting holes off for none."
 
 CONTROLS = [
     dict(
         item,
         label=item["label"],
         max=crimp.JUG_MAXIMA.get(item["key"], item["max"]),
+        help=SCREW_COUNT_HELP if item["key"] == "screw_count" else item["help"],
     )
     for item in crimp.CONTROLS
     if item["group"] != "Grip"
@@ -100,30 +130,77 @@ CONTROLS.append(
         help="Bends the whole gripping section into an arch that meets the wall at both ends. Zero keeps a straight rail.",
     )
 )
+CONTROLS += [
+    dict(
+        key="bar_span",
+        label="Hand room",
+        group="Grip",
+        min=80,
+        max=160,
+        step=1,
+        unit="mm",
+        help="Across the opening between the feet, at the wall. About 90 mm takes four fingers; more leaves room for a second hand.",
+    ),
+    dict(
+        key="bar_clearance",
+        label="Finger gap",
+        group="Grip",
+        min=30,
+        max=70,
+        step=0.5,
+        unit="mm",
+        help="From the wall to the underside of the bar at its middle. 45 mm lets gloved or taped fingers wrap all the way round.",
+    ),
+    dict(
+        key="bar_thickness",
+        label="Bar thickness",
+        group="Grip",
+        min=24,
+        max=44,
+        step=0.5,
+        unit="mm",
+        help="Across the bar at its middle, out from the wall; it is 15% wider up the wall. Around 32 mm closes comfortably in most hands; thicker is friendlier on the skin but harder to wrap.",
+    ),
+]
 CONTROLS.append(
     dict(
         key="screw_arc", label="Screw arc", group="Mounting",
         min=0, max=20, step=0.5, unit="mm",
-        help="Moves the inner screws away from the lip for a deeper mounting arc. Zero follows the usable mounting curve. Outer screws stay put; available material limits the offset.",
+        help="Zero keeps every screw as high as it fits, which holds best. More moves the inner screws down, away from the lip. Outer screws stay put; available material limits the offset.",
     )
 )
 PRESETS = {
     "Board jug": Parameters(),
+    # About 12% larger than before, with a much longer reach and more bite:
+    # the trough behind the lip is twice as deep. Arc rise stretches the
+    # middle away from the wall, flattening its incut, so it stays low.
+    # 135% bite is 58° exactly, and the body is the height the fit lands
+    # on, so loading the preset reports no adjustment.
     "Deep jug": Parameters(
-        width=142,
-        lip_radius=12.5,
+        width=158,
+        edge_depth=87.5,
+        grip_quality=135,
+        incut=58,
+        lip_radius=14,
+        body_height=180,
+        body_rounding=28,
+        end_rounding=21,
+        bow=12,
         end_wrap=145,
-        arc_rise=12.5,
+        arc_rise=5.5,
     ),
+    # A comfy bar to wrap a whole hand around, standing off the wall on two
+    # feet with two screws each.
+    "Handlebar": Parameters(shape="handlebar"),
     # Wide enough for both hands and still 5% inside a 256 mm printer bed,
-    # with a gentler arch so four screws spread across the body instead of
+    # with a gentler arch so five screws spread across the body instead of
     # crowding the middle.
     "Two-handed jug": Parameters(
         width=253,
         end_rounding=24,
         bow=12,
         end_wrap=50,
-        screw_count=4,
+        screw_count=5,
     ),
 }
 
@@ -141,6 +218,9 @@ def parse_parameters(values):
     if not isinstance(values, dict):
         raise ValueError("Settings must be a JSON object.")
     merged = asdict(Parameters()) | values
+    shape = merged.pop("shape")
+    if shape not in SHAPES:
+        raise ValueError("Unknown jug shape.")
     # Fit numeric controls within the shared engine's supported bounds.
     for item in CONTROLS:
         value = merged[item["key"]]
@@ -157,9 +237,10 @@ def parse_parameters(values):
     size = merged.pop("size")
     bite = merged.pop("grip_quality")
     screw_arc = merged.pop("screw_arc")
+    bar = {key: merged.pop(key) for key in ("bar_span", "bar_clearance", "bar_thickness")}
     if any(
         isinstance(v, bool) or not isinstance(v, (int, float))
-        for v in (wrap, rise, size, bite, screw_arc)
+        for v in (wrap, rise, size, bite, screw_arc, *bar.values())
     ):
         raise ValueError("Grip controls must be numbers.")
     # Preserve the established 90% -> 56 degree bite, then ease toward
@@ -168,7 +249,7 @@ def parse_parameters(values):
     parsed = crimp.parse_parameters(merged, jug=True)
     return Parameters(
         **asdict(parsed), end_wrap=wrap, arc_rise=rise, size=size, grip_quality=bite,
-        screw_arc=screw_arc,
+        screw_arc=screw_arc, shape=shape, **bar,
     )
 
 
@@ -185,6 +266,23 @@ def schema():
         slug="jug",
         label="Jug Lab",
         defaults=asdict(Parameters()),
-        controls=CONTROLS,
+        controls=[
+            dict(
+                c,
+                shapes=(
+                    ["jug", "handlebar"] if c["key"] in HANDLEBAR_CONTROLS
+                    and not c["key"].startswith("bar_")
+                    else ["handlebar"] if c["key"].startswith("bar_")
+                    else ["jug"]
+                ),
+            )
+            for c in CONTROLS
+        ],
         presets={name: asdict(p) for name, p in PRESETS.items()},
+        shapes=SHAPES,
+        # A handlebar's middle stands off the wall: there is nothing for a
+        # centre bolt to go through.
+        boltless=["handlebar"],
+        # Its bar is a smooth oval with no seeded folds.
+        seedless=["handlebar"],
     )

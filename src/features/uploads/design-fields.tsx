@@ -40,7 +40,6 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>The essentials</h2>
-            <p>Name the hold and describe its grip and intended use.</p>
           </div>
         </div>
         <Field label="Design name *">
@@ -79,10 +78,6 @@ export function DesignFields({
             <span>{number()}</span>
             <div>
               <h2>Photos & files</h2>
-              <p>
-                Photos are optional. Add one for your cover, or we’ll use an STL
-                preview when available. Original files stay intact.
-              </p>
             </div>
           </div>
           {filesSection}
@@ -93,7 +88,6 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>Hold details</h2>
-            <p>Climbing details make your design easier to discover.</p>
           </div>
         </div>
         <div className="form-grid three">
@@ -126,7 +120,6 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>Printing recipe</h2>
-            <p>Share your print settings, texture, and any special steps.</p>
           </div>
         </div>
         <div className="form-grid">
@@ -202,7 +195,6 @@ export function DesignFields({
           <span>{number()}</span>
           <div>
             <h2>Sharing</h2>
-            <p>Free downloads are the starting point for the pile.</p>
           </div>
         </div>
         <DesignMethodField defaultValue={defaults?.designMethod ?? ""} />

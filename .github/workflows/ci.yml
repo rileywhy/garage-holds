@@ -37,6 +37,8 @@ jobs:
           - foot-generator
           - pocket-generator
           - pinch-generator
+          - round-pinch-generator
+          - jug-force-lab
           - mesh-preview
     steps:
       - uses: actions/checkout@v4
@@ -86,6 +88,23 @@ jobs:
       # pages that render per request only ever run here.
       - run: npm run test:smoke
 
+  # The 3D previews in real browsers: Chromium, WebKit and Firefox, the last
+  # also with fingerprinting resistance on and with WebGL off. Firefox only
+  # gets WebGL on a runner when a display exists, hence xvfb.
+  browsers:
+    name: 3D previews in Chromium, Firefox and WebKit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:browser:install
+      - run: xvfb-run -a npm run test:browser
+
   ownership:
     name: Ownership tests on a local Supabase stack
     runs-on: ubuntu-latest
@@ -120,7 +139,7 @@ jobs:
   # fails it.
   passed:
     name: CI passed
-    needs: [geometry, shared, checks, ownership]
+    needs: [geometry, shared, checks, browsers, ownership]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -136,7 +155,7 @@ jobs:
   # On 2026-10-16 the geometry job timed out on two pushes and nobody saw.
   alert:
     name: Alert on a broken main
-    needs: [geometry, shared, checks, ownership]
+    needs: [geometry, shared, checks, browsers, ownership]
     if: always() && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5

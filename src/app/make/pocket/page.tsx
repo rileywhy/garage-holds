@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/page-metadata";
 export const metadata = pageMetadata({
   title: "Pocket Lab: 3D printable climbing pocket generator",
   description:
-    "Design a printable climbing pocket hold: a mono, two-finger or three-finger pocket in a round body, with screw holes. Set the opening, depth and floor angle, preview it on a 40° board and export an STL.",
+    "Design a printable climbing pocket hold: a mono, two-finger or three-finger pocket in a round body, with screw holes. Set the opening, depth and floor angle, preview it on a 40� board and export an STL.",
   path: "/make/pocket",
 });
 
@@ -18,7 +18,6 @@ export default async function PocketLabPage() {
       <LabNav current="pocket" />
       <div className="page-intro">
         <p className="eyebrow eyebrow-tags">
-          <span>FINGERS IN</span>
           <span
             className="tag tag-tip"
             tabIndex={0}
@@ -28,11 +27,6 @@ export default async function PocketLabPage() {
           </span>
         </p>
         <h1>Pocket Lab</h1>
-        <p>
-          A mono, two-finger or three-finger pocket in a round body, open to the
-          wall by default. Set the opening, depth and floor angle, then export
-          an STL.
-        </p>
       </div>
       <HoldLab kind="pocket" account={Boolean(user)} />
     </main>

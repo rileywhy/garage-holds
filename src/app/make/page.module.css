@@ -35,7 +35,10 @@
   margin-top: 0;
   padding: 20px 24px;
   border-radius: 3px;
-  background: var(--visual-bg);
+  background-color: var(--ply-bg);
+  background-image: var(--ply-photo);
+  background-position: center;
+  background-size: cover;
   object-fit: contain;
 }
 .content {
@@ -51,10 +54,11 @@
   align-items: center;
   gap: 10px;
   font-family: var(--display);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 .card h2 .tag {
   color: var(--accent);
@@ -64,12 +68,6 @@
 .card h2 :global(.tag-out-of-order) {
   color: var(--error-ink);
 }
-.card p {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.7;
-  max-width: 42ch;
-}
 .action {
   display: inline-flex;
   align-items: center;
@@ -77,7 +75,7 @@
   margin-top: auto;
   padding-top: 10px;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 @media (max-width: 640px) {
@@ -96,4 +94,11 @@
   .image {
     height: 160px;
   }
+}
+/* Each lab's card is cut from a different sheet. */
+.card:nth-child(3n + 2) {
+  --ply-photo: var(--ply-birch);
+}
+.card:nth-child(3n) {
+  --ply-photo: var(--ply-sheet);
 }

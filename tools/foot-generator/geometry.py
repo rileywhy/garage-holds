@@ -20,13 +20,12 @@ else:
 
 from tools.hold_mounting import (
     FOOT_SEAT_FLOOR,
-    MIN_SEAT,
     automatic_seat,
     closed_mesh,
     drill,
     fit_bolt_and_screw,
-    lowest_seat,
     screw_layout,
+    seat_floors,
 )
 
 
@@ -223,6 +222,12 @@ class Model:
         )
 
 
+def _seat_target(p):
+    """The seat a foothold aims for: 40% of its scaled edge, or the seat
+    set by hand."""
+    return automatic_seat(p.edge_depth * p.size / 100) if p.auto_seat else p.seat_depth
+
+
 def build(requested, quality="preview"):
     if quality not in ("preview", "export"):
         raise ValueError("Unknown mesh quality.")
@@ -253,16 +258,9 @@ def build(requested, quality="preview"):
         solid, profile, radius = body(p, "preview")
         if not p.screws:
             break
-        target = (
-            automatic_seat(p.edge_depth * p.size / 100)
-            if p.auto_seat
-            else p.seat_depth
-        )
-        lowest = (
-            lowest_seat(target, FOOT_SEAT_FLOOR)
-            if p.auto_seat and not relaxed
-            else MIN_SEAT
-        )
+        target = _seat_target(p)
+        floors = seat_floors(target, auto=p.auto_seat, floor=FOOT_SEAT_FLOOR)
+        lowest = floors[-1] if relaxed else floors[0]
         holes = (
             fit_bolt_and_screw(
                 p,
@@ -284,7 +282,16 @@ def build(requested, quality="preview"):
             body_height=min(limits["body_height"], p.body_height + 4),
             edge_depth=min(limits["edge_depth"], p.edge_depth + 0.5),
         )
-        if grown == p and p.auto_seat and not relaxed:
+        # Starting again only helps when the seat may now come lower than
+        # it was allowed to here; otherwise it would fail the same way.
+        if (
+            grown == p
+            and not relaxed
+            and seat_floors(
+                _seat_target(start), auto=p.auto_seat, floor=FOOT_SEAT_FLOOR
+            )[-1]
+            < lowest
+        ):
             p, relaxed = start, True
             continue
         if grown == p:
