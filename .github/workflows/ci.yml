@@ -32,6 +32,7 @@ jobs:
       matrix:
         tool:
           - crimp-generator
+          - custom-shape-generator
           - sloper-generator
           - jug-generator
           - foot-generator
