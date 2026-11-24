@@ -215,7 +215,7 @@ function CrimpProfile({
         {edgeDepth} mm nominal
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {physical.incut}Â° incut Â· {lipRadius} mm lip radius
+        {physical.incut}° incut · {lipRadius} mm lip radius
         {data.lip_radius != null &&
           data.lip_radius < lipRadius - 0.005 &&
           ` (${data.lip_radius} mm fits)`}
@@ -230,28 +230,28 @@ function caption(kind: Kind, p: Parameters) {
       Math.min(max, (Number(value) * Number(p.size ?? 100)) / 100).toFixed(2),
     );
   if (kind === "jug" && p.shape === "handlebar")
-    return `${mm(p.bar_thickness)} mm bar Â· ${mm(p.bar_clearance)} mm finger gap Â· ${mm(p.bar_span)} mm hand room`;
+    return `${mm(p.bar_thickness)} mm bar · ${mm(p.bar_clearance)} mm finger gap · ${mm(p.bar_span)} mm hand room`;
   if (kind === "jug")
-    return `${mm(p.edge_depth, 140)} mm reach Â· ${p.incut}Â° incut`;
+    return `${mm(p.edge_depth, 140)} mm reach · ${p.incut}° incut`;
   if (kind === "foot")
-    return `${mm(p.edge_depth)} mm toe depth Â· ${p.incut}Â° bite`;
+    return `${mm(p.edge_depth)} mm toe depth · ${p.incut}° bite`;
   if (kind === "pocket")
-    return `${p.opening_width} mm opening Â· ${
+    return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
-    } Â· ${p.incut} mm incut`;
+    } · ${p.incut} mm incut`;
   if (kind === "roundpinch")
-    return `${mm(p.width)} mm span Â· ${mm(p.rounding)} mm rounding Â· incut ${mm(p.thumb_incut)} mm thumb side below, ${mm(p.finger_incut)} mm finger side above`;
+    return `${mm(p.width)} mm span · ${mm(p.rounding)} mm rounding · incut ${mm(p.thumb_incut)} mm thumb side below, ${mm(p.finger_incut)} mm finger side above`;
   if (kind === "pinch")
-    return `${mm(p.width)} mm span Â· thumb side ${p.thumb_angle}Â° below Â· finger side ${p.finger_angle}Â° above`;
+    return `${mm(p.width)} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   if (kind === "crack") {
     const flare = Number(p.flare);
-    return `${p.shape === "half" ? "One side" : `${mm(p.width)} mm crack`} Â· ${mm(p.depth)} mm deep Â· ${
+    return `${p.shape === "half" ? "One side" : `${mm(p.width)} mm crack`} · ${mm(p.depth)} mm deep · ${
       flare === 0
         ? "parallel"
-        : `flared ${flare > 0 ? "out" : "in"} ${Math.abs(flare)}Â°`
+        : `flared ${flare > 0 ? "out" : "in"} ${Math.abs(flare)}°`
     }`;
   }
-  return `${p.incut}Â° lift Â· ${p.arc_wrap}Â° wrap Â· ${mm(p.projection)} mm depth`;
+  return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${mm(p.projection)} mm depth`;
 }
 
 function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
