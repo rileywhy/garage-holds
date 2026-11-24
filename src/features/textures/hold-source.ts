@@ -4,7 +4,7 @@ import {
   post,
   type Kind,
 } from "@/features/hold-lab/api";
-import { readLink } from "@/features/lab-link/lab-link";
+import { hasPinchSettings, readLink } from "@/features/lab-link/lab-link";
 import { MAX_STL_PREVIEW_BYTES } from "@/features/holds/stl-limits";
 import { holdGeometry } from "@/features/holds/stl-scene";
 import { prepareStlGeometry } from "@/features/holds/stl-geometry";
@@ -21,6 +21,8 @@ export function parseHoldLink(input: string, origin: string) {
     throw new Error("Paste a Garage Holds link, or open a local STL.");
   const path = url.pathname.replace(/\/$/, "");
   const kind = path.match(/^\/make\/([a-z]+)$/)?.[1];
+  if (kind === "pinch" && !hasPinchSettings(url.searchParams.keys()))
+    return { kind: "roundpinch" as const, search: "" };
   if (kind && Object.hasOwn(KIND_LABELS, kind))
     return { kind: kind as Kind, search: url.search };
   const id = path.match(

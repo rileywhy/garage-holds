@@ -6,7 +6,7 @@ import type { SearchParams } from "@/features/holds/catalog-query";
 import { savedTextureSources } from "@/features/textures/saved-sources";
 
 export const metadata = pageMetadata({
-  title: "Texture Lab",
+  title: "Texture Lab: climbing hold height maps for OrcaSlicer",
   description:
     "Generate texture height maps for climbing holds, preview relief in 3D, and export a PNG for OrcaSlicer or an approximate STL.",
   path: "/make/texture",

@@ -2,6 +2,8 @@
 // before a preview, the words in the status line, the export filenames and
 // the way sizes are shown.
 
+import { NO_3D_HELP } from "@/features/model-viewer/gestures";
+
 export const PREVIEW_DEBOUNCE_MS = 200;
 
 export const LAB_COPY = {
@@ -22,8 +24,7 @@ export const LAB_COPY = {
   presetSaved: (name: string) =>
     `Saved as “${name}”. Presets live in this browser; Copy link or Save settings takes a shape elsewhere.`,
   presetDeleted: (name: string) => `Deleted the preset “${name}”.`,
-  noViewer:
-    "The 3D preview is unavailable in this browser. The controls and STL export still work.",
+  noViewer: `${NO_3D_HELP} The controls and STL export still work.`,
   waiting: "Waiting for the first preview…",
   linkRefused: (reason: string) =>
     ` The link's settings could not be applied (${reason}), so this is the default.`,

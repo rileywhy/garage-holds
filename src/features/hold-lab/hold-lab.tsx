@@ -30,6 +30,7 @@ import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
+  ROOF_ANGLE,
 } from "@/features/model-viewer/board-preview";
 import { previewGeometry } from "@/features/labs/preview-geometry";
 import { trackEvent } from "@/features/analytics/events";
@@ -43,6 +44,7 @@ import {
 import {
   defaultPresetName,
   isSavedValue,
+  loadSavedPresets,
   savedId,
   savedValue,
   uniqueName,
@@ -105,7 +107,7 @@ function reportError(
   trackEvent({ name: "lab_error", lab, stage, reason: errorReason(error) });
 }
 
-// The one lab behind the parametric labs, Crimp to Pinch: sliders on the
+// The one lab behind the parametric labs, Crimp to Crack: sliders on the
 // left, the generated hold on the right; on a phone the hold stays pinned
 // above the sliders. Every change asks /api/<kind> for a fresh preview and
 // export asks for a finer STL. What differs between them is in kinds.ts.
@@ -138,7 +140,12 @@ export function HoldLab({
   });
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewName>("three-quarter");
-  const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
+  const [previewAngle, setPreviewAngle] = useState(DEFAULT_BOARD_ANGLE);
+  const boardAngle =
+    kind === "crack"
+      ? Number(parameters.jam_angle ?? DEFAULT_BOARD_ANGLE)
+      : previewAngle;
+  const boardAngleLimit = kind === "crack" ? ROOF_ANGLE : MAX_BOARD_ANGLE;
   const [viewerFailed, setViewerFailed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
@@ -154,6 +161,7 @@ export function HoldLab({
   const origin = useRef<Parameters>({});
   // Presets the person saved, and the small form that renames one.
   const [saved, setSaved] = useState<LabPreset[]>([]);
+  const [browserPresets, setBrowserPresets] = useState<LabPreset[]>([]);
   const [saving, setSaving] = useState(false);
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -186,6 +194,10 @@ export function HoldLab({
         latest.current = start;
         origin.current = { ...start };
         setParameters(start);
+        // Round Pinch originally saved to this browser even when signed in.
+        setBrowserPresets(
+          kind === "roundpinch" && store.account ? loadSavedPresets(kind) : [],
+        );
         void store
           .list()
           .then((list) => {
@@ -235,6 +247,10 @@ export function HoldLab({
       viewer.current = null;
     };
   }, [kind, lab.color]);
+
+  useEffect(() => {
+    viewer.current?.setBoardAngle(boardAngle);
+  }, [boardAngle, kind]);
 
   const retryPreview = useCallback(() => {
     setStatus({ text: LAB_COPY.updating, error: false });
@@ -348,13 +364,16 @@ export function HoldLab({
     edit(() => ({ ...settings }), name, true);
   }
   function changeBoardAngle(angle: number) {
-    if (!Number.isFinite(angle) || angle < 0 || angle > MAX_BOARD_ANGLE) return;
-    setBoardAngle(angle);
-    viewer.current?.setBoardAngle(angle);
+    if (!Number.isFinite(angle) || angle < 0 || angle > boardAngleLimit) return;
+    if (kind === "crack") {
+      if (schema && Number.isInteger(angle)) change("jam_angle", angle);
+    } else {
+      setPreviewAngle(angle);
+    }
   }
   function reset() {
     if (!schema) return;
-    changeBoardAngle(DEFAULT_BOARD_ANGLE);
+    setPreviewAngle(DEFAULT_BOARD_ANGLE);
     startFrom(schema.defaults, Object.keys(schema.presets)[0]);
   }
   function variation(seed: number) {
@@ -387,11 +406,19 @@ export function HoldLab({
   }
   function applyPreset(name: string) {
     if (!schema) return;
-    if (isSavedValue(name)) void applySavedPreset(savedId(name));
+    if (isSavedValue(name))
+      void applySavedPreset(
+        saved.find((p) => p.id === savedId(name)),
+        name,
+      );
+    else if (name.startsWith("browser:"))
+      void applySavedPreset(
+        browserPresets.find((p) => "browser:" + p.id === name),
+        name,
+      );
     else startFrom(schema.presets[name] ?? schema.defaults, name);
   }
-  async function applySavedPreset(id: string) {
-    const found = saved.find((p) => p.id === id);
+  async function applySavedPreset(found: LabPreset | undefined, value: string) {
     if (!schema || !found) return;
     try {
       const link = readLink(found.search, schema.defaults, schema.presets);
@@ -399,7 +426,7 @@ export function HoldLab({
         kind,
         link?.parameters ?? schema.defaults,
       );
-      startFrom(settings, savedValue(id));
+      startFrom(settings, value);
     } catch (error) {
       showError(error);
     }
@@ -580,6 +607,15 @@ export function HoldLab({
               <optgroup label="My presets">
                 {saved.map((p) => (
                   <option key={p.id} value={savedValue(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {browserPresets.length > 0 && (
+              <optgroup label="Saved in this browser">
+                {browserPresets.map((p) => (
+                  <option key={p.id} value={"browser:" + p.id}>
                     {p.name}
                   </option>
                 ))}
@@ -909,6 +945,7 @@ export function HoldLab({
           <BoardAngleControls
             kind={kind}
             angle={boardAngle}
+            maxAngle={boardAngleLimit}
             viewer={viewer}
             onChange={changeBoardAngle}
           />
@@ -1046,11 +1083,13 @@ function ViewToolbar({
 function BoardAngleControls({
   kind,
   angle,
+  maxAngle,
   viewer,
   onChange,
 }: {
   kind: Kind;
   angle: number;
+  maxAngle: number;
   viewer: RefObject<Viewer | null>;
   onChange: (angle: number) => void;
 }) {
@@ -1062,7 +1101,7 @@ function BoardAngleControls({
         id={id}
         type="number"
         min={0}
-        max={MAX_BOARD_ANGLE}
+        max={maxAngle}
         step={1}
         value={angle}
         aria-describedby={`${id}-hint`}
@@ -1072,7 +1111,7 @@ function BoardAngleControls({
       <input
         type="range"
         min={0}
-        max={MAX_BOARD_ANGLE}
+        max={maxAngle}
         step={1}
         value={angle}
         aria-label="Board angle slider"
@@ -1085,7 +1124,11 @@ function BoardAngleControls({
       <button type="button" onClick={() => viewer.current?.setBoardSideView()}>
         Exact side
       </button>
-      <p id={`${id}-hint`}>From vertical · 0° is upright</p>
+      <p id={`${id}-hint`}>
+        {kind === "crack"
+          ? "Also sets the jam angle in your STL. 0° is vertical and 90° is a roof."
+          : "From vertical · 0° is upright"}
+      </p>
     </div>
   );
 }

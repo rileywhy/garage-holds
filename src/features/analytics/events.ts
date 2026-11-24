@@ -14,6 +14,7 @@ type Lab =
   | "pocket"
   | "pinch"
   | "roundpinch"
+  | "crack"
   | "custom-shape";
 
 type Event =

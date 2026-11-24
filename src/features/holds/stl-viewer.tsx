@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { FileBox } from "lucide-react";
 import type { ViewName } from "@/features/model-viewer/viewer";
-import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
+import { NO_3D_HELP, VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import {
   DEFAULT_BOARD_ANGLE,
   MAX_BOARD_ANGLE,
@@ -35,7 +35,7 @@ export function StlViewer({
   const container = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ViewName>("three-quarter");
   const [boardAngle, setBoardAngle] = useState(DEFAULT_BOARD_ANGLE);
-  const { viewer, ready, failed } = useModelViewer(
+  const { viewer, ready, failed, no3d } = useModelViewer(
     container,
     { key: file.id, url: file.url },
     {
@@ -81,9 +81,11 @@ export function StlViewer({
               {failed ? "STL preview unavailable" : "Preparing STL preview…"}
             </span>
             <small>
-              {failed
-                ? "Original model files are still available."
-                : "A simple view of the uploaded model"}
+              {no3d
+                ? `${NO_3D_HELP} Original model files are still available.`
+                : failed
+                  ? "Original model files are still available."
+                  : "A simple view of the uploaded model"}
             </small>
           </div>
         )}

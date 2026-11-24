@@ -365,6 +365,27 @@ class GeometryTests(unittest.TestCase):
                 rebuilt += 1
         self.assertGreater(rebuilt, len(cases) // 4)
 
+    def test_reopening_a_grown_crimp_keeps_its_shallow_seat_and_screw_row(self):
+        # RIL-115: the first build grows to 32 mm with a 3 mm seat.
+        # Reopening that body used to grow it again to 56 mm with a 5 mm seat.
+        requested = Parameters(
+            edge_depth=7, incut=-7, lip_radius=17.5, width=171, body_height=11,
+            body_rounding=27.5, end_rounding=49, bow=17.5, taper=8,
+            character=1.35, seed=7768, screw_count=6, shank_diameter=5.8,
+            head_diameter=11,
+        )
+        preview = build(requested)
+        self.assertGreater(preview.parameters.body_height, requested.body_height)
+        self.assertLess(preview.seat_depth, MIN_SEAT)
+        settings = parse_parameters(design_document(preview.parameters)["parameters"])
+        reopened = build(settings)
+        self.assertEqual(reopened.parameters, preview.parameters)
+        self.assertEqual(reopened.screws, preview.screws)
+        np.testing.assert_allclose(reopened.mesh.vertices, preview.mesh.vertices)
+        exported = build(settings, "export")
+        self.assertEqual(exported.parameters, preview.parameters)
+        self.assertEqual(exported.screws, preview.screws)
+
     def test_bolt_mount_keeps_a_manual_span_and_reports_its_seat(self):
         model = build(Parameters(bolt_mount=True, auto_spacing=False, screw_spacing=60))
         self.assertEqual(model.parameters.screw_spacing, 60)

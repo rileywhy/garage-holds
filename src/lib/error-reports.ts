@@ -108,6 +108,7 @@ export const CLIENT_ROUTES = [
   "/jug-force-lab",
   "/make",
   "/make/crimp",
+  "/make/crack",
   "/make/custom-shape",
   "/make/texture",
   "/orca-textures",

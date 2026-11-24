@@ -10,6 +10,7 @@ import {
   type PointerEvent,
 } from "react";
 import Link from "next/link";
+import { labSettingsHref } from "@/features/lab-link/lab-link";
 import { Mesh, type BufferGeometry } from "three";
 import { STLExporter } from "three/addons/exporters/STLExporter.js";
 import { holdGeometry } from "@/features/holds/stl-scene";
@@ -214,7 +215,7 @@ export function TextureLab({
             id: `local:${lab}:${preset.id}`,
             lab,
             label: preset.name,
-            link: `/make/${lab}${preset.search}`,
+            link: labSettingsHref(`/make/${lab}`, preset.search),
             group: "This browser",
           })),
         ),

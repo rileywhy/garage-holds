@@ -105,6 +105,20 @@ for (const route of ROUTES)
     );
   });
 
+test("the old pinch entrance redirects and classic designs reopen", async () => {
+  const entrance = await get("/make/pinch");
+  assert.equal(entrance.status, 308);
+  assert.equal(
+    new URL(entrance.headers.get("location") ?? "", base).pathname,
+    "/make/roundpinch",
+  );
+  for (const search of ["?preset=round+pinch", "?legacy=1"]) {
+    const legacy = await get("/make/pinch" + search);
+    assert.equal(legacy.status, 200);
+    assert.ok((await legacy.text()).includes("<h1>Classic Pinch Lab</h1>"));
+  }
+});
+
 test("a design that does not exist is a 404", async () => {
   assert.equal((await get(`/holds/${MISSING_ID}`)).status, 404);
 });

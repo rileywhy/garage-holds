@@ -4,6 +4,7 @@
 import { VIEW_ORDER, type ViewName } from "@/features/model-viewer/viewer";
 import { LAB_COPY, withInches } from "@/features/labs/conventions";
 import type { Control, Kind, Parameters, Preview } from "./api";
+import { camalot } from "./cams";
 
 export interface LabKind {
   // The hold's colour in the viewer, so the labs read as different tools;
@@ -62,6 +63,14 @@ export const LAB_KINDS: Record<Kind, LabKind> = {
   },
   // No seed: the round pinch has no character control.
   roundpinch: { ...rounded, color: 0xc2410c, views: VIEW_ORDER },
+  // Red sandstone, after the desert splitters crack climbers train for.
+  crack: {
+    ...rounded,
+    color: 0xcf9f8f,
+    views: VIEW_ORDER,
+    seedHint:
+      "Seeds wander the crack from side to side along its length; its width stays as set. Reset returns to the clean default.",
+  },
 };
 
 // What a preview does to the lab once it lands: the settings the sliders
@@ -162,6 +171,7 @@ export interface Metric {
 export function modelMetrics(kind: Kind, data: Preview): Metric[] {
   const rows: Metric[] = [
     { label: "Dimensions", value: withInches(data.dimensions) },
+    ...crackSize(kind, data),
     {
       label: "Estimated material",
       value: `≈ ${data.material_grams.join("–")} g`,
@@ -195,4 +205,23 @@ export function modelMetrics(kind: Kind, data: Preview): Metric[] {
       value: `${data.screw_spacing} mm across width`,
     });
   return rows;
+}
+
+// The crack's size as climbers name it, by the Camalot that fits its mouth
+// and, past a constriction, its narrowest. One side of a crack has no width
+// of its own until it is mounted.
+function crackSize(kind: Kind, data: Preview): Metric[] {
+  const p = data.parameters;
+  if (kind !== "crack" || !p || p.shape !== "block") return [];
+  const width = Number(p.width);
+  const narrowest = width - Number(p.constriction);
+  return [
+    {
+      label: "Cam size",
+      value:
+        narrowest < width
+          ? `${camalot(width)} Camalot · ${camalot(narrowest)} at the constriction`
+          : `${camalot(width)} Camalot`,
+    },
+  ];
 }

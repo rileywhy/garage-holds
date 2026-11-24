@@ -4,7 +4,7 @@ import { LabNav } from "@/features/labs/lab-nav";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
-  title: "Crimp Lab",
+  title: "Crimp Lab: 3D printable climbing crimp generator",
   description:
     "Shape a 3D printable climbing crimp: edge depth, incut, lip rounding, body shape, and screw holes, with a live preview and STL export.",
   path: "/make/crimp",

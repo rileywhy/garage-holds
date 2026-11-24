@@ -111,6 +111,7 @@ const NOUNS: Record<Kind, string> = {
   pocket: "pocket hold",
   pinch: "pinch",
   roundpinch: "round pinch",
+  crack: "crack",
 };
 
 function outline(
@@ -232,6 +233,14 @@ function caption(kind: Kind, p: Parameters) {
     return `${p.width} mm span · ${p.rounding} mm rounding · incut ${p.thumb_incut} mm thumb side below, ${p.finger_incut} mm finger side above`;
   if (kind === "pinch")
     return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
+  if (kind === "crack") {
+    const flare = Number(p.flare);
+    return `${p.shape === "half" ? "One side" : `${p.width} mm crack`} · ${p.depth} mm deep · ${
+      flare === 0
+        ? "parallel"
+        : `flared ${flare > 0 ? "out" : "in"} ${Math.abs(flare)}°`
+    }`;
+  }
   return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
 }
 

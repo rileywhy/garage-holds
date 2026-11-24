@@ -127,6 +127,16 @@ export function linkSearch(
   return text ? `?${text}` : "";
 }
 
+// The bare pinch route opens Round Pinch. A link to the classic generator
+// needs a query even when the person saved its exact defaults.
+export function labSettingsHref(pathname: string, search: string) {
+  return pathname + (search || (pathname === "/make/pinch" ? "?legacy=1" : ""));
+}
+
+export function hasPinchSettings(keys: Iterable<string>) {
+  return Array.from(keys).some((key) => !/^(utm_|gclid$|fbclid$)/i.test(key));
+}
+
 // Update the address bar in place, without a navigation or a history entry.
 // Only while the lab's own page is showing: a preview that lands after the
 // person has moved to another lab must not write its settings into that
@@ -135,7 +145,7 @@ export function replaceSearch(search: string, pathname: string) {
   if (typeof window === "undefined") return;
   const { hash } = window.location;
   if (window.location.pathname !== pathname) return;
-  const next = pathname + search + hash;
+  const next = labSettingsHref(pathname, search) + hash;
   if (next !== pathname + window.location.search + hash)
     window.history.replaceState(window.history.state, "", next);
 }

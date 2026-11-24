@@ -13,6 +13,7 @@ export type PresetLab =
   | "pocket"
   | "pinch"
   | "roundpinch"
+  | "crack"
   | "custom-shape";
 export const PRESET_LABS: PresetLab[] = [
   "crimp",
@@ -22,22 +23,18 @@ export const PRESET_LABS: PresetLab[] = [
   "pocket",
   "pinch",
   "roundpinch",
+  "crack",
   "custom-shape",
 ];
-// The labs whose presets can be kept on the account: the ones the
-// lab_presets table's lab check accepts. The Round Pinch Lab is on trial and
-// saves to this browser only, until a migration adds it to that check.
-export const ACCOUNT_PRESET_LABS: PresetLab[] = PRESET_LABS.filter(
-  (lab) => lab !== "roundpinch",
-);
 export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   crimp: "Crimp Lab",
   sloper: "Sloper Lab",
   jug: "Jug Lab",
   foot: "Foot Lab",
   pocket: "Pocket Lab",
-  pinch: "Pinch Lab",
+  pinch: "Classic Pinch Lab",
   roundpinch: "Round Pinch Lab",
+  crack: "Crack Lab",
   "custom-shape": "Custom Shape Lab",
 };
 
@@ -147,10 +144,17 @@ export function defaultPresetName(lab: PresetLab, parameters: object): string {
                       ? `${number(p.offset)}% offset`
                       : number(p.depth) && `${number(p.depth)} mm deep`,
                   ]
-                : [
-                    number(p.scale) && `${number(p.scale)} mm wide`,
-                    number(p.depth) && `${number(p.depth)} mm deep`,
-                  ];
+                : lab === "crack"
+                  ? [
+                      p.shape === "half"
+                        ? "One side"
+                        : number(p.width) && `${number(p.width)} mm crack`,
+                      number(p.depth) && `${number(p.depth)} mm deep`,
+                    ]
+                  : [
+                      number(p.scale) && `${number(p.scale)} mm wide`,
+                      number(p.depth) && `${number(p.depth)} mm deep`,
+                    ];
   const name = parts.filter(Boolean).join(" · ");
   return name || "Saved shape";
 }

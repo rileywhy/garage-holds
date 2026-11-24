@@ -8,18 +8,20 @@ Free, open-source tools for designing 3D printable climbing holds for home walls
 
 ## The labs
 
-| Lab                                                       | What it makes                                                                 |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [Crimp](https://garageholds.com/make/crimp)               | Edges with adjustable depth, incut and lip rounding                           |
-| [Sloper](https://garageholds.com/make/sloper)             | Rounded holds with broad curves for open-hand grip                            |
-| [Jug](https://garageholds.com/make/jug)                   | Board, deep, rail and two-handed jugs                                         |
-| [Foot](https://garageholds.com/make/foot)                 | Board edges, toe-in edges, chips, smears, balls and dishes (experimental)     |
-| [Pocket](https://garageholds.com/make/pocket)             | Mono, two- and three-finger pockets (experimental)                            |
-| [Pinch](https://garageholds.com/make/pinch)               | Blocks to squeeze, with lean, undercut and offset on each side (experimental) |
-| [Round Pinch](https://garageholds.com/make/roundpinch)    | A rounder, more incut pinch, on trial beside the Pinch Lab (experimental)     |
-| [Custom Shape](https://garageholds.com/make/custom-shape) | Paint your own silhouette and turn it into a hold (being reworked)            |
+| Lab                                                       | What it makes                                                             |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Crimp](https://garageholds.com/make/crimp)               | Edges with adjustable depth, incut and lip rounding                       |
+| [Sloper](https://garageholds.com/make/sloper)             | Rounded holds with broad curves for open-hand grip                        |
+| [Jug](https://garageholds.com/make/jug)                   | Board, deep, rail and two-handed jugs                                     |
+| [Foot](https://garageholds.com/make/foot)                 | Board edges, toe-in edges, chips, smears, balls and dishes (experimental) |
+| [Pocket](https://garageholds.com/make/pocket)             | Mono, two- and three-finger pockets (experimental)                        |
+| [Round Pinch](https://garageholds.com/make/roundpinch)    | Rounded, incut sides with adjustable span (experimental)                  |
+| [Crack](https://garageholds.com/make/crack)               | Finger, hand and fist cracks with adjustable jam angle (experimental)     |
+| [Custom Shape](https://garageholds.com/make/custom-shape) | Paint your own silhouette and turn it into a hold (being reworked)        |
 
 Every lab keeps its settings in the address bar, so a Copy link button shares the exact hold.
+
+To reopen a settings file or a browser preset from the original Pinch Lab, use the [classic pinch editor](https://garageholds.com/make/pinch?legacy=1). Existing links with shape settings open it automatically.
 
 The site also has a [library](https://garageholds.com) where people share holds they've designed or printed, with print settings and reviews, and a [printing guide](https://garageholds.com/how-to-3d-print-climbing-holds).
 

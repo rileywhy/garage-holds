@@ -35,7 +35,9 @@ export function useModelViewer(
   const latest = useRef(options);
   // Tagged with the source it was loaded for, so a changed source reads as
   // "loading" without resetting state inside the effect.
-  const [loaded, setLoaded] = useState({ key: "", failed: false });
+  // `no3d` marks a failure of the browser's 3D graphics rather than of the
+  // model, so the page can say how to turn them back on.
+  const [loaded, setLoaded] = useState({ key: "", failed: false, no3d: false });
   const url = "url" in source ? source.url : "";
   const file = "file" in source ? source.file : null;
   const { key } = source;
@@ -66,18 +68,25 @@ export function useModelViewer(
         geometry.dispose();
         return;
       }
-      created = new Viewer(box, {
-        dark: isDarkTheme(),
-        color: parseInt(color.replace("#", ""), 16),
-      });
+      try {
+        created = new Viewer(box, {
+          dark: isDarkTheme(),
+          color: parseInt(color.replace("#", ""), 16),
+        });
+      } catch {
+        // Only WebGL throws here; the model itself loaded.
+        geometry.dispose();
+        if (active) setLoaded({ key, failed: true, no3d: true });
+        return;
+      }
       created.setView(view);
       created.setGeometry(geometry);
       created.setTurning(turning);
       bytes.current = data;
       viewer.current = created;
-      setLoaded({ key, failed: false });
+      setLoaded({ key, failed: false, no3d: false });
     })().catch(() => {
-      if (active) setLoaded({ key, failed: true });
+      if (active) setLoaded({ key, failed: true, no3d: false });
     });
     return () => {
       active = false;
@@ -104,5 +113,6 @@ export function useModelViewer(
     viewer,
     ready: loaded.key === key && !loaded.failed,
     failed: loaded.key === key && loaded.failed,
+    no3d: loaded.key === key && loaded.no3d,
   };
 }
