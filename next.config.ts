@@ -30,6 +30,7 @@ const config: NextConfig = {
         slug,
         process.env[generatorEnvName(slug)],
       ]),
+      ["custom_shape", process.env.CUSTOM_SHAPE_API_URL],
       ["jug_force", process.env.JUG_FORCE_API_URL],
     ].flatMap(([name, api]) =>
       api
