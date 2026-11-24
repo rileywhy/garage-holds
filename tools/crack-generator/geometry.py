@@ -46,6 +46,10 @@ from tools.hold_mounting import (
     automatic_seat, closed_mesh, drill, fit_bolt_and_screw, screw_layout, seat_floors,
 )
 
+from tools.hold_scale import restore_dimensions, scale_body
+
+BODY_DIMENSIONS = ("width", "depth", "constriction", "edge_radius", "length", "side", "back")
+
 # The least the crack stays open anywhere, so it prints as a slot and not a
 # seam. Printability, not a strength rating.
 GAP = 6.0
@@ -590,6 +594,12 @@ def build(requested, quality="preview"):
     if quality not in QUALITY:
         raise ValueError("Unknown mesh quality.")
     requested = parse_parameters(asdict(requested))
+    original = requested
+    requested = scale_body(original, BODY_DIMENSIONS)
+    if requested.length > BED + 1e-9 or (
+        requested.shape == "block" and requested.width + 2 * requested.side > BED + 1e-9
+    ):
+        raise ValueError("This crack does not fit the printer bed. Reduce Scale, Length, Width or Side thickness.")
     p = fit_crack(requested)
     # A longer crack levers harder on the wall: chosen from the size, each
     # side takes one more screw for every SCREW_STEP its length runs past
@@ -681,4 +691,5 @@ def build(requested, quality="preview"):
     if len(solid.decompose()) != 1:
         raise ValueError(message)
     mesh = closed_mesh(solid, message)
-    return Model(mesh, p, requested, profile, holes, cap)
+    model = Model(mesh, p, requested, profile, holes, cap / (p.size / 100))
+    return restore_dimensions(model, original, BODY_DIMENSIONS)

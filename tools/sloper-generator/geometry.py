@@ -25,6 +25,7 @@ from tools.hold_mounting import (
     fit_bolt_and_screw,
     seat_floors,
 )
+from tools.hold_scale import restore_dimensions, scale_body
 
 if __package__:
     from .parameters import (
@@ -258,14 +259,19 @@ def _fit_slope(p):
 def build(requested: Parameters, quality="preview") -> Model:
     if quality not in {"preview", "export"}:
         raise ValueError("Unknown mesh quality.")
-    p = parse_parameters(asdict(requested))
+    parsed = parse_parameters(asdict(requested))
+    body_fields = ("width", "height", "projection")
+    p = scale_body(parsed, body_fields)
+    scale = parsed.size / 100
+    max_width, max_height = MAX_WIDTH * scale, MAX_HEIGHT * scale
+    max_projection = MAX_PROJECTION * scale
     # Mounting uses preview geometry at both qualities, so hole layout and
     # adjusted settings never change just because the user exports an STL.
     # Allow enough growth steps to reach the full supported size range.
     growth_steps = math.ceil(
-        max((MAX_WIDTH - p.width) / 8, (MAX_HEIGHT - p.height) / 8)
+        max((max_width - p.width) / 8, (max_height - p.height) / 8)
     )
-    depth_steps = math.ceil((MAX_PROJECTION - p.projection) / 4)
+    depth_steps = math.ceil((max_projection - p.projection) / 4)
     # An automatic seat that cannot sit at its floor even on the largest
     # body starts again from the requested body, as low as it fits (RIL-136).
     start = p
@@ -299,14 +305,14 @@ def build(requested: Parameters, quality="preview") -> Model:
                 break
             # Grow the footprint first, then depth if the maximum oval is still
             # too shallow for the chosen hardware. No hidden hole removal.
-            if p.width < MAX_WIDTH or p.height < MAX_HEIGHT:
+            if p.width < max_width or p.height < max_height:
                 p = replace(
                     p,
-                    width=min(MAX_WIDTH, p.width + 8),
-                    height=min(MAX_HEIGHT, p.height + 8),
+                    width=min(max_width, p.width + 8),
+                    height=min(max_height, p.height + 8),
                 )
             else:
-                p = replace(p, projection=min(MAX_PROJECTION, p.projection + 4))
+                p = replace(p, projection=min(max_projection, p.projection + 4))
         else:
             continue
         break
@@ -347,10 +353,12 @@ def build(requested: Parameters, quality="preview") -> Model:
         automatic.add("screw_spacing")
     if requested.auto_seat:
         automatic.add("seat_depth")
-    adjusted = {
-        key: value
-        for key, value in asdict(p).items()
-        if key not in automatic and value != asdict(requested)[key]
+    spacing_limit = min(MAX_WIDTH, max(6.0, p.width - p.head_diameter - 4.0))
+    model = Model(mesh, profile, screws, p, {}, bolts, seat_limit, spacing_limit)
+    model = restore_dimensions(model, parsed, body_fields)
+    inputs = asdict(requested)
+    model.adjusted = {
+        key: value for key, value in asdict(model.parameters).items()
+        if key not in automatic and value != inputs[key]
     }
-    spacing_limit = max(6.0, p.width - p.head_diameter - 4.0)
-    return Model(mesh, profile, screws, p, adjusted, bolts, seat_limit, spacing_limit)
+    return model

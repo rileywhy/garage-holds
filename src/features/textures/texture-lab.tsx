@@ -548,6 +548,14 @@ export function TextureLab({
         </section>
         <section className={styles.section} aria-labelledby="texture-pattern">
           <h2 id="texture-pattern">Texture</h2>
+          <Range
+            label="Texture scale"
+            value={tileMm}
+            min={5}
+            max={240}
+            suffix=" mm"
+            change={setTileMm}
+          />
           <label className="lab-field">
             Pattern
             <select
@@ -608,16 +616,6 @@ export function TextureLab({
             Generate variation
           </button>
           <label className="lab-field">
-            Tile size · {tileMm} mm
-            <input
-              type="range"
-              min="5"
-              max="240"
-              value={tileMm}
-              onChange={(event) => setTileMm(event.target.valueAsNumber)}
-            />
-          </label>
-          <label className="lab-field">
             Rotation · {formatDegrees(turn.degrees)}
             <input
               type="range"
@@ -634,7 +632,7 @@ export function TextureLab({
             </p>
           )}
           <label className="lab-field">
-            Depth · {depthMm.toFixed(2)} mm
+            Relief depth · {depthMm.toFixed(2)} mm
             <input
               type="range"
               min="0"

@@ -149,7 +149,9 @@ function followCrimpPreview(previous: Parameters, data: Preview): Outcome {
     notes.push(
       `Seat lowered to ${Number(data.adjusted.seat_depth.toFixed(1))} mm so the screw recesses stay inside the body.`,
     );
-  if (data.lip_radius != null && data.lip_radius < Number(built.lip_radius))
+  const lipRadius =
+    (Number(built.lip_radius) * Number(built.size ?? 100)) / 100;
+  if (data.lip_radius != null && data.lip_radius < lipRadius - 0.005)
     notes.push(
       `The edge only has room for ${data.lip_radius} mm of lip rounding; deepen the edge or raise the body for more.`,
     );
@@ -213,8 +215,9 @@ export function modelMetrics(kind: Kind, data: Preview): Metric[] {
 function crackSize(kind: Kind, data: Preview): Metric[] {
   const p = data.parameters;
   if (kind !== "crack" || !p || p.shape !== "block") return [];
-  const width = Number(p.width);
-  const narrowest = width - Number(p.constriction);
+  const factor = Number(p.size ?? 100) / 100;
+  const width = Number(p.width) * factor;
+  const narrowest = width - Number(p.constriction) * factor;
   return [
     {
       label: "Cam size",

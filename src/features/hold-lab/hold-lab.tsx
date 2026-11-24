@@ -68,15 +68,16 @@ import {
   parseDesignFile,
   post,
   validate,
-  type Control,
   type Design,
   type Kind,
   type Parameters,
   type Preview,
   type Schema,
 } from "./api";
+import { presentControls } from "./control-presentation";
 import { LAB_KINDS, followPreview, modelMetrics } from "./kinds";
 import { mountingControlVisible } from "./mounting";
+import { ControlRow } from "./control-row";
 import { Profile } from "./profile";
 
 const GROUPS = ["Grip", "Shape", "Mounting"] as const;
@@ -206,7 +207,10 @@ export function HoldLab({
           .catch(() => {});
         setNaming(false);
         setPreset(name);
-        setSchema(loaded);
+        setSchema({
+          ...loaded,
+          controls: presentControls(kind, loaded.controls),
+        });
       } catch (error) {
         if (cancelled) return;
         reportError(kind, "start", error);
@@ -585,6 +589,7 @@ export function HoldLab({
     else change(key, Number(start[key] ?? schema.defaults[key]));
   }
 
+  const scale = schema?.controls.find((control) => control.key === "size");
   const screws = Boolean(parameters.screws);
   return (
     <div className="lab">
@@ -626,6 +631,16 @@ export function HoldLab({
             </option>
           </select>
         </label>
+        {scale && (
+          <ControlRow
+            control={scale}
+            value={Number(parameters.size)}
+            disabled={false}
+            clamp={lab.clampTyped}
+            onChange={change}
+            onReset={() => resetControl("size")}
+          />
+        )}
         <div className="lab-tabs" role="tablist" aria-label="Design controls">
           {GROUPS.map((name, index) => (
             <button
@@ -756,6 +771,7 @@ export function HoldLab({
               {schema.controls
                 .filter(
                   (c) =>
+                    c.key !== "size" &&
                     c.group === name &&
                     mountingControlVisible(c.key, parameters) &&
                     (!c.shapes ||
@@ -1140,114 +1156,6 @@ function Skeleton() {
       {Array.from({ length: 7 }, (_, i) => (
         <span key={i} />
       ))}
-    </div>
-  );
-}
-
-function ControlRow({
-  control,
-  value,
-  disabled,
-  clamp,
-  onChange,
-  onReset,
-  auto,
-}: {
-  control: Control;
-  value: number;
-  disabled: boolean;
-  // Snap a typed value into the slider's range; see LabKind.clampTyped.
-  clamp: boolean;
-  onChange: (key: string, value: number) => void;
-  onReset: () => void;
-  // An "auto" toggle beside the slider, for settings the generator can fit.
-  auto?: { checked: boolean; onChange: (checked: boolean) => void };
-}) {
-  const id = `lab-${control.key}`;
-  // Keep incomplete and out-of-range typing local. In particular, typing
-  // "120" must be allowed to pass through "1" and "12" without snapping.
-  const [draft, setDraft] = useState<string | null>(null);
-  function handle(typed: number) {
-    if (!Number.isFinite(typed)) return;
-    const next = clamp
-      ? Math.min(control.max, Math.max(control.min, typed))
-      : typed;
-    if (control.key === "screw_count" && !Number.isInteger(next)) return;
-    onChange(control.key, next);
-  }
-  return (
-    <div className="lab-control">
-      <div className="lab-control-head">
-        <label htmlFor={id}>{control.label}</label>
-        <span className="lab-number">
-          <input
-            id={id}
-            type="number"
-            min={control.min}
-            max={control.max}
-            step={control.step}
-            value={draft ?? (Number.isFinite(value) ? value : "")}
-            disabled={disabled}
-            aria-describedby={`${id}-hint`}
-            onFocus={(e) => setDraft(e.currentTarget.value)}
-            onChange={(e) => {
-              setDraft(e.currentTarget.value);
-              const typed = e.currentTarget.valueAsNumber;
-              if (!clamp || (typed >= control.min && typed <= control.max))
-                handle(typed);
-            }}
-            onBlur={(e) => {
-              handle(e.currentTarget.valueAsNumber);
-              setDraft(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-            }}
-          />
-          <span>{control.unit}</span>
-          <button
-            type="button"
-            className="lab-control-reset"
-            disabled={disabled}
-            aria-label={`Reset ${control.label}`}
-            title={`Reset ${control.label}`}
-            onClick={onReset}
-          >
-            <RotateCcw size={14} aria-hidden="true" />
-          </button>
-        </span>
-      </div>
-      <div className="lab-slider-with-auto">
-        <input
-          type="range"
-          min={control.min}
-          max={control.max}
-          step={control.step}
-          value={Number.isFinite(value) ? value : control.min}
-          disabled={disabled}
-          aria-label={`${control.label} slider`}
-          aria-describedby={`${id}-hint`}
-          onChange={(e) => handle(e.target.valueAsNumber)}
-          onDoubleClick={onReset}
-        />
-        {auto && (
-          <label className="lab-toggle">
-            <input
-              type="checkbox"
-              checked={auto.checked}
-              disabled={disabled}
-              onChange={(e) => auto.onChange(e.target.checked)}
-            />
-            auto
-          </label>
-        )}
-      </div>
-      <p className="lab-hint" id={`${id}-hint`}>
-        {control.help}
-      </p>
     </div>
   );
 }

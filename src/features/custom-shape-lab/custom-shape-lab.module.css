@@ -566,3 +566,14 @@
     min-height: 44px;
   }
 }
+
+.scaleControl {
+  grid-column: 1 / -1;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.scaleControl :global(.lab-control) {
+  max-width: 38rem;
+  margin: 0;
+}

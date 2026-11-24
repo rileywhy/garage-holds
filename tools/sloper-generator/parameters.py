@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools import hold_hardware as hardware
+from tools.hold_scale import SCALE_CONTROL
 
 MAX_WIDTH = 525
 MAX_HEIGHT = 420
@@ -38,6 +39,7 @@ class Parameters:
     head_diameter: float = hardware.HEAD_DIAMETER
     auto_seat: bool = True
     seat_depth: float = 24.3
+    size: float = 100
 
 
 def control(key, label, group, minimum, maximum, step, unit, help_text):
@@ -54,6 +56,7 @@ def control(key, label, group, minimum, maximum, step, unit, help_text):
 
 
 CONTROLS = [
+    SCALE_CONTROL,
     control(
         "incut",
         "Incut lift",

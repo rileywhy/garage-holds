@@ -59,9 +59,11 @@ CLOSE = [
 
 
 def random_settings(rng):
-    """One setting per control, on its step, anywhere in its range."""
+    """Sample the controls on their steps, with a scale that fits on the bed."""
     values = {}
     for control in CONTROLS:
+        if control["key"] == "size":
+            continue
         steps = int(round((control["max"] - control["min"]) / control["step"]))
         value = control["min"] + rng.randint(0, steps) * control["step"]
         values[control["key"]] = (
@@ -75,6 +77,14 @@ def random_settings(rng):
         auto_seat=rng.random() < 0.6,
         seed=rng.randint(0, 999999),
     )
+    # Bed overflow has its own refusal tests. Keep the geometry sweeps
+    # exercising printable combinations as their maximum length changes.
+    footprint = values["length"]
+    if values["shape"] == "block":
+        footprint = max(footprint, values["width"] + 2 * values["side"])
+    scale = next(control for control in CONTROLS if control["key"] == "size")
+    maximum = min(scale["max"], math.floor(100 * BED / footprint))
+    values["size"] = rng.randint(scale["min"], maximum)
     return values
 
 

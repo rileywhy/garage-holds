@@ -1,4 +1,5 @@
 "use client";
+import { ControlRow } from "@/features/hold-lab/control-row";
 import { TouchSurface } from "./touch-surface";
 
 import { cloneCut } from "./cut-profiles";
@@ -570,6 +571,11 @@ export function CustomShapeLab() {
     setBoardAngle(angle);
     viewer.current?.setBoardAngle(angle);
   }
+  const ranges = controlRanges(
+    parameters,
+    edgeDepthMax,
+    drawingHeight * parameters.scale,
+  );
   const previewHasError =
     !ready &&
     !["Updating", "Preview is current", "Preparing"].some((prefix) =>
@@ -614,6 +620,23 @@ export function CustomShapeLab() {
             {label}
           </button>
         ))}
+      </div>
+      <div className={styles.scaleControl}>
+        <ControlRow
+          control={{
+            key: "scale",
+            label: "Scale",
+            ...ranges.scale,
+            step: 1,
+            unit: "mm",
+            help: "Width of the drawing canvas. Changes the size of the painted outline and the spacing between screw centers. Set body depth and screw diameters separately.",
+          }}
+          value={parameters.scale}
+          disabled={false}
+          clamp
+          onChange={(_, value) => changeParameter("scale", value)}
+          onReset={() => resetParameter("scale")}
+        />
       </div>
       {mode === "cuts" && (
         <CutProfileEditor
@@ -941,6 +964,24 @@ export function CustomShapeLab() {
           {(
             [
               {
+                title: "Shape",
+                controls: [
+                  { key: "depth", label: "Body depth", unit: "mm", step: 1 },
+                  {
+                    key: "bodyTaper",
+                    label: "Body taper",
+                    unit: "°",
+                    step: 0.1,
+                  },
+                  {
+                    key: "bodyRounding",
+                    label: "Body rounding",
+                    unit: "mm",
+                    step: 0.5,
+                  },
+                ],
+              },
+              {
                 title: "Grip",
                 controls: [
                   { key: "incut", label: "Incut / slope", unit: "°", step: 1 },
@@ -953,25 +994,6 @@ export function CustomShapeLab() {
                   {
                     key: "lipRadius",
                     label: "Lip rounding",
-                    unit: "mm",
-                    step: 0.5,
-                  },
-                ],
-              },
-              {
-                title: "Shape",
-                controls: [
-                  { key: "scale", label: "Overall scale", unit: "mm", step: 1 },
-                  { key: "depth", label: "Body depth", unit: "mm", step: 1 },
-                  {
-                    key: "bodyTaper",
-                    label: "Body taper",
-                    unit: "°",
-                    step: 0.1,
-                  },
-                  {
-                    key: "bodyRounding",
-                    label: "Body rounding",
                     unit: "mm",
                     step: 0.5,
                   },
@@ -1009,7 +1031,7 @@ export function CustomShapeLab() {
             >
               <summary>
                 {group.title === "Shape"
-                  ? "Size & shape"
+                  ? "Body shape"
                   : group.title === "Grip"
                     ? "Grip & rounding"
                     : "Screw holes"}
@@ -1031,11 +1053,7 @@ export function CustomShapeLab() {
                 </label>
               )}
               {group.controls.map((c) => {
-                const range = controlRanges(
-                  parameters,
-                  (edgeDepthMax * parameters.scale) / defaults.scale,
-                  drawingHeight * parameters.scale,
-                )[c.key];
+                const range = ranges[c.key];
                 const value =
                   c.key === "seatDepth" && parameters.autoSeat
                     ? Math.max(
@@ -1044,71 +1062,33 @@ export function CustomShapeLab() {
                       )
                     : parameters[c.key];
                 return (
-                  <div className="lab-control" key={c.key}>
-                    <div className="lab-control-head">
-                      <label htmlFor={`custom-${c.key}`}>{c.label}</label>
-                      <span className="lab-number">
-                        <input
-                          aria-label={`${c.label} value`}
-                          type="number"
-                          min={range.min}
-                          max={range.max}
-                          step={c.step}
-                          value={value}
-                          onChange={(e) =>
-                            changeParameter(c.key, e.target.valueAsNumber)
-                          }
-                        />
-                        {c.unit}
-                        <button
-                          className="lab-control-reset"
-                          title={`Reset ${c.label}`}
-                          aria-label={`Reset ${c.label}`}
-                          onClick={() => resetParameter(c.key)}
-                        >
-                          <RotateCcw size={13} />
-                        </button>
-                      </span>
-                    </div>
-                    <div className="lab-slider-with-auto">
-                      <input
-                        id={`custom-${c.key}`}
-                        aria-label={c.label}
-                        type="range"
-                        min={range.min}
-                        max={range.max}
-                        step={c.step}
-                        value={value}
-                        onDoubleClick={() => resetParameter(c.key)}
-                        onChange={(e) =>
-                          changeParameter(c.key, e.target.valueAsNumber)
-                        }
-                      />
-                      {c.key === "seatDepth" && (
-                        <label className="lab-toggle">
-                          <input
-                            aria-label="Automatic screw seat"
-                            type="checkbox"
-                            checked={parameters.autoSeat}
-                            onChange={(e) => {
+                  <ControlRow
+                    key={c.key}
+                    control={{ ...c, ...range }}
+                    value={value}
+                    disabled={false}
+                    clamp
+                    onChange={(_, value) => changeParameter(c.key, value)}
+                    onReset={() => resetParameter(c.key)}
+                    auto={
+                      c.key === "seatDepth"
+                        ? {
+                            label: "Automatic screw seat",
+                            checked: parameters.autoSeat,
+                            onChange: (checked) => {
                               setReady(false);
-                              if (e.target.checked) setFittedSeat(null);
+                              if (checked) setFittedSeat(null);
                               setParameters((p) =>
                                 normalizeParameters(
-                                  {
-                                    ...p,
-                                    autoSeat: e.target.checked,
-                                  },
+                                  { ...p, autoSeat: checked },
                                   materialHeight(drawing.current, p.scale),
                                 ),
                               );
-                            }}
-                          />
-                          auto
-                        </label>
-                      )}
-                    </div>
-                  </div>
+                            },
+                          }
+                        : undefined
+                    }
+                  />
                 );
               })}
               <p className="lab-hint">

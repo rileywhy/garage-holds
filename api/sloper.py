@@ -70,7 +70,7 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
                     200,
                     model.mesh.export(file_type="stl"),
                     "model/stl",
-                    f"sloper-{model.parameters.width:g}mm.stl",
+                    f"sloper-{model.parameters.width * (p.size / 100):g}mm.stl",
                 )
             else:
                 model = cached_model(p, "preview")

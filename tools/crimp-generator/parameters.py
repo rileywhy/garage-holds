@@ -9,11 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools import hold_hardware as hardware
+from tools.hold_scale import SCALE_CONTROL
 from tools.hold_mounting import automatic_seat
 
 
 @dataclass(frozen=True)
-class Parameters:
+class BodyParameters:
     width: float = 100
     edge_depth: float = 22
     incut: float = 12
@@ -40,17 +41,28 @@ class Parameters:
     seat_depth: float = 10
 
 
+@dataclass(frozen=True)
+class Parameters(BodyParameters):
+    size: float = 100
+
+
+def projection(p: "Parameters") -> float:
+    """Outer grip depth including the scaled support behind the edge."""
+    return p.edge_depth + 6 * (p.size / 100)
+
+
 def seat_height(p: "Parameters") -> float:
     """Where the countersink starts, above the wall. An automatic seat
     follows the body's projection from the wall, as every lab's does
     (tools/hold_mounting.py): 11 mm on the default 28 mm crimp."""
     if not p.auto_seat:
         return p.seat_depth
-    return automatic_seat(p.edge_depth + 6)
+    return automatic_seat(projection(p))
 
 
 # The GUI reads this schema instead of keeping its own copy of limits/defaults.
 CONTROLS = [
+    SCALE_CONTROL,
     dict(
         key="edge_depth",
         label="Edge depth",
@@ -242,6 +254,12 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
         if not finite_number(value):
             raise ValueError(f"{control['label']} must be a finite number.")
         maximum = JUG_MAXIMA.get(key, control["max"]) if jug else control["max"]
+        # Automatic seat/spacing readouts on a scaled body can exceed the
+        # manual range, and a saved design carries those readouts.
+        if key in ("seat_depth", "screw_spacing") and not jug:
+            switch = "auto_seat" if key == "seat_depth" else "auto_spacing"
+            if parsed[switch] is True and finite_number(parsed["size"]):
+                maximum *= max(1, parsed["size"] / 100)
         if not control["min"] <= value <= maximum:
             raise ValueError(
                 f"{control['label']} must be between {control['min']} and {maximum} {control['unit']}."
@@ -270,7 +288,7 @@ def parse_parameters(values: dict, *, jug: bool = False) -> Parameters:
         if (
             not p.bolt_mount
             and not p.auto_spacing
-            and p.screw_spacing + p.head_diameter + 4 > p.width
+            and p.screw_spacing + p.head_diameter + 4 > p.width * (p.size / 100)
         ):
             if jug:
                 p = replace(

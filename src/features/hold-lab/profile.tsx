@@ -133,6 +133,10 @@ function CrimpProfile({
   data: Preview;
   parameters: Parameters;
 }) {
+  const physical = data.design?.parameters ?? parameters;
+  const factor = Number(physical.size ?? 100) / 100;
+  const edgeDepth = Number((Number(physical.edge_depth) * factor).toFixed(2));
+  const lipRadius = Number((Number(physical.lip_radius) * factor).toFixed(2));
   const ys = data.profile.map(([y]) => y);
   const zs = data.profile.map(([, z]) => z);
   const finger = fingerOn("crimp", [data.profile], parameters);
@@ -208,12 +212,12 @@ function CrimpProfile({
         textAnchor="middle"
         className="lab-profile-label"
       >
-        {parameters.edge_depth} mm nominal
+        {edgeDepth} mm nominal
       </text>
       <text x={240} y={222} textAnchor="middle">
-        {parameters.incut}° incut · {parameters.lip_radius} mm lip radius
+        {physical.incut}° incut · {lipRadius} mm lip radius
         {data.lip_radius != null &&
-          data.lip_radius < Number(parameters.lip_radius) &&
+          data.lip_radius < lipRadius - 0.005 &&
           ` (${data.lip_radius} mm fits)`}
       </text>
     </svg>
@@ -221,27 +225,33 @@ function CrimpProfile({
 }
 
 function caption(kind: Kind, p: Parameters) {
+  const mm = (value: number | string | boolean, max = Infinity) =>
+    Number(
+      Math.min(max, (Number(value) * Number(p.size ?? 100)) / 100).toFixed(2),
+    );
   if (kind === "jug" && p.shape === "handlebar")
-    return `${p.bar_thickness} mm bar · ${p.bar_clearance} mm finger gap · ${p.bar_span} mm hand room`;
-  if (kind === "jug") return `${p.edge_depth} mm reach · ${p.incut}° incut`;
-  if (kind === "foot") return `${p.edge_depth} mm toe depth · ${p.incut}° bite`;
+    return `${mm(p.bar_thickness)} mm bar · ${mm(p.bar_clearance)} mm finger gap · ${mm(p.bar_span)} mm hand room`;
+  if (kind === "jug")
+    return `${mm(p.edge_depth, 140)} mm reach · ${p.incut}° incut`;
+  if (kind === "foot")
+    return `${mm(p.edge_depth)} mm toe depth · ${p.incut}° bite`;
   if (kind === "pocket")
     return `${p.opening_width} mm opening · ${
       p.through ? "open to the wall" : `${p.pocket_depth} mm deep`
     } · ${p.incut} mm incut`;
   if (kind === "roundpinch")
-    return `${p.width} mm span · ${p.rounding} mm rounding · incut ${p.thumb_incut} mm thumb side below, ${p.finger_incut} mm finger side above`;
+    return `${mm(p.width)} mm span · ${mm(p.rounding)} mm rounding · incut ${mm(p.thumb_incut)} mm thumb side below, ${mm(p.finger_incut)} mm finger side above`;
   if (kind === "pinch")
-    return `${p.width} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
+    return `${mm(p.width)} mm span · thumb side ${p.thumb_angle}° below · finger side ${p.finger_angle}° above`;
   if (kind === "crack") {
     const flare = Number(p.flare);
-    return `${p.shape === "half" ? "One side" : `${p.width} mm crack`} · ${p.depth} mm deep · ${
+    return `${p.shape === "half" ? "One side" : `${mm(p.width)} mm crack`} · ${mm(p.depth)} mm deep · ${
       flare === 0
         ? "parallel"
         : `flared ${flare > 0 ? "out" : "in"} ${Math.abs(flare)}°`
     }`;
   }
-  return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${p.projection} mm depth`;
+  return `${p.incut}° lift · ${p.arc_wrap}° wrap · ${mm(p.projection)} mm depth`;
 }
 
 function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {

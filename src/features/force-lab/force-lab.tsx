@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Crosshair, RotateCcw, X } from "lucide-react";
-import type { Control, Parameters } from "@/features/hold-lab/api";
+import { Crosshair, X } from "lucide-react";
+import type { Control, Kind, Parameters } from "@/features/hold-lab/api";
+import { presentControls } from "@/features/hold-lab/control-presentation";
+import { ControlRow } from "@/features/hold-lab/control-row";
+import { mountingControlVisible } from "@/features/hold-lab/mounting";
 import { freshPreviewUrl } from "@/features/holds/preview-actions";
 import { isDarkTheme } from "@/features/model-viewer/viewer";
 import { NO_3D_HELP, VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
@@ -99,7 +102,7 @@ const PULL_ROWS: RowSpec[] = [
   },
   {
     key: "pull_angle",
-    label: "Pull out from the wall",
+    label: "Outward pull angle",
     min: -30,
     max: 60,
     step: 1,
@@ -108,7 +111,7 @@ const PULL_ROWS: RowSpec[] = [
   },
   {
     key: "side_angle",
-    label: "Side pull",
+    label: "Side pull angle",
     min: -60,
     max: 60,
     step: 1,
@@ -117,7 +120,7 @@ const PULL_ROWS: RowSpec[] = [
   },
   {
     key: "position",
-    label: "Hand position across",
+    label: "Hand position across the hold",
     min: -80,
     max: 80,
     step: 1,
@@ -184,7 +187,9 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
   const [cutAt, setCutAt] = useState(0);
   const [picking, setPicking] = useState(false);
   const [bounds, setBounds] = useState<Bounds | null>(null);
-  const [result, setResult] = useState<Analysis | null>(null);
+  const [result, setResult] = useState<
+    (Analysis & { sourceKey: string }) | null
+  >(null);
   const [backImage, setBackImage] = useState<string>();
   const [status, setStatus] = useState({
     text: "Loading the model…",
@@ -192,7 +197,7 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
   });
   const [viewerFailed, setViewerFailed] = useState(false);
 
-  const kind = choice.startsWith("kind:") ? choice.slice(5) : null;
+  const kind = choice.startsWith("kind:") ? (choice.slice(5) as Kind) : null;
   const pileHold = choice.startsWith("pile:")
     ? (pile.find((p) => p.id === choice.slice(5)) ?? null)
     : null;
@@ -343,7 +348,7 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
         }
         scene.current?.show(next, geometry);
         setBackImage(scene.current?.pressureImage());
-        setResult(next);
+        setResult({ ...next, sourceKey: request.key });
         const count = next.fasteners.length;
         setStatus({
           text: `${next.source.label} · ${count} ${count === 1 ? "fastener" : "fasteners"} · ${next.wall.label} · ${next.hold.label}`,
@@ -415,6 +420,10 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
 
   function changeSetting(key: string, value: number | boolean | string) {
     if (!kind || !kindSettings) return;
+    if (key === "size")
+      setLoad((current) =>
+        current?.point ? { ...current, point: null } : current,
+      );
     setSettings((s) => ({ ...s, [kind]: { ...kindSettings, [key]: value } }));
     setPresets((p) => ({ ...p, [kind]: "" }));
   }
@@ -458,9 +467,42 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
 
   const cutAxisIndex = cutAxis === "x" ? 0 : 2;
 
+  const shapeControls =
+    kind && kindSchema && kindSettings
+      ? presentControls(kind, kindSchema.controls).filter(
+          (control) =>
+            (!control.shapes ||
+              control.shapes.includes(String(kindSettings.shape))) &&
+            !(control.hidden_by && kindSettings[control.hidden_by]) &&
+            mountingControlVisible(control.key, kindSettings),
+        )
+      : [];
+  function shapeRow(control: Control) {
+    if (!kindSchema || !kindSettings) return null;
+    return (
+      <ControlRow
+        key={control.key}
+        control={control}
+        value={Number(kindSettings[control.key])}
+        disabled={false}
+        clamp
+        onChange={changeSetting}
+        onReset={() =>
+          changeSetting(control.key, kindSchema.defaults[control.key])
+        }
+      />
+    );
+  }
+
+  const pileSource =
+    pileHold && result?.sourceKey === request?.key ? result?.source : null;
+
   return (
     <div className="lab">
-      <aside className="lab-controls" aria-label="Force lab controls">
+      <aside
+        className={`lab-controls ${styles.controls}`}
+        aria-label="Force lab controls"
+      >
         <label className="lab-field">
           <span>Hold</span>
           <select
@@ -487,6 +529,21 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
             )}
           </select>
         </label>
+        {shapeControls
+          .filter((control) => control.key === "size")
+          .map(shapeRow)}
+        {pileHold && (
+          <p className="lab-hint">
+            {pileSource && (
+              <>
+                Size on the wall: {fmt(pileSource.dimensions[0], 1)} mm wide,{" "}
+                {fmt(pileSource.dimensions[1], 1)} mm tall,{" "}
+                {fmt(pileSource.dimensions[2], 1)} mm deep.{" "}
+              </>
+            )}
+            Pile holds use the authored STL dimensions.
+          </p>
+        )}
         <div
           className="lab-tabs"
           role="tablist"
@@ -678,16 +735,15 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
             )}
             {name === "Shape" && pileHold && (
               <p className="lab-hint">
-                This hold is from the pile, so its shape is fixed.{" "}
-                {result?.source.kind === "pile" &&
-                  `${result.source.holes} mounting ${result.source.holes === 1 ? "hole was" : "holes were"} found in its STL. `}
+                {pileSource &&
+                  `${pileSource.holes} mounting ${pileSource.holes === 1 ? "hole was" : "holes were"} found. `}
                 <Link href={`/holds/${pileHold.id}`}>Open its page.</Link>
               </p>
             )}
             {name === "Shape" && kind && kindSchema && kindSettings && (
               <>
                 <label className="lab-field">
-                  <span>{kindSchema.label} Lab starting point</span>
+                  <span>Starting point</span>
                   <select
                     value={presets[kind] ?? ""}
                     onChange={(e) => applyPreset(e.target.value)}
@@ -713,10 +769,35 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
                     </select>
                   </label>
                 )}
+                {kindSchema.toggles
+                  .filter((toggle) => toggle.group !== "Mounting")
+                  .map((toggle) => (
+                    <label className="lab-toggle" key={toggle.key}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(kindSettings[toggle.key])}
+                        onChange={(e) =>
+                          changeSetting(toggle.key, e.target.checked)
+                        }
+                      />
+                      {toggle.label}
+                    </label>
+                  ))}
+                {shapeControls
+                  .filter(
+                    (control) =>
+                      control.key !== "size" && control.group !== "Mounting",
+                  )
+                  .map(shapeRow)}
                 {Object.entries(kindSettings)
                   .filter(
                     ([key, value]) =>
-                      typeof value === "boolean" && key !== "screws",
+                      typeof value === "boolean" &&
+                      key !== "screws" &&
+                      !kindSchema.toggles.some(
+                        (toggle) =>
+                          toggle.key === key && toggle.group !== "Mounting",
+                      ),
                   )
                   .map(([key, value]) => (
                     <label className="lab-toggle" key={key}>
@@ -730,24 +811,9 @@ export function ForceLab({ pile }: { pile: PileHold[] }) {
                         key.replace(/_/g, " ")}
                     </label>
                   ))}
-                {kindSchema.controls
-                  .filter(
-                    (control: Control) =>
-                      (!control.shapes ||
-                        control.shapes.includes(String(kindSettings.shape))) &&
-                      !(control.hidden_by && kindSettings[control.hidden_by]),
-                  )
-                  .map((control: Control) => (
-                    <Row
-                      key={control.key}
-                      prefix={`shape-${kind}`}
-                      spec={control}
-                      value={Number(kindSettings[control.key])}
-                      initial={Number(kindSchema.defaults[control.key])}
-                      disabled={false}
-                      onChange={changeSetting}
-                    />
-                  ))}
+                {shapeControls
+                  .filter((control) => control.group === "Mounting")
+                  .map(shapeRow)}
               </>
             )}
           </div>
@@ -906,71 +972,28 @@ function Row({
   onChange,
 }: {
   prefix: string;
-  spec: RowSpec | Control;
+  spec: RowSpec;
   value: number;
   initial: number;
   disabled: boolean;
   onChange: (key: string, value: number) => void;
 }) {
-  const id = `force-${prefix}-${spec.key}`;
-  const shown = "shown" in spec ? spec.shown : undefined;
-  const set = (v: number) => {
-    if (!Number.isFinite(v)) return;
-    onChange(spec.key, Math.min(spec.max, Math.max(spec.min, v)));
-  };
   return (
-    <div className="lab-control">
-      <div className="lab-control-head">
-        <label htmlFor={id}>{spec.label}</label>
-        <span className="lab-number">
-          <input
-            id={id}
-            type="number"
-            min={spec.min}
-            max={spec.max}
-            step={spec.step}
-            value={Number.isFinite(value) ? value : ""}
-            disabled={disabled}
-            aria-describedby={`${id}-hint`}
-            onChange={(e) => {
-              const v = e.currentTarget.valueAsNumber;
-              if (v >= spec.min && v <= spec.max) set(v);
-            }}
-            onBlur={(e) => set(e.currentTarget.valueAsNumber)}
-          />
-          <span>{spec.unit}</span>
-          <button
-            type="button"
-            className="lab-control-reset"
-            disabled={disabled}
-            aria-label={`Reset ${spec.label}`}
-            title={`Reset ${spec.label}`}
-            onClick={() => onChange(spec.key, initial)}
-          >
-            <RotateCcw size={14} aria-hidden="true" />
-          </button>
-        </span>
-      </div>
-      <input
-        type="range"
-        min={spec.min}
-        max={spec.max}
-        step={spec.step}
-        value={Number.isFinite(value) ? value : spec.min}
-        disabled={disabled}
-        aria-label={`${spec.label} slider`}
-        aria-describedby={`${id}-hint`}
-        onChange={(e) => set(e.target.valueAsNumber)}
-        onDoubleClick={() => onChange(spec.key, initial)}
-      />
-      <p className="lab-hint" id={`${id}-hint`}>
-        {shown ? <strong>{shown(value)}. </strong> : null}
-        {spec.help}
-      </p>
-    </div>
+    <ControlRow
+      id={`force-${prefix}-${spec.key}`}
+      control={
+        spec.shown
+          ? { ...spec, help: `${spec.shown(value)}. ${spec.help}` }
+          : spec
+      }
+      value={value}
+      disabled={disabled}
+      clamp
+      onChange={onChange}
+      onReset={() => onChange(spec.key, initial)}
+    />
   );
 }
-
 function Legend({ result, mode }: { result: Analysis; mode: Mode }) {
   if (mode === "stress") {
     const range = stressScale(result.mesh.sigma);

@@ -51,6 +51,46 @@ def random_settings(rng, controls):
 
 
 class GeometryTests(unittest.TestCase):
+    def test_scale_resizes_the_body_and_keeps_hardware_in_millimetres(self):
+        legacy = parse_parameters({"width": 145, "screws": False})
+        self.assertEqual(legacy.size, 100)
+        original = build(legacy).mesh
+        for size in (75, 140):
+            with self.subTest(size=size):
+                scaled = build(replace(legacy, size=size))
+                np.testing.assert_allclose(scaled.mesh.vertices, original.vertices * (size / 100), atol=1e-5)
+                self.assertEqual(scaled.parameters.width, legacy.width)
+                self.assertEqual(scaled.adjusted, {})
+                settings = replace(legacy, size=size, screws=True, auto_seat=False, seat_depth=7)
+                preview = build(settings)
+                exported = build(parse_parameters(design_document(preview.parameters)["parameters"]), "export")
+                self.assertEqual(preview.screws, exported.screws)
+                self.assertEqual(exported.parameters.size, size)
+                self.assertEqual(exported.parameters.seat_depth, 7)
+                for model in (preview, exported):
+                    cut = _solid(model.mesh).slice(2).to_polygons()
+                    # The shank's cross-sections are holes in the large
+                    # positive-winding outside contour.
+                    holes = []
+                    for poly in cut:
+                        ring = np.asarray(poly)
+                        x, y = ring.T
+                        if x @ np.roll(y, -1) < y @ np.roll(x, -1):
+                            holes.append(ring)
+                    self.assertEqual(len(holes), settings.screw_count)
+                    for hole in holes:
+                        self.assertAlmostEqual(np.ptp(hole[:, 0]), settings.shank_diameter, places=3)
+
+    def test_scaled_sloper_reopens_after_the_body_grows_for_hardware(self):
+        small = Parameters(size=75, width=40, height=40, projection=12, screw_count=6,
+                           head_diameter=25, shank_diameter=12)
+        fitted = build(small)
+        self.assertGreater(fitted.parameters.width, small.width)
+        self.assertEqual(fitted.adjusted["width"], fitted.parameters.width)
+        reopened = build(parse_parameters(design_document(fitted.parameters)["parameters"]))
+        np.testing.assert_allclose(reopened.screws, fitted.screws, atol=1e-6)
+        np.testing.assert_allclose(reopened.mesh.extents, fitted.mesh.extents, atol=1e-6)
+
     def assert_solid(self, model):
         mesh = model.mesh
         self.assertTrue(mesh.is_watertight)

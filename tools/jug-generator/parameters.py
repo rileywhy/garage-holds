@@ -10,7 +10,7 @@ else:
 
 
 @dataclass(frozen=True)
-class Parameters(crimp.Parameters):
+class Parameters(crimp.BodyParameters):
     width: float = 158
     edge_depth: float = 57.5
     incut: float = 56
@@ -248,7 +248,7 @@ def parse_parameters(values):
     merged["incut"] = 20 + bite * 0.4 if bite <= 90 else 56 + (bite - 90) * 4 / 90
     parsed = crimp.parse_parameters(merged, jug=True)
     return Parameters(
-        **asdict(parsed), end_wrap=wrap, arc_rise=rise, size=size, grip_quality=bite,
+        **(asdict(parsed) | {"size": size}), end_wrap=wrap, arc_rise=rise, grip_quality=bite,
         screw_arc=screw_arc, shape=shape, **bar,
     )
 
