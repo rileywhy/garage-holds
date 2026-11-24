@@ -1,4 +1,5 @@
 "use client";
+import { TouchSurface } from "./touch-surface";
 
 import { cloneCut } from "./cut-profiles";
 import { useCanvasPalette } from "./canvas-palette";
@@ -573,6 +574,15 @@ export function CustomShapeLab() {
     !["Updating", "Preview is current", "Preparing"].some((prefix) =>
       message.startsWith(prefix),
     );
+  const downloadButton = (
+    <button
+      className="button button-dark"
+      disabled={!ready || exporting || !!draftCut}
+      onClick={download}
+    >
+      {exporting ? "Exporting…" : "Download STL"}
+    </button>
+  );
   return (
     <div
       className={`${styles.layout} ${mode === "preview" ? styles.previewOnly : ""}`}
@@ -747,24 +757,26 @@ export function CustomShapeLab() {
             />
           </label>
         )}
-        <canvas
-          ref={canvas}
-          className={styles.canvas}
-          width={RESOLUTION * 3}
-          height={RESOLUTION * 3}
-          aria-label="Paint hold material. Switch to eraser to remove material or mounting hole to place screws."
-          onPointerDown={down}
-          onPointerMove={move}
-          onPointerUp={finish}
-          onPointerCancel={finish}
-          onLostPointerCapture={finish}
-          onPointerLeave={() => {
-            if (!active.current) {
-              cursor.current = null;
-              paintCanvas();
-            }
-          }}
-        />
+        <TouchSurface action="Draw on shape">
+          <canvas
+            ref={canvas}
+            className={styles.canvas}
+            width={RESOLUTION * 3}
+            height={RESOLUTION * 3}
+            aria-label="Paint hold material. Switch to eraser to remove material or mounting hole to place screws."
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={finish}
+            onPointerCancel={finish}
+            onLostPointerCapture={finish}
+            onPointerLeave={() => {
+              if (!active.current) {
+                cursor.current = null;
+                paintCanvas();
+              }
+            }}
+          />
+        </TouchSurface>
         <p className={styles.hint}>
           <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
           <span className={styles.redKey}>Gold: screw holes</span> · Canvas
@@ -885,19 +897,21 @@ export function CustomShapeLab() {
             <p>from vertical · 0° is upright</p>
           </div>
         )}
-        <div
-          ref={container}
-          className={`lab-viewer ${styles.viewer}`}
-          role="img"
-          aria-label={`Interactive 3D hold preview. ${VIEWER_CONTROLS}`}
-        >
-          {viewerFailed && (
-            <p>
-              3D viewing is unavailable in this browser. Validated STL export
-              remains available.
-            </p>
-          )}
-        </div>
+        <TouchSurface action="Rotate preview">
+          <div
+            ref={container}
+            className={`lab-viewer ${styles.viewer}`}
+            role="img"
+            aria-label={`Interactive 3D hold preview. ${VIEWER_CONTROLS}`}
+          >
+            {viewerFailed && (
+              <p>
+                3D viewing is unavailable in this browser. Validated STL export
+                remains available.
+              </p>
+            )}
+          </div>
+        </TouchSurface>
         <p className="lab-caption">
           <span>drag to turn · shift to pan · scroll or pinch to zoom</span>
           <span>
@@ -918,13 +932,7 @@ export function CustomShapeLab() {
                   ? "Updating preview…"
                   : message}
           </p>
-          <button
-            className="button button-dark"
-            disabled={!ready || exporting || !!draftCut}
-            onClick={download}
-          >
-            {exporting ? "Exporting…" : "Download STL"}
-          </button>
+          {downloadButton}
         </div>
         <SafetyNote />
         <div className={styles.settingsHeading}>
@@ -1116,6 +1124,7 @@ export function CustomShapeLab() {
           ))}
         </div>
       </section>
+      <div className={styles.phoneExport}>{downloadButton}</div>
     </div>
   );
 }

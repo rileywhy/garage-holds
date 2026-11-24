@@ -1,4 +1,4 @@
-﻿.layout {
+.layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
@@ -533,4 +533,36 @@
 
 .cutKey {
   color: light-dark(#93425d, #e79cb6);
+}
+
+.touchMode,
+.phoneExport {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .touchMode {
+    display: inline-flex;
+    min-height: 44px;
+    margin-bottom: 6px;
+  }
+  .touchSurface[data-active="false"] > :last-child,
+  .touchSurface[data-active="false"] > :last-child * {
+    pointer-events: none;
+  }
+  .exportBar :global(.button) {
+    display: none;
+  }
+  .phoneExport {
+    display: flex;
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+    background: var(--bg);
+  }
+  .phoneExport button {
+    width: 100%;
+    min-height: 44px;
+  }
 }

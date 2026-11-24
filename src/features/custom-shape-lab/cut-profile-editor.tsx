@@ -1,4 +1,5 @@
 "use client";
+import { TouchSurface } from "./touch-surface";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ShapeParameters, serializeDocument } from "./mask";
 import {
@@ -749,42 +750,44 @@ export function CutProfileEditor(props: Props) {
                 ? "Brush over red areas to bring that material back."
                 : "Paint rose over the blue shape to carve material away."}
           </p>
-          <canvas
-            ref={canvas}
-            width={640}
-            height={420}
-            className={styles.profileCanvas}
-            aria-label="Draw cut profile cross-section"
-            onPointerDown={(e) => {
-              if (e.button !== 0 || !reference) return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              const p = point(e);
-              setCursor(p);
-              const next = applyBrush(draft, p, p);
-              gesture.current = {
-                before: cloneCut(draft),
-                point: p,
-                current: next,
-              };
-              setDraft(next);
-              props.onPreviewPending();
-            }}
-            onPointerMove={(e) => {
-              const p = point(e);
-              setCursor(p);
-              const g = gesture.current;
-              if (!g) return;
-              g.current = applyBrush(g.current, g.point, p);
-              g.point = p;
-              setDraft(g.current);
-            }}
-            onPointerUp={finish}
-            onPointerCancel={finish}
-            onLostPointerCapture={finish}
-            onPointerLeave={() => {
-              if (!gesture.current) setCursor(null);
-            }}
-          />
+          <TouchSurface action="Draw on cut profile">
+            <canvas
+              ref={canvas}
+              width={640}
+              height={420}
+              className={styles.profileCanvas}
+              aria-label="Draw cut profile cross-section"
+              onPointerDown={(e) => {
+                if (e.button !== 0 || !reference) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                const p = point(e);
+                setCursor(p);
+                const next = applyBrush(draft, p, p);
+                gesture.current = {
+                  before: cloneCut(draft),
+                  point: p,
+                  current: next,
+                };
+                setDraft(next);
+                props.onPreviewPending();
+              }}
+              onPointerMove={(e) => {
+                const p = point(e);
+                setCursor(p);
+                const g = gesture.current;
+                if (!g) return;
+                g.current = applyBrush(g.current, g.point, p);
+                g.point = p;
+                setDraft(g.current);
+              }}
+              onPointerUp={finish}
+              onPointerCancel={finish}
+              onLostPointerCapture={finish}
+              onPointerLeave={() => {
+                if (!gesture.current) setCursor(null);
+              }}
+            />
+          </TouchSurface>
           <p className={styles.hint}>
             <span className={styles.blueKey}>Blue: your hold</span> ·{" "}
             <span className={styles.cutKey}>Rose: cut away</span> · Dashed:
