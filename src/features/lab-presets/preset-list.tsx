@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { labSettingsHref } from "@/features/lab-link/lab-link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { LocalDate } from "@/components/local-date";
@@ -56,7 +57,7 @@ export function PresetList({ presets }: { presets: AccountPreset[] }) {
               <div className="preset-item-actions">
                 <Link
                   className="button button-outline"
-                  href={`/make/${preset.lab}${preset.search}`}
+                  href={labSettingsHref(`/make/${preset.lab}`, preset.search)}
                 >
                   Open in lab
                 </Link>

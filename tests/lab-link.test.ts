@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  hasPinchSettings,
+  labSettingsHref,
   linkSearch,
   parseLinkValue,
   presetNamed,
@@ -14,6 +16,18 @@ import {
   holesToLink,
 } from "../src/features/custom-shape-lab/link";
 import { emptyDocument, stroke } from "../src/features/custom-shape-lab/mask";
+
+test("saved classic pinch defaults stay distinct from the Round Pinch entrance", () => {
+  assert.equal(labSettingsHref("/make/pinch", ""), "/make/pinch?legacy=1");
+  assert.equal(
+    labSettingsHref("/make/pinch", "?span=60"),
+    "/make/pinch?span=60",
+  );
+  assert.equal(labSettingsHref("/make/roundpinch", ""), "/make/roundpinch");
+  assert.ok(hasPinchSettings(["legacy"]));
+  assert.ok(hasPinchSettings(["utm_source", "span"]));
+  assert.equal(hasPinchSettings(["utm_source"]), false);
+});
 
 const defaults = {
   width: 48,

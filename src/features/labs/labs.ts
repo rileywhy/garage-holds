@@ -7,7 +7,6 @@ export type LabSlug =
   | "jug"
   | "foot"
   | "pocket"
-  | "pinch"
   | "roundpinch"
   | "custom-shape";
 
@@ -63,16 +62,6 @@ export const LABS: LabInfo[] = [
     image: "/images/hold-labs/pocket.webp",
     status: "experimental",
   },
-  {
-    slug: "pinch",
-    name: "Pinch Lab",
-    short: "pinch",
-    href: "/make/pinch",
-    image: "/images/hold-labs/pinch.webp",
-    status: "experimental",
-  },
-  // A second take on the pinch, beside the first while the two are
-  // compared; it borrows the Pinch Lab's artwork until it has its own.
   {
     slug: "roundpinch",
     name: "Round Pinch Lab",

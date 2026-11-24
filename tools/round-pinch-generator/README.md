@@ -1,15 +1,13 @@
 # Round Pinch Lab
 
-A second take on the pinch, kept beside the [Pinch Lab](../pinch-generator/README.md)
-while the two are compared. The Pinch Lab's section is a polygon with
+This is the active pinch generator. The [classic generator](../pinch-generator/README.md)
+remains available for previously saved designs. Its section is a polygon with
 filleted corners: its undercut is a straight face, and rounding its edge
 eats the undercut, so a pinch can be incut or comfortable but not both.
 This one is rounded and incut at once. On the site it runs as a Vercel
 Python function (`api/roundpinch.py`) behind `/make/roundpinch`, on the
 same React shell as the other parametric labs (`src/features/hold-lab`).
-It is labelled experimental, and its presets save to the browser only until
-the lab is kept (saving to an account needs `roundpinch` added to the
-`lab_presets` check in a migration).
+Presets save to the signed-in account or, when signed out, to this browser.
 
 `parameters.py` owns controls and presets; `geometry.py` owns the section
 and the loft. The hardware fitting, the growth it may ask for, the material
