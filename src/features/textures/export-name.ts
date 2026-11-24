@@ -17,10 +17,12 @@ export function texturePngFilename(settings: {
   density: number;
   contrast: number;
   detail?: number;
+  rotation?: number;
 }) {
-  const { pattern, seed, density, contrast, detail } = settings;
+  const { pattern, seed, density, contrast, detail, rotation = 0 } = settings;
   const grain = detail === undefined ? "" : `-grain${detail}`;
-  return `${pattern}--seed${seed}-density${density}-contrast${contrast}${grain}.png`;
+  const turn = rotation ? `-rot${Math.round(rotation * 10) / 10}` : "";
+  return `${pattern}--seed${seed}-density${density}-contrast${contrast}${grain}${turn}.png`;
 }
 
 export function texturedStlFilename(settings: {

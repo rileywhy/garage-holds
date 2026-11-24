@@ -18,7 +18,13 @@ import { Viewer, isDarkTheme } from "@/features/model-viewer/viewer";
 import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import { displaceSurface, refineSurface } from "./displacement";
 import { exampleHold } from "./example-hold";
-import { makeHeightMap, PATTERNS, type TexturePattern } from "./height-map";
+import {
+  makeHeightMap,
+  PATTERNS,
+  rotateHeightMap,
+  seamlessTurn,
+  type TexturePattern,
+} from "./height-map";
 import { loadHoldLink } from "./hold-source";
 import { createPaintMask, paintSegment, type PaintMask } from "./paint-mask";
 import { ROCK_PATTERNS } from "./rock-patterns";
@@ -57,6 +63,8 @@ type Stroke = {
   mask: PaintMask;
   lastUpdate: number;
 };
+
+const formatDegrees = (degrees: number) => `${Math.round(degrees * 10) / 10}°`;
 
 function Range({
   label,
@@ -153,6 +161,10 @@ export function TextureLab({
     () => makeHeightMap({ pattern, seed, density, contrast, detail }),
     [pattern, seed, density, contrast, detail],
   );
+  const turn = seamlessTurn(rotation);
+  // The PNG carries the rotation, so Orca and the preview turn together.
+  const texture = useMemo(() => rotateHeightMap(tile, turn), [tile, turn]);
+  const orcaTileMm = Math.round(tileMm * turn.repeats * 10) / 10;
   const surface = useMemo(() => {
     const { edge, budget } = MESH_DETAIL[meshDetail];
     if (source) return refineSurface(source.geometry, edge, budget);
@@ -165,24 +177,23 @@ export function TextureLab({
   }, [source, meshDetail]);
   const mesh = useMemo(
     () =>
-      displaceSurface(surface, tile, {
-        tileMm,
+      displaceSurface(surface, texture, {
+        tileMm: tileMm * turn.repeats,
         depthMm,
         direction: reverse ? -1 : 1,
         baseline: midlevel,
-        rotation,
         offsetX,
         offsetY,
         mask,
       }),
     [
       surface,
-      tile,
+      texture,
       tileMm,
+      turn.repeats,
       depthMm,
       reverse,
       midlevel,
-      rotation,
       offsetX,
       offsetY,
       mask,
@@ -251,13 +262,13 @@ export function TextureLab({
   useEffect(() => {
     const ctx = canvas.current?.getContext("2d");
     if (!ctx) return;
-    const frame = ctx.createImageData(tile.size, tile.size);
-    for (let i = 0; i < tile.pixels.length; i++) {
-      frame.data.fill(tile.pixels[i], 4 * i, 4 * i + 3);
+    const frame = ctx.createImageData(texture.size, texture.size);
+    for (let i = 0; i < texture.pixels.length; i++) {
+      frame.data.fill(texture.pixels[i], 4 * i, 4 * i + 3);
       frame.data[4 * i + 3] = 255;
     }
     ctx.putImageData(frame, 0, 0);
-  }, [tile]);
+  }, [texture]);
 
   async function load(
     getModel: (signal: AbortSignal) => Promise<NonNullable<typeof source>>,
@@ -333,6 +344,7 @@ export function TextureLab({
             density,
             contrast,
             detail: Object.hasOwn(ROCK_PATTERNS, pattern) ? detail : undefined,
+            rotation: turn.degrees,
           }),
         );
       else setExportError("Could not export this PNG.");
@@ -605,6 +617,22 @@ export function TextureLab({
             />
           </label>
           <label className="lab-field">
+            Rotation · {formatDegrees(turn.degrees)}
+            <input
+              type="range"
+              min="-180"
+              max="180"
+              value={rotation}
+              onChange={(event) => setRotation(event.target.valueAsNumber)}
+            />
+          </label>
+          {turn.repeats > 1 && (
+            <p className={styles.note}>
+              Snapped to the nearest angle that still tiles seamlessly. Set
+              Orca&rsquo;s tile size to {orcaTileMm} mm to keep this scale.
+            </p>
+          )}
+          <label className="lab-field">
             Depth · {depthMm.toFixed(2)} mm
             <input
               type="range"
@@ -656,14 +684,6 @@ export function TextureLab({
                 Midlevel is the gray that stays at the original surface. Lower
                 tones cut in and higher tones rise.
               </p>
-              <Range
-                label="Rotation"
-                value={rotation}
-                min={-180}
-                max={180}
-                suffix="°"
-                change={setRotation}
-              />
               <Range
                 label="Horizontal shift"
                 value={offsetX}
@@ -841,8 +861,8 @@ export function TextureLab({
           <canvas
             className={styles.map}
             ref={canvas}
-            width={tile.size}
-            height={tile.size}
+            width={texture.size}
+            height={texture.size}
             role="img"
             aria-label={`${PATTERNS[pattern]} height map`}
           />
@@ -865,8 +885,9 @@ export function TextureLab({
               </button>
             </div>
             <p className={styles.note}>
-              PNG contains the repeating pattern. Paint the area and set tile
-              size, depth and midlevel in Orca.
+              PNG contains the repeating pattern, already rotated. Paint the
+              area and set tile size ({orcaTileMm} mm), depth and midlevel in
+              Orca.
             </p>
             <p className={styles.note}>
               The STL includes painted coverage and projects relief vertically
