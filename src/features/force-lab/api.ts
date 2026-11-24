@@ -127,7 +127,12 @@ export interface StressGrid {
 }
 
 export interface Analysis {
-  source: { label: string; kind: string; holes: number };
+  source: {
+    label: string;
+    kind: string;
+    holes: number;
+    dimensions: [number, number, number];
+  };
   load: Load & {
     point: [number, number, number];
     direction: [number, number, number];

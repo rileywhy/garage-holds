@@ -61,6 +61,26 @@ const presets = {
   ball: { ...defaults, shape: "ball", width: 36, incut: 0 },
 };
 
+test("each generator's scale survives sharing and older links keep their size", () => {
+  const labs = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/lab-defaults.json", import.meta.url),
+      "utf8",
+    ),
+  ) as Record<string, { sliders: Record<string, number | string | boolean> }>;
+  for (const [kind, { sliders }] of Object.entries(labs)) {
+    assert.equal(typeof sliders.size, "number", kind);
+    const search = linkSearch({ ...sliders, size: 110 }, sliders);
+    assert.equal(search, "?size=110", kind);
+    assert.equal(readLink(search, sliders)?.parameters.size, 110, kind);
+    assert.equal(
+      readLink("?screws=false", sliders)?.parameters.size,
+      sliders.size,
+      kind,
+    );
+  }
+});
+
 test("a link carries only the settings that differ from the defaults", () => {
   assert.equal(linkSearch(defaults, defaults, presets), "");
   assert.equal(

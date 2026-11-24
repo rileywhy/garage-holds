@@ -2,6 +2,22 @@
    adds only what the analysis needs: the legend over the viewer, the
    verdict's state, and the result tables and charts. */
 
+.controls {
+  min-width: 0;
+}
+.controls select {
+  max-width: 100%;
+}
+@media (max-width: 900px) {
+  .controls :global(.lab-tabs) {
+    flex-wrap: wrap;
+  }
+  .controls button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 .xray {
   font-size: 11px;
 }

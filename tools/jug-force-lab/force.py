@@ -480,7 +480,10 @@ def analyze(
     values = np.where(mask, pressure, -1.0).reshape(back[4], back[3])
     worst = max(layers, key=lambda item: item["use"]) if layers else dict(z=0, sigma=0, tau=0, use=0)
     result = dict(
-        source=dict(label=source.label, kind=source.kind, holes=len(source.holes)),
+        source=dict(
+            label=source.label, kind=source.kind, holes=len(source.holes),
+            dimensions=source.mesh.extents.round(2).tolist(),
+        ),
         load=asdict(load) | dict(
             point=point.round(2).tolist(), direction=direction.round(4).tolist(),
             components=force.round(1).tolist(), normal=np.round(normal, 4).tolist(), pressing=pressing,

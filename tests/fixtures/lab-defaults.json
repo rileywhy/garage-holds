@@ -6,6 +6,7 @@
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
+      "size": 100,
       "width": 100,
       "edge_depth": 22,
       "incut": 12,
@@ -39,6 +40,7 @@
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
+      "size": 100,
       "width": 165,
       "height": 127.5,
       "projection": 67.5,
@@ -255,6 +257,7 @@
     "status": "Preview is current. Export builds a finer version of this shape.",
     "search": "",
     "sliders": {
+      "size": 100,
       "width": 39,
       "depth": 50,
       "flare": 0,

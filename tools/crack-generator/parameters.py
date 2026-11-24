@@ -4,6 +4,7 @@ import math
 from dataclasses import asdict, dataclass, replace
 
 from tools import hold_hardware as hardware
+from tools.hold_scale import SCALE_CONTROL
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class Parameters:
     bolt_mount: bool = False
     bolt_diameter: float = hardware.BOLT_DIAMETER
     bolt_head_diameter: float = hardware.BOLT_HEAD_DIAMETER
+    size: float = 100
 
 
 def control(key, label, group, low, high, step, unit, help, **extra):
@@ -58,6 +60,7 @@ def control(key, label, group, low, high, step, unit, help, **extra):
 
 
 CONTROLS = [
+    SCALE_CONTROL,
     control(
         "width",
         "Crack width",

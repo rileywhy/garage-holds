@@ -17,6 +17,7 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.hold_scale import restore_dimensions, scale_body
 from tools.hold_mounting import (
     assert_closed,
     closed_mesh,
@@ -27,9 +28,9 @@ from tools.hold_mounting import (
 )
 
 if __package__:
-    from .parameters import Parameters, parse_parameters, seat_height
+    from .parameters import Parameters, parse_parameters, projection, seat_height
 else:
-    from parameters import Parameters, parse_parameters, seat_height
+    from parameters import Parameters, parse_parameters, projection, seat_height
 
 
 @dataclass
@@ -183,7 +184,7 @@ def cross_section(
     p: Parameters, segments: int = 12
 ) -> tuple[np.ndarray, tuple, tuple, float]:
     """The centre outline plus the grip corners and the lip radius that fit."""
-    support = 6.0
+    support = 6.0 * (p.size / 100)
     projection = p.edge_depth + support
     outer = (p.body_height / 2, projection)
     inner = (outer[0] - p.edge_depth * math.tan(math.radians(p.incut)), support)
@@ -218,7 +219,7 @@ def _end_center_y(p: Parameters) -> float:
     ends to the origin then pulls them above the shelf into pointed wings.
     The back-face midpoint stays inside the body for every valid profile.
     """
-    return -(p.edge_depth + 6) * math.tan(math.radians(p.incut)) / 2
+    return -projection(p) * math.tan(math.radians(p.incut)) / 2
 
 
 def _loft(
@@ -250,7 +251,7 @@ def _loft(
         profile[:, 1] - outer[1]
     ) * math.sin(angle)
     weight = np.clip((below_grip - 2 * p.lip_radius) / (p.body_height * 0.3), 0, 1)
-    weight *= np.sin(np.pi * np.clip(profile[:, 1] / (p.edge_depth + 6), 0, 1))
+    weight *= np.sin(np.pi * np.clip(profile[:, 1] / projection(p), 0, 1))
     rings = []
     for x in x_values:
         u = x / half
@@ -271,9 +272,9 @@ def _loft(
         # Sweep the entire grip toward the board without squeezing or
         # changing its incut. The wall cuts the curved body at its ends.
         yz[:, 1] *= 1 + arc_rise * (1 - u * u) / max(profile[:, 1])
-        yz[:, 1] -= end_wrap * (p.edge_depth + 6) * u * u
+        yz[:, 1] -= end_wrap * projection(p) * u * u
         rings.append(np.column_stack((np.full(len(profile), x), yz)))
-    tip_z = -end_wrap * (p.edge_depth + 6)
+    tip_z = -end_wrap * projection(p)
     vertices = np.vstack(
         ([[-half, end_center, tip_z]], *rings, [[half, end_center, tip_z]])
     )
@@ -346,7 +347,7 @@ def minimum_body_height(p: Parameters) -> float:
         return 0.0
     # The shelf runs on to the wall, 6 mm behind the inner grip corner.
     return math.ceil(
-        (p.edge_depth + 6) * math.tan(math.radians(p.incut)) + MIN_BACK_FACE
+        projection(p) * math.tan(math.radians(p.incut)) + MIN_BACK_FACE
     )
 
 
@@ -396,15 +397,18 @@ def build(
     whole fit has budget_s seconds, after which it fails in words."""
     deadline = time.monotonic() + budget_s if budget_s is not None else None
     p = parse_parameters(asdict(p), jug=jug or end_wrap > 0)
+    original = p
+    dimensions = ("width", "edge_depth", "body_height", "body_rounding", "end_rounding", "bow", "lip_radius")
+    p = scale_body(p, dimensions)
     requested = p.body_height
-    body_max = 300 if jug or end_wrap > 0 else BODY_MAX
+    body_max = 300 if jug or end_wrap > 0 else BODY_MAX * (p.size / 100)
     start = max(p.body_height, min(body_max, minimum_body_height(p)))
     heights = np.arange(start, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP)
     if jug:
         # Resolve the body from shape and hardware clearance once. Changing
         # a recess depth must never grow the outside of the hold.
         mounting_base = math.ceil(
-            (p.edge_depth + 6) * max(0, math.tan(math.radians(p.incut)))
+            projection(p) * max(0, math.tan(math.radians(p.incut)))
             + max(MIN_BACK_FACE, p.shank_diameter + 16, p.bolt_head_diameter + 10)
         )
         start = max(start, mounting_base)
@@ -443,7 +447,7 @@ def build(
             pass
         else:
             if saved.parameters == p:
-                return saved
+                return restore_dimensions(saved, original, dimensions)
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.
@@ -494,7 +498,7 @@ def build(
         model.parameters.screw_spacing, p.screw_spacing
     ):
         model.adjusted["screw_spacing"] = model.parameters.screw_spacing
-    return model
+    return restore_dimensions(model, original, dimensions)
 
 
 def _grown_jug(p, quality, start, body_max, end_wrap, arc_rise, screw_arc, deadline):
@@ -894,7 +898,7 @@ def _screw_candidates(
     # Large lip fillets reach lower down the front. Keep the entire head
     # recess below the fillet tangent, rather than cutting into the grip.
     _, _, outer, lip_radius = cross_section(p)
-    incoming = np.array([p.body_height * 0.84, (p.edge_depth + 6) * 0.47])
+    incoming = np.array([p.body_height * 0.84, projection(p) * 0.47])
     incoming /= np.linalg.norm(incoming)
     outgoing = np.array([-math.tan(math.radians(p.incut)), -1.0])
     outgoing /= np.linalg.norm(outgoing)

@@ -201,3 +201,28 @@ test("displacement preserves the back and keeps shared edges together", () => {
   assert.ok(shared > 1);
   assert.equal(source.getAttribute("position").getZ(3), 8);
 });
+
+test("texture scale spaces the relief across the same hold footprint", () => {
+  const surface = new BufferGeometry();
+  surface.setAttribute(
+    "position",
+    new Float32BufferAttribute([0, 0, 0, 10, 0, 8, 0, 10, 8], 3),
+  );
+  const tile = { size: 2, pixels: new Uint8Array([0, 255, 0, 255]) };
+  for (const [tileMm, expectedZ] of [
+    [20, 9],
+    [40, 8.5],
+  ]) {
+    const textured = displaceSurface(surface, tile, {
+      tileMm,
+      depthMm: 1,
+      direction: 1,
+      baseline: 0,
+    });
+    const points = textured.getAttribute("position");
+    assert.deepEqual([points.getX(1), points.getY(2)], [10, 10]);
+    assert.equal(points.getZ(1), expectedZ);
+    assert.equal(points.getZ(0), 0);
+  }
+  assert.equal(surface.getAttribute("position").getZ(1), 8);
+});

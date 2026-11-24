@@ -333,6 +333,9 @@ class ApiTests(unittest.TestCase):
                 )
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["source"]["kind"], kind)
+                np.testing.assert_allclose(
+                    body["source"]["dimensions"], holds.generated(kind, turn=90).mesh.extents, atol=0.0051,
+                )
                 json.dumps(body, allow_nan=False)
 
     def test_the_mesh_can_be_left_out(self):

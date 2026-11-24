@@ -66,14 +66,15 @@ class handler(BaseHTTPRequestHandler):
                 self.send(200, dict(parameters=asdict(p)))
             elif action == "stl":
                 model = cached_model(p, "export")
+                scale = model.parameters.size / 100
                 self.send(
                     200,
                     model.mesh.export(file_type="stl"),
                     "model/stl",
                     (
-                        f"crack-{model.parameters.width:g}mm.stl"
+                        f"crack-{model.parameters.width * scale:g}mm.stl"
                         if model.parameters.shape == "block"
-                        else f"crack-side-{model.parameters.depth:g}mm.stl"
+                        else f"crack-side-{model.parameters.depth * scale:g}mm.stl"
                     ),
                 )
             else:

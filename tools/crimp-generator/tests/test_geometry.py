@@ -56,6 +56,30 @@ def random_settings(rng, controls):
 
 
 class GeometryTests(unittest.TestCase):
+    def test_scale_changes_the_body_before_the_hardware_is_fitted(self):
+        legacy = parse_parameters({"screws": False})
+        original = build(legacy)
+        self.assertEqual(legacy.size, 100)
+        for size in (75, 125, 140):
+            with self.subTest(size=size):
+                plain = build(replace(legacy, size=size))
+                np.testing.assert_allclose(plain.mesh.extents, original.mesh.extents * size / 100)
+                requested = replace(legacy, screws=True, size=size, shank_diameter=6, head_diameter=12)
+                preview = build(requested)
+                stored = parse_parameters(design_document(preview.parameters)["parameters"])
+                reopened = build(stored)
+                exported = build(stored, "export")
+                self.assertEqual((stored.size, stored.width), (size, legacy.width))
+                self.assertEqual((stored.shank_diameter, stored.head_diameter), (6, 12))
+                self.assertEqual(reopened.screws, preview.screws)
+                self.assertEqual(exported.screws, preview.screws)
+                np.testing.assert_allclose(reopened.mesh.vertices, preview.mesh.vertices)
+                # The circle cut at the back face is the actual shank, in mm.
+                for x, y in preview.screws:
+                    back = preview.mesh.vertices[np.abs(preview.mesh.vertices[:, 2]) < 1e-6]
+                    distances = np.linalg.norm(back[:, :2] - [x, y], axis=1)
+                    self.assertAlmostEqual(float(distances.min()), 3, places=4)
+
     def assert_solid(self, model):
         mesh = model.mesh
         self.assertTrue(mesh.is_watertight)

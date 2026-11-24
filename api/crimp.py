@@ -68,7 +68,7 @@ class handler(BaseHTTPRequestHandler):  # noqa: N801 (Vercel's expected name)
                     200,
                     mesh.export(file_type="stl"),
                     "model/stl",
-                    f"crimp-{p.edge_depth:g}mm-{p.incut:g}deg.stl",
+                    f"crimp-{p.edge_depth * (p.size / 100):g}mm-{p.incut:g}deg.stl",
                 )
             else:
                 model = cached_model(p, "preview")
