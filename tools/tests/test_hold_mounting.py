@@ -18,7 +18,7 @@ import trimesh
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools.hold_mounting import (  # noqa: E402
+from tools.hold_mounting import (
     FOOT_SEAT_FLOOR,
     MIN_SEAT,
     Hole,
@@ -29,9 +29,11 @@ from tools.hold_mounting import (  # noqa: E402
     automatic_seat,
     closed_mesh,
     drill,
+    first_fitting_row,
     fit_bolt_and_screw,
     lowest_seat,
     screw_layout,
+    screw_room,
 )
 
 
@@ -106,6 +108,18 @@ class RoomTests(unittest.TestCase):
         np.testing.assert_array_equal(
             _inside(points, room), [True, False, True, True, False, False]
         )
+
+    def test_shallow_and_standard_rows_reject_the_old_thinner_margin(self):
+        solid = box(60, 40, 30)
+        # First row has 1 mm around each 11 mm diameter recess. The
+        # second leaves 1.75 mm and must win even though it comes later.
+        candidates = np.array([[[-23.5, 0], [23.5, 0]], [[-22.75, 0], [22.75, 0]]])
+        for shallow_row in (False, True):
+            with self.subTest(shallow_row=shallow_row):
+                room = screw_room(Hardware(), solid, 10, shallow_row=shallow_row)
+                self.assertEqual(
+                    first_fitting_row(candidates, room), [(-22.75, 0), (22.75, 0)]
+                )
 
     def test_a_bolt_counterbore_needs_more_room_than_a_screw(self):
         # 20 / 2 + 1.5 = 11.5 mm from every side.

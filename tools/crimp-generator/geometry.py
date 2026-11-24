@@ -19,11 +19,15 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.hold_scale import restore_dimensions, scale_body
 from tools.hold_mounting import (
+    MANUAL_MIN_SEAT,
+    Hole,
+    _inside,
     assert_closed,
     closed_mesh,
     drill,
+    first_fitting_row,
     fit_bolt_and_screw,
-    MANUAL_MIN_SEAT,
+    screw_room,
     seat_floors,
 )
 
@@ -622,7 +626,6 @@ def _build(
         requested_seat = seat
         if jug or not p.auto_seat:
             seat = min(automatic_seat(p), seat_limit)
-        cone_height = (p.head_diameter - p.shank_diameter) / 2
         mounting_width = float(mounting_mesh.extents[0])
         maximum_span = math.floor(min(mounting_width, 360.0 if jug else 260.0))
         minimum_span = max(0.0, (p.screw_count - 1) * (p.head_diameter + 1.5))
@@ -656,9 +659,12 @@ def _build(
         def room_at(seat: float) -> list:
             key = round(float(seat), 6)
             if key not in rooms:
-                rooms[key] = _screw_room(
-                    p, mounting_solid, float(seat),
+                rooms[key] = screw_room(
+                    p,
+                    mounting_solid,
+                    float(seat),
                     edge_clearance=5.0 if jug else None,
+                    shallow_row=True,
                 )
             return rooms[key]
 
@@ -812,18 +818,11 @@ def _build(
                 p, mounting_solid, screws, requested_seat, seat
             )
         p = replace(p, seat_depth=seat)
-        seat_top = seat + cone_height
-        for x, hole_y in screws:
-            shank = manifold.Manifold.cylinder(
-                seat + 1, p.shank_diameter / 2, circular_segments=48
-            ).translate((x, hole_y, -1))
-            cone = manifold.Manifold.cylinder(
-                cone_height, p.shank_diameter / 2, p.head_diameter / 2, 48
-            ).translate((x, hole_y, seat))
-            bore = manifold.Manifold.cylinder(
-                float(mesh.bounds[1, 2]) + 1, p.head_diameter / 2, circular_segments=48
-            ).translate((x, hole_y, seat_top))
-            solid = solid - (shank + cone + bore)
+        holes = [
+            Hole(x, y, p.shank_diameter, p.head_diameter, seat, False)
+            for x, y in screws
+        ]
+        solid = drill(solid, holes, float(mesh.bounds[1, 2]), segments=48)
     # A drilled hold is read back from Manifold as is; an undrilled one
     # keeps the loft mesh exactly as built. Either way the closed-solid
     # check no longer removes zero-area triangles first, which opened
@@ -844,8 +843,11 @@ def _build(
 
 
 def _highest_enclosed_seat(
-    p: Parameters, solid: manifold.Manifold, screws, requested: float,
-    fitted: float, *, edge_clearance=None,
+    p: Parameters,
+    solid: manifold.Manifold,
+    screws,
+    requested: float,
+    fitted: float,
 ) -> float:
     """The highest seat, from the requested one down to the fitted one in
     half-millimetre steps, at which every chosen hole still has body around
@@ -854,11 +856,8 @@ def _highest_enclosed_seat(
     if requested <= fitted + 1e-9:
         return float(requested)
     for candidate in np.arange(requested, fitted - 1e-9, -0.5):
-        try:
-            room = _screw_room(p, solid, float(candidate), edge_clearance=edge_clearance)
-        except ValueError:
-            continue  # the seat is above the body here
-        if room and all(_inside_contours(x, y, room) for x, y in screws):
+        room = screw_room(p, solid, float(candidate), shallow_row=True)
+        if _inside(np.asarray(screws), room).all():
             return float(candidate)
     return float(fitted)
 
@@ -896,6 +895,8 @@ def _screw_candidates(
     """Every row worth trying, in order of preference: wider spans first,
     then the smallest drop below the lip-limited height. Shape (rows,
     holes, 2) of x and y centres."""
+    # This pad sets candidate heights relative to the lip fillet tangent.
+    # The shared room applies the separate recess-to-body margin.
     radius = p.head_diameter / 2 + 0.75
     # Large lip fillets reach lower down the front. Keep the entire head
     # recess below the fillet tangent, rather than cutting into the grip.
@@ -965,126 +966,48 @@ def _screw_positions(
     polygons = (
         room_polygons
         if room_polygons is not None
-        else _screw_room(p, solid, seat, edge_clearance=edge_clearance)
+        else screw_room(
+            p,
+            solid,
+            seat,
+            edge_clearance=edge_clearance,
+            shallow_row=True,
+        )
     )
     if not polygons or not len(candidates):
         return []
     if edge_clearance is None:
-        # A crimp row fits only whole, so rows with a hole outside the
-        # room's bounding box are out before any edge is tested. (Jug
-        # holes pick their options one by one, so every row stays there.)
-        low = np.min([np.min(contour, axis=0) for contour in polygons], axis=0)
-        high = np.max([np.max(contour, axis=0) for contour in polygons], axis=0)
-        possible = np.flatnonzero(
-            ((candidates >= low) & (candidates <= high)).all(axis=(1, 2))
-        )
-        if not len(possible):
-            return []
-        fits = _inside_mask(candidates[possible].reshape(-1, 2), polygons)
-        fits = fits.reshape(len(possible), -1).all(axis=1)
-        if not fits.any():
-            return []
-        row = candidates[possible[int(np.argmax(fits))]]
-        return [(float(x), float(y)) for x, y in row]
+        return first_fitting_row(candidates, polygons)
     centres = candidates.reshape(-1, 2)
-    inside = _inside_mask(centres, polygons).reshape(len(candidates), -1)
-    if edge_clearance is not None:
-        # Jug shoulders sweep back into the wall. Fit each screw in its
-        # own usable section, then deepen the mounting arc toward the base.
-        # Keep the widest span that fits every hole; all centers still pass
-        # the same shank and head clearance checks.
-        starts = np.r_[0, np.flatnonzero(np.diff(candidates[:, 0, 0])) + 1]
-        ends = np.r_[starts[1:], len(candidates)]
-        for start, end in zip(starts, ends):
-            allowed = inside[start:end]
-            if not allowed.any(axis=0).all():
-                continue
-            row = []
-            half_span = max(abs(float(candidates[start, 0, 0])), 1.0)
-            for index in range(p.screw_count):
-                options = candidates[start:end, index][allowed[:, index]]
-                # Every hole starts from the top of its section, nearest
-                # the lip (see JUG_END_REACH). The arc can then bring the
-                # inner holes down from there, progressively toward the
-                # middle; outer holes stay put, and even counts get a
-                # matched inner pair.
-                top = options[0]
-                weight = max(0.0, 1.0 - (top[0] / half_span) ** 2)
-                if require_arc and top[1] - options[-1, 1] < min(3.0, arc_bias * weight):
-                    return []
-                target = top.copy()
-                target[1] = max(options[-1, 1], top[1] - arc_bias * weight)
-                if not _inside_mask(target[None, :], polygons)[0]:
-                    target = options[np.argmin(abs(options[:, 1] - target[1]))]
-                row.append(tuple(map(float, target)))
-            if len(row) == p.screw_count:
-                return row
-        return []
-    fits = inside.all(axis=1)
-    if not fits.any():
-        return []
-    row = candidates[int(np.argmax(fits))]
-    return [(float(x), float(y)) for x, y in row]
-
-
-def _screw_room(p: Parameters, solid: manifold.Manifold, seat: float, *, edge_clearance=None):
-    cone_height = (p.head_diameter - p.shank_diameter) / 2
-    head = p.head_diameter / 2 + (0.75 if edge_clearance is None else edge_clearance)
-    # Where a hole centre may sit: the body's slices, each inset by what
-    # the hole needs there, intersected. The shank must come out through
-    # the flat back with material around it (a steep shelf leaves only a
-    # strip of back face), and the head recess must fit from the seat up.
-    checks = [
-        (0.5, p.shank_diameter / 2 + (2.0 if edge_clearance is None else edge_clearance)),
-        (seat + 0.5, head),
-        (seat + cone_height + 0.5, head),
-    ]
-    if edge_clearance is not None:
-        checks.insert(1, (seat / 2, p.shank_diameter / 2 + edge_clearance))
-    room = None
-    for height, inset in checks:
-        section = solid.slice(height)
-        if section.is_empty():
-            raise ValueError(
-                "The screw seat is above the top of the body. Lower the seat or deepen the edge."
-            )
-        region = section.offset(-inset, manifold.JoinType.Round, 2.0, 32)
-        room = region if room is None else room ^ region
-    return room.to_polygons() if room is not None else []
-
-
-def _inside_mask(points: np.ndarray, contours) -> np.ndarray:
-    """Even/odd containment of many points in Manifold's slice polygons.
-
-    Every edge is tested against a block of points at once; a loop over
-    edges in Python took 85% of a slow build. Points outside the contours'
-    bounding box are outside without a test, which drops most candidate
-    rows below the body."""
-    x, y = points[:, 0], points[:, 1]
-    inside = np.zeros(len(points), dtype=bool)
-    edges = [
-        np.hstack((a, np.roll(a, 1, axis=0)))
-        for a in (np.asarray(contour, dtype=float) for contour in contours)
-        if len(a)
-    ]
-    if not edges or not len(points):
-        return inside
-    ax, ay, bx, by = np.concatenate(edges).T[:, :, None]
-    low, high = np.minimum(ax, bx).min(), np.maximum(ax, bx).max()
-    bottom, top = np.minimum(ay, by).min(), np.maximum(ay, by).max()
-    within = np.flatnonzero((x >= low) & (x <= high) & (y >= bottom) & (y <= top))
-    # Blocks keep the edges × points work arrays to a few megabytes.
-    for start in range(0, len(within), 2048):
-        block = within[start : start + 2048]
-        px, py = x[block][None, :], y[block][None, :]
-        crosses = (ay > py) != (by > py)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            crossing = (bx - ax) * (py - ay) / (by - ay) + ax
-        hits = crosses & (px < crossing)
-        inside[block] = (hits.sum(axis=0) & 1).astype(bool)
-    return inside
-
-
-def _inside_contours(x: float, y: float, contours) -> bool:
-    """One point; see _inside_mask."""
-    return bool(_inside_mask(np.array([[x, y]], dtype=float), contours)[0])
+    inside = _inside(centres, polygons).reshape(len(candidates), -1)
+    # Jug shoulders sweep back into the wall. Fit each screw in its
+    # own usable section, then deepen the mounting arc toward the base.
+    # Keep the widest span that fits every hole; all centers still pass
+    # the same shank and head clearance checks.
+    starts = np.r_[0, np.flatnonzero(np.diff(candidates[:, 0, 0])) + 1]
+    ends = np.r_[starts[1:], len(candidates)]
+    for start, end in zip(starts, ends):
+        allowed = inside[start:end]
+        if not allowed.any(axis=0).all():
+            continue
+        row = []
+        half_span = max(abs(float(candidates[start, 0, 0])), 1.0)
+        for index in range(p.screw_count):
+            options = candidates[start:end, index][allowed[:, index]]
+            # Every hole starts from the top of its section, nearest
+            # the lip (see JUG_END_REACH). The arc can then bring the
+            # inner holes down from there, progressively toward the
+            # middle; outer holes stay put, and even counts get a
+            # matched inner pair.
+            top = options[0]
+            weight = max(0.0, 1.0 - (top[0] / half_span) ** 2)
+            if require_arc and top[1] - options[-1, 1] < min(3.0, arc_bias * weight):
+                return []
+            target = top.copy()
+            target[1] = max(options[-1, 1], top[1] - arc_bias * weight)
+            if not _inside(target[None, :], polygons)[0]:
+                target = options[np.argmin(abs(options[:, 1] - target[1]))]
+            row.append(tuple(map(float, target)))
+        if len(row) == p.screw_count:
+            return row
+    return []
