@@ -36,7 +36,8 @@ SOURCE_FIELDS = {"kind", "settings", "pile", "turn"}
 
 def schema() -> dict:
     return dict(
-        kinds={kind: holds.schema(kind) for kind in holds.KINDS},
+        # Older clients can still post classic pinch settings.
+        kinds={kind: holds.schema(kind) for kind in holds.KINDS if kind != "pinch"},
         default_kind="jug",
         turns=list(holds.TURNS),
         materials=materials.schema(),

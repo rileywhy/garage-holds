@@ -38,6 +38,11 @@ export const ARTWORK_FRAMING: Record<
     left: -1.02,
     top: 0.82,
   },
+  crack: {
+    width: 84.02,
+    left: 8.03,
+    top: 5.12,
+  },
   "custom-shape": {
     width: 91.05145413870245,
     left: 4.1555928411633145,

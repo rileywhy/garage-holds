@@ -32,6 +32,7 @@ jobs:
       matrix:
         tool:
           - crimp-generator
+          - custom-shape-generator
           - sloper-generator
           - jug-generator
           - foot-generator
@@ -39,6 +40,7 @@ jobs:
           - pinch-generator
           - round-pinch-generator
           - jug-force-lab
+          - crack-generator
           - mesh-preview
     steps:
       - uses: actions/checkout@v4

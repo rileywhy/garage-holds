@@ -33,6 +33,7 @@ const config: NextConfig = {
       ["pinch", process.env.PINCH_API_URL],
       ["roundpinch", process.env.ROUNDPINCH_API_URL],
       ["jug_force", process.env.JUG_FORCE_API_URL],
+      ["crack", process.env.CRACK_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

@@ -13,6 +13,7 @@ export type PresetLab =
   | "pocket"
   | "pinch"
   | "roundpinch"
+  | "crack"
   | "custom-shape";
 export const PRESET_LABS: PresetLab[] = [
   "crimp",
@@ -22,6 +23,7 @@ export const PRESET_LABS: PresetLab[] = [
   "pocket",
   "pinch",
   "roundpinch",
+  "crack",
   "custom-shape",
 ];
 export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
@@ -32,6 +34,7 @@ export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
   pocket: "Pocket Lab",
   pinch: "Classic Pinch Lab",
   roundpinch: "Round Pinch Lab",
+  crack: "Crack Lab",
   "custom-shape": "Custom Shape Lab",
 };
 
@@ -141,10 +144,17 @@ export function defaultPresetName(lab: PresetLab, parameters: object): string {
                       ? `${number(p.offset)}% offset`
                       : number(p.depth) && `${number(p.depth)} mm deep`,
                   ]
-                : [
-                    number(p.scale) && `${number(p.scale)} mm wide`,
-                    number(p.depth) && `${number(p.depth)} mm deep`,
-                  ];
+                : lab === "crack"
+                  ? [
+                      p.shape === "half"
+                        ? "One side"
+                        : number(p.width) && `${number(p.width)} mm crack`,
+                      number(p.depth) && `${number(p.depth)} mm deep`,
+                    ]
+                  : [
+                      number(p.scale) && `${number(p.scale)} mm wide`,
+                      number(p.depth) && `${number(p.depth)} mm deep`,
+                    ];
   const name = parts.filter(Boolean).join(" · ");
   return name || "Saved shape";
 }

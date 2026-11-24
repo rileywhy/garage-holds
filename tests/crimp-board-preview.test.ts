@@ -68,7 +68,12 @@ test("board face meets the hold back and stays bed-sized, so a wide hold overhan
   board.mesh.updateMatrixWorld(true);
   const small = new Box3().setFromObject(board.mesh);
   assert.deepEqual([small.min.x, small.max.x], [-128, 128]);
-  for (const angle of [-1, 71, NaN, Infinity])
+  const roof = new Group();
+  mountOnBoard(roof, 90);
+  roof.updateMatrixWorld(true);
+  const outward = new Vector3(0, 0, 1).transformDirection(roof.matrixWorld);
+  assert.ok(outward.distanceTo(new Vector3(0, -1, 0)) < 1e-6);
+  for (const angle of [-1, 91, NaN, Infinity])
     assert.throws(() => mountOnBoard(new Group(), angle), /Board angle/);
   board.dispose();
 });

@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 export const DEFAULT_BOARD_ANGLE = 40;
 export const MAX_BOARD_ANGLE = 70;
+export const ROOF_ANGLE = 90;
 
 // The board behind the hold is a fixed panel the size of a Bambu Lab A1
 // print bed, 256 × 256 mm, so moving the size sliders changes the hold
@@ -14,8 +15,8 @@ export const BOARD_THICKNESS_MM = 8;
 // Native model axes: X across the board, Y up it, Z out of its face.
 // Positive rotation tips the top towards the climber: angle FROM vertical.
 export function mountOnBoard(group: THREE.Group, angle: number) {
-  if (!Number.isFinite(angle) || angle < 0 || angle > MAX_BOARD_ANGLE)
-    throw new Error(`Board angle must be between 0 and ${MAX_BOARD_ANGLE}°.`);
+  if (!Number.isFinite(angle) || angle < 0 || angle > ROOF_ANGLE)
+    throw new Error(`Board angle must be between 0 and ${ROOF_ANGLE}°.`);
   group.rotation.set(THREE.MathUtils.degToRad(angle), 0, 0);
 }
 

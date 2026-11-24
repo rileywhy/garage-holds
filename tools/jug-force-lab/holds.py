@@ -4,7 +4,7 @@ through it.
 
 Two sources:
 
-* Any Hold Lab generator (crimp, sloper, jug, foot, pocket, pinch), built
+* A Hold Lab generator (crimp, sloper, jug, foot, pocket, round pinch), built
   from its own settings by the same code as the lab.
 * An STL from the pile, downloaded from a signed R2 link the site made. It
   is turned onto its mounting face the way the site's previews turn it
@@ -57,6 +57,7 @@ KINDS = {
     "foot": "Foot",
     "pocket": "Pocket",
     "pinch": "Pinch",
+    "roundpinch": "Round Pinch",
 }
 TURNS = (0, 90, 180, 270)
 
@@ -93,7 +94,8 @@ class Mounted:
 def modules(kind: str):
     if kind not in KINDS:
         raise ValueError("Unknown hold type.")
-    root = f"tools.{kind}-generator"
+    directory = "round-pinch" if kind == "roundpinch" else kind
+    root = f"tools.{directory}-generator"
     return importlib.import_module(root + ".geometry"), importlib.import_module(root + ".parameters")
 
 

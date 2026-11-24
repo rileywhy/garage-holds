@@ -81,14 +81,16 @@ def blend_cut(trial,cutter_id,tangent,blend_ends=True,blend_rims=True,radius=1.5
     points=mesh.vert_properties[np.unique(cut_vertices),:3]
     low=points.min(axis=0)-radius*3;high=points.max(axis=0)+radius*3
     region=m.Manifold.cube(tuple(high-low)).translate(tuple(low)).as_original()
-    # Artificial crop faces are excluded from seam detection. An unchanged
-    # overlap outside the fairing band prevents coincident internal join faces.
+    # Keep the artificial crop faces outside the band that can move.
     patch=trial ^ region
-    overlap=min(radius*.25,.25)
-    inner=m.Manifold.cube(tuple(high-low-2*overlap)).translate(tuple(low+overlap))
+    margin = min(radius * .25, .25)
+    inner = m.Manifold.cube(tuple(high - low - 2 * margin)).translate(tuple(low + margin))
     remainder=trial-inner
     rounded=_blend_surface(patch,cutter_id,tangent,blend_ends,blend_rims,radius,end_plane,region.original_id())
-    result=(remainder+rounded).simplify(.002)
+    # Clip the refined patch to the same plane as the remainder. Their
+    # join is one surface: allow simplification across both fragments or
+    # coincident curved-wall slivers can survive as a folded seam.
+    result = (remainder + (rounded ^ inner)).as_original().simplify(.002)
     # STL and the preview use float32 positions. Let Manifold collapse any
     # sub-precision triangles after rounding, before those vertices are exported.
     return m.Manifold(result.to_mesh())

@@ -319,18 +319,21 @@ class ScrewTests(unittest.TestCase):
 class ApiTests(unittest.TestCase):
     def test_schema_lists_every_lab_and_the_materials(self):
         s = contract.schema()
-        self.assertEqual(set(s["kinds"]), set(holds.KINDS))
+        self.assertEqual(set(s["kinds"]), set(holds.KINDS) - {"pinch"})
+        self.assertIn("Round pinch", s["kinds"]["roundpinch"]["presets"])
         self.assertIn("Board jug", s["kinds"]["jug"]["presets"])
         self.assertEqual(set(s["materials"]["walls"]), set(materials.WALLS))
         self.assertIn("pullout_per_mm", s["materials"])
 
     def test_analyze_round_trip_for_another_lab(self):
-        status, body = contract.analyze(
-            json.dumps({"source": {"kind": "pinch", "turn": 90}, "load": {"force": 800}}).encode()
-        )
-        self.assertEqual(status, 200, body)
-        self.assertEqual(body["source"]["kind"], "pinch")
-        json.dumps(body, allow_nan=False)
+        for kind in ("roundpinch", "pinch"):
+            with self.subTest(kind=kind):
+                status, body = contract.analyze(
+                    json.dumps({"source": {"kind": kind, "turn": 90}, "load": {"force": 800}}).encode()
+                )
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["source"]["kind"], kind)
+                json.dumps(body, allow_nan=False)
 
     def test_the_mesh_can_be_left_out(self):
         status, body = contract.analyze(b'{"mesh": false}')

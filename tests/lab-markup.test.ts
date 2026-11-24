@@ -19,6 +19,7 @@ test("every lab renders its first markup with its own labels, tabs and views", (
     "foot",
     "pocket",
     "pinch",
+    "crack",
   ] as const) {
     const html = render(kind);
     const label = kind[0].toUpperCase() + kind.slice(1);

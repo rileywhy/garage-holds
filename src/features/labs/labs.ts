@@ -8,6 +8,7 @@ export type LabSlug =
   | "foot"
   | "pocket"
   | "roundpinch"
+  | "crack"
   | "custom-shape";
 
 export interface LabInfo {
@@ -68,6 +69,14 @@ export const LABS: LabInfo[] = [
     short: "round pinch",
     href: "/make/roundpinch",
     image: "/images/hold-labs/pinch.webp",
+    status: "experimental",
+  },
+  {
+    slug: "crack",
+    name: "Crack Lab",
+    short: "crack",
+    href: "/make/crack",
+    image: "/images/hold-labs/crack.webp",
     status: "experimental",
   },
   {

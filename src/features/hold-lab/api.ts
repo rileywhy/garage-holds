@@ -1,6 +1,5 @@
-// The generator contract behind the Crimp, Sloper, Jug, Foot, Pocket, Pinch and
-// Round Pinch Labs. GET /api/<kind> returns the control schema; POST runs an
-// action on a set of settings. Python is the one source of limits, defaults
+// The shared generator contract. GET /api/<kind> returns the control
+// schema. POST runs an action on a set of settings. Python owns the limits, defaults
 // and presets, so a lab fetches its schema at load instead of repeating any
 // of it here.
 import {
@@ -10,7 +9,14 @@ import {
 } from "@/features/labs/lab-request";
 
 export type Kind =
-  "crimp" | "sloper" | "jug" | "foot" | "pocket" | "pinch" | "roundpinch";
+  | "crimp"
+  | "sloper"
+  | "jug"
+  | "foot"
+  | "pocket"
+  | "pinch"
+  | "roundpinch"
+  | "crack";
 export const KIND_LABELS: Record<Kind, string> = {
   crimp: "Crimp",
   sloper: "Sloper",
@@ -19,6 +25,7 @@ export const KIND_LABELS: Record<Kind, string> = {
   pocket: "Pocket",
   pinch: "Pinch",
   roundpinch: "Round Pinch",
+  crack: "Crack",
 };
 
 export interface Control {
@@ -30,8 +37,8 @@ export interface Control {
   step: number;
   unit: string;
   help: string;
-  // Foot and Pinch Labs: the shapes this control applies to; absent means
-  // all.
+  // Foot, Pinch and Crack Labs: the shapes this control applies to; absent
+  // means all.
   shapes?: string[];
   // A switch (see Toggle) that hides this control while it is on: the
   // Pocket Lab's depth has no meaning once the pocket opens to the wall.
@@ -49,15 +56,16 @@ export interface Schema {
   defaults: Parameters;
   controls: Control[];
   presets: Record<string, Parameters>;
-  // Foot and Pinch Labs: the shapes a design can switch between, key →
-  // label, and what the menu is called when it is not the body's shape.
+  // Foot, Pinch and Crack Labs: the shapes a design can switch between,
+  // key → label, and what the menu is called when it is not the body's
+  // shape.
   shapes?: Record<string, string>;
   shapeLabel?: string;
   // Jug Lab: shapes with no solid middle for the bolt to go through.
   boltless?: string[];
   // Jug Lab: shapes the variation seed does not change.
   seedless?: string[];
-  // Foot and Pinch Labs: the generator can pick the screw count from the
+  // Foot, Pinch and Crack Labs: the generator can pick the screw count from the
   // body size.
   autoScrewCount?: boolean;
   // Pocket Lab: switches the generator declares, beside the mounting ones
@@ -87,7 +95,7 @@ export interface Preview {
   // body so the screws fit. The design's parameters already include them.
   adjusted: Record<string, number>;
   design: Design;
-  // Sloper, jug, foot, pocket and pinch: the complete settings as built,
+  // Sloper, jug, foot, pocket, pinch and crack: the complete settings as built,
   // which the sliders then show.
   parameters?: Parameters;
   // Pocket: the material left behind the pocket, zero when it opens to the
@@ -172,6 +180,7 @@ const DESIGN_VERSIONS: Record<Kind, number> = {
   pocket: 1,
   pinch: 1,
   roundpinch: 1,
+  crack: 1,
 };
 // Settings that older files leave out, with the value that keeps the saved
 // shape as it was: crimps saved before the count control had two screws

@@ -2,8 +2,8 @@
 
 An unlisted, temporary page at `/jug-force-lab`. It loads a hold on a wall
 and shows where the force goes: into each screw, into the wall behind the
-back, and through the plastic inside. The hold can come from any Hold Lab
-generator (crimp, sloper, jug, foot, pocket, pinch) or from the pile. The
+back, and through the plastic inside. The hold can come from the Crimp,
+Sloper, Jug, Foot, Pocket or Round Pinch Lab, or from the pile. The
 page is not in the
 labs list, the navigation or the sitemap, and it asks search engines not to
 index it. Anyone with the link can open it.
