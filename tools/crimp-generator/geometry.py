@@ -404,6 +404,8 @@ def build(
     body_max = 300 if jug or end_wrap > 0 else BODY_MAX * (p.size / 100)
     start = max(p.body_height, min(body_max, minimum_body_height(p)))
     heights = np.arange(start, min(body_max, start + BODY_GROWTH) + 1e-9, BODY_STEP)
+    if p.size != 100:
+        heights = np.round(heights, 10)
     if jug:
         # Resolve the body from shape and hardware clearance once. Changing
         # a recess depth must never grow the outside of the hold.

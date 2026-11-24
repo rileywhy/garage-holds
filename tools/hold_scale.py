@@ -14,7 +14,9 @@ def scale_body(requested, fields):
     if requested.size == 100:
         return requested
     factor = requested.size / 100
-    return replace(requested, **{key: getattr(requested, key) * factor for key in fields})
+    # Inverse scaling a fitted 58 mm body at 89% stores 65.168539… .
+    # Reopening must feed exactly 58 mm back into the mounting solver.
+    return replace(requested, **{key: round(getattr(requested, key) * factor, 10) for key in fields})
 
 
 def restore_dimensions(model, requested, fields):
