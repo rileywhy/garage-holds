@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   hasPinchSettings,
   labSettingsHref,
@@ -20,13 +21,31 @@ import { emptyDocument, stroke } from "../src/features/custom-shape-lab/mask";
 test("saved classic pinch defaults stay distinct from the Round Pinch entrance", () => {
   assert.equal(labSettingsHref("/make/pinch", ""), "/make/pinch?legacy=1");
   assert.equal(
-    labSettingsHref("/make/pinch", "?span=60"),
-    "/make/pinch?span=60",
+    labSettingsHref("/make/pinch", "?width=60"),
+    "/make/pinch?width=60",
   );
   assert.equal(labSettingsHref("/make/roundpinch", ""), "/make/roundpinch");
-  assert.ok(hasPinchSettings(["legacy"]));
-  assert.ok(hasPinchSettings(["utm_source", "span"]));
-  assert.equal(hasPinchSettings(["utm_source"]), false);
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/lab-defaults.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  for (const key of ["legacy", "preset", ...Object.keys(fixture.pinch.sliders)])
+    assert.ok(hasPinchSettings(["ref", key]), key);
+  assert.equal(hasPinchSettings([]), false);
+  assert.equal(
+    hasPinchSettings([
+      "ref",
+      "source",
+      "utm_medium",
+      "gclid",
+      "fbclid",
+      "_vercel_share",
+      "span",
+    ]),
+    false,
+  );
 });
 
 const defaults = {

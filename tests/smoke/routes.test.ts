@@ -106,13 +106,23 @@ for (const route of ROUTES)
   });
 
 test("the old pinch entrance redirects and classic designs reopen", async () => {
-  const entrance = await get("/make/pinch");
-  assert.equal(entrance.status, 308);
-  assert.equal(
-    new URL(entrance.headers.get("location") ?? "", base).pathname,
-    "/make/roundpinch",
-  );
-  for (const search of ["?preset=round+pinch", "?legacy=1"]) {
+  for (const search of [
+    "",
+    "?ref=newsletter",
+    "?source=share&utm_medium=link",
+  ]) {
+    const entrance = await get("/make/pinch" + search);
+    assert.equal(entrance.status, 308);
+    assert.equal(
+      new URL(entrance.headers.get("location") ?? "", base).pathname,
+      "/make/roundpinch",
+    );
+  }
+  for (const search of [
+    "?preset=round+pinch",
+    "?legacy=1",
+    "?ref=share&thumb_angle=-16",
+  ]) {
     const legacy = await get("/make/pinch" + search);
     assert.equal(legacy.status, 200);
     assert.ok((await legacy.text()).includes("<h1>Classic Pinch Lab</h1>"));
