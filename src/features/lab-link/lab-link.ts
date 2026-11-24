@@ -133,8 +133,43 @@ export function labSettingsHref(pathname: string, search: string) {
   return pathname + (search || (pathname === "/make/pinch" ? "?legacy=1" : ""));
 }
 
+// Match only keys the classic generator reads. Referral parameters and
+// preview-access parameters can be present even on the plain lab entrance.
+const CLASSIC_PINCH_SETTINGS = new Set([
+  PRESET_KEY,
+  "legacy",
+  "width",
+  "depth",
+  "thumb_angle",
+  "finger_angle",
+  "offset",
+  "edge_radius",
+  "swoop",
+  "shape",
+  "top_rise",
+  "size",
+  "height",
+  "end_rounding",
+  "hourglass",
+  "taper",
+  "base_flare",
+  "character",
+  "seed",
+  "auto_screw_count",
+  "screws",
+  "screw_count",
+  "auto_seat",
+  "seat_depth",
+  "shank_diameter",
+  "head_diameter",
+  "bolt_mount",
+  "bolt_diameter",
+  "bolt_head_diameter",
+]);
+
 export function hasPinchSettings(keys: Iterable<string>) {
-  return Array.from(keys).some((key) => !/^(utm_|gclid$|fbclid$)/i.test(key));
+  for (const key of keys) if (CLASSIC_PINCH_SETTINGS.has(key)) return true;
+  return false;
 }
 
 // Update the address bar in place, without a navigation or a history entry.
