@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import {
-  ACCOUNT_PRESET_LABS,
+  PRESET_LABS,
   PRESET_LIMIT,
   SEARCH_LIMIT,
   presetName,
@@ -36,8 +36,7 @@ function toPreset(row: Row): LabPreset {
 }
 
 function checkLab(lab: string): asserts lab is PresetLab {
-  if (!ACCOUNT_PRESET_LABS.includes(lab as PresetLab))
-    throw new Error("Unknown lab.");
+  if (!PRESET_LABS.includes(lab as PresetLab)) throw new Error("Unknown lab.");
 }
 
 function checkSearch(search: string) {

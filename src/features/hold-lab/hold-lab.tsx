@@ -43,6 +43,7 @@ import {
 import {
   defaultPresetName,
   isSavedValue,
+  loadSavedPresets,
   savedId,
   savedValue,
   uniqueName,
@@ -154,6 +155,7 @@ export function HoldLab({
   const origin = useRef<Parameters>({});
   // Presets the person saved, and the small form that renames one.
   const [saved, setSaved] = useState<LabPreset[]>([]);
+  const [browserPresets, setBrowserPresets] = useState<LabPreset[]>([]);
   const [saving, setSaving] = useState(false);
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -186,6 +188,10 @@ export function HoldLab({
         latest.current = start;
         origin.current = { ...start };
         setParameters(start);
+        // Round Pinch originally saved to this browser even when signed in.
+        setBrowserPresets(
+          kind === "roundpinch" && store.account ? loadSavedPresets(kind) : [],
+        );
         void store
           .list()
           .then((list) => {
@@ -387,11 +393,19 @@ export function HoldLab({
   }
   function applyPreset(name: string) {
     if (!schema) return;
-    if (isSavedValue(name)) void applySavedPreset(savedId(name));
+    if (isSavedValue(name))
+      void applySavedPreset(
+        saved.find((p) => p.id === savedId(name)),
+        name,
+      );
+    else if (name.startsWith("browser:"))
+      void applySavedPreset(
+        browserPresets.find((p) => "browser:" + p.id === name),
+        name,
+      );
     else startFrom(schema.presets[name] ?? schema.defaults, name);
   }
-  async function applySavedPreset(id: string) {
-    const found = saved.find((p) => p.id === id);
+  async function applySavedPreset(found: LabPreset | undefined, value: string) {
     if (!schema || !found) return;
     try {
       const link = readLink(found.search, schema.defaults, schema.presets);
@@ -399,7 +413,7 @@ export function HoldLab({
         kind,
         link?.parameters ?? schema.defaults,
       );
-      startFrom(settings, savedValue(id));
+      startFrom(settings, value);
     } catch (error) {
       showError(error);
     }
@@ -580,6 +594,15 @@ export function HoldLab({
               <optgroup label="My presets">
                 {saved.map((p) => (
                   <option key={p.id} value={savedValue(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {browserPresets.length > 0 && (
+              <optgroup label="Saved in this browser">
+                {browserPresets.map((p) => (
+                  <option key={p.id} value={"browser:" + p.id}>
                     {p.name}
                   </option>
                 ))}

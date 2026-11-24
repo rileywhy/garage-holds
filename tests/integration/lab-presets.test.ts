@@ -7,7 +7,7 @@ import {
   saveAccountPreset,
 } from "../../src/features/lab-presets/account-presets";
 import {
-  ACCOUNT_PRESET_LABS,
+  PRESET_LABS,
   PRESET_LIMIT,
   type PresetLab,
 } from "../../src/features/lab-presets/saved-presets";
@@ -80,7 +80,7 @@ test("presets are private to their owner", async () => {
 });
 
 test("every lab the app saves for is one the table accepts", async () => {
-  for (const lab of ACCOUNT_PRESET_LABS) {
+  for (const lab of PRESET_LABS) {
     const presets = await saveAccountPreset(
       other.client,
       other.id,

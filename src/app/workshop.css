@@ -1489,3 +1489,54 @@ input[type="radio"] {
 .equipment-product figcaption {
   font-size: 14px;
 }
+
+@media (max-width: 760px) {
+  .lab {
+    grid-template-areas:
+      "stage"
+      "board"
+      "controls"
+      "details"
+      "status";
+  }
+  .lab .lab-stage-row {
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    z-index: 3;
+    border-top: 1px solid var(--line);
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .lab .lab-status {
+    max-height: 20svh;
+    overflow: auto;
+  }
+  .equipment-home .checkbox-row,
+  .lab-control input[type="range"],
+  .lab-stage-row .button,
+  .detail-page > .back-link {
+    min-height: 44px;
+  }
+  .lab-control-reset {
+    width: 44px;
+    height: 44px;
+  }
+  .detail-page .safety-note a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .lab-carousel-menu {
+    width: calc(100% - 12px);
+    justify-content: center;
+  }
+  .lab-carousel-dots {
+    min-width: 0;
+  }
+  .lab-carousel-dots button,
+  .lab-carousel-play {
+    width: 44px;
+    min-width: 24px;
+    height: 44px;
+  }
+}

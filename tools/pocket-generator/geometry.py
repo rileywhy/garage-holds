@@ -863,26 +863,29 @@ def fit_pocket(requested):
                 p = replace(p, pocket_depth=p.pocket_depth - 1)
                 dip = -slot(p, 0.0, "export").bounding_box()[2]
         p = replace(p, depth=float(depth))
+    previous_cavity = None
     for _ in range(400):
         s = shell(p, 72)
-        # The cutter itself, with the face plane at z=0 and only the part
-        # inside the body kept: its section at the face is the mouth, its
-        # shadow is everything the cavity needs below the face.
-        cut = slot(p, 0.0, "preview").trim_by_plane((0, 0, 1), -s["depth"])
-        _, corners, normals, centres, _, _, _ = lip_arcs(
-            p, cut, 0.0, mouth_outline(cut, 0.0)
-        )
-        rim = manifold.CrossSection([(corners + normals * centres[:, :1]).tolist()])
+        # Only the outer width and height change while seeking more room.
+        # Keep the cavity and its margin outlines until the cavity changes.
+        cavity = replace(p, width=requested.width, height=requested.height)
+        if cavity != previous_cavity:
+            cut = slot(p, 0.0, "preview").trim_by_plane((0, 0, 1), -s["depth"])
+            _, corners, normals, centres, _, _, _ = lip_arcs(
+                p, cut, 0.0, mouth_outline(cut, 0.0)
+            )
+            rim = manifold.CrossSection([(corners + normals * centres[:, :1]).tolist()])
+            rim_points = largest(rim.offset(MARGIN, manifold.JoinType.Round, 2.0, 16))
+            cavity_points = largest(
+                cut.project().offset(MARGIN, manifold.JoinType.Round, 2.0, 16)
+            )
+            previous_cavity = cavity
         checks = [
-            (rim.offset(MARGIN, manifold.JoinType.Round, 2.0, 16), s["front"]),
-            (
-                cut.project().offset(MARGIN, manifold.JoinType.Round, 2.0, 16),
-                s["back"] if p.through else s["front"],
-            ),
+            (rim_points, s["front"]),
+            (cavity_points, s["back"] if p.through else s["front"]),
         ]
         worst = None
-        for region, within in checks:
-            points = largest(region)
+        for points, within in checks:
             bad = points[outside(points, within)]
             if len(bad):
                 lo, hi = np.array(within.bounds()).reshape(2, 2)

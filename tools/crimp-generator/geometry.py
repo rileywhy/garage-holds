@@ -429,6 +429,21 @@ def build(
     # manual seat only changes how deep its recesses are drilled), so it
     # keeps the automatic floors.
     floors = seat_floors(automatic_seat(p), auto=p.auto_seat or jug)
+    if (
+        not jug and p.screws and not p.bolt_mount and p.auto_seat
+        and start == requested and floors[-1] <= p.seat_depth < floors[0]
+    ):
+        # Saved settings include the fitted body and seat. Starting another
+        # 30 mm growth window at that body can shift a perfectly valid row.
+        # Refit this body from the automatic target down, so a stale seat
+        # from another design never forces a recess that no longer fits.
+        try:
+            saved = _build(p, quality, floors[-1], end_wrap, arc_rise, jug, screw_arc, deadline)
+        except _NoRoomForScrews:
+            pass
+        else:
+            if saved.parameters == p:
+                return saved
     model = None
     # A later, lower floor revisits every height; the seats above the
     # earlier floor failed there already and are not tried again.

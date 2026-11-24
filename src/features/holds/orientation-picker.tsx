@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FileBox, X } from "lucide-react";
-import { VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
+import { NO_3D_HELP, VIEWER_CONTROLS } from "@/features/model-viewer/gestures";
 import { useModelViewer, type ModelSource } from "./use-model-viewer";
 import {
   DEFAULT_ORIENTATION,
@@ -33,7 +33,7 @@ export function OrientationPicker({
   color: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const { ready, failed } = useModelViewer(container, source, {
+  const { ready, failed, no3d } = useModelViewer(container, source, {
     orientation: value,
     color,
     view: "board",
@@ -57,12 +57,18 @@ export function OrientationPicker({
           <div className="image-placeholder no-photo-visual stl-viewer-note">
             <FileBox size={32} aria-hidden="true" />
             <span>
-              {failed ? "This model can't be previewed" : "Loading the model…"}
+              {failed
+                ? no3d
+                  ? "The 3D view could not start"
+                  : "This model can't be previewed"
+                : "Loading the model…"}
             </span>
             <small>
-              {failed
-                ? "Only STL files can be turned here."
-                : "Only how the site shows it changes; the file stays as it is."}
+              {no3d
+                ? NO_3D_HELP
+                : failed
+                  ? "Only STL files can be turned here."
+                  : "Only how the site shows it changes; the file stays as it is."}
             </small>
           </div>
         )}

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCurrentUser } from "@/features/auth/current-user";
+import { labSettingsHref } from "@/features/lab-link/lab-link";
 import { listAccountPresets } from "@/features/lab-presets/repository";
 import { listSavedHolds } from "@/features/holds/repository";
 import { DEFAULT_CATALOG_QUERY } from "@/features/holds/catalog-query";
@@ -24,7 +25,7 @@ export async function savedTextureSources() {
         id: `preset:${id}`,
         label: name,
         lab,
-        link: `/make/${lab}${search}`,
+        link: labSettingsHref(`/make/${lab}`, search),
         group: "Lab presets",
       });
     }

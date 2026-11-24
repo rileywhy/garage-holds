@@ -25,6 +25,32 @@ test("a page carries its own canonical and link-preview fields", () => {
   });
 });
 
+test("a design's search title and description say what it is; its card keeps the name", () => {
+  const metadata = designMetadata({
+    id: "abc",
+    title: "wavy deep crimp",
+    description: "Big edge, unique look.",
+    files: [{ extension: "stl" }],
+    type: "Crimp",
+    size: "Medium",
+    mount: "Dual mount",
+    status: "published",
+    photos: [],
+  } as unknown as Hold);
+  assert.equal(
+    metadata.title,
+    "wavy deep crimp: 3D printable climbing crimp STL",
+  );
+  assert.equal(
+    metadata.description,
+    "A medium dual-mount climbing crimp to 3D print, with a free STL. Big edge, unique look.",
+  );
+  assert.equal(
+    (metadata.openGraph as { title: string }).title,
+    "wavy deep crimp",
+  );
+});
+
 test("an article carries its authors and dates in the Open Graph block", () => {
   const metadata = pageMetadata({
     title: "Guide",
@@ -72,6 +98,7 @@ test("every page and design card has a site name and an image", () => {
   const hold = {
     id: "abc",
     title: "Half-moon crimp",
+    files: [{ extension: "3mf" }],
     description: "A crimp.",
     type: "crimp",
     size: "medium",
@@ -80,6 +107,8 @@ test("every page and design card has a site name and an image", () => {
     photos: [],
   } as unknown as Hold;
   const bare = designMetadata(hold);
+  assert.doesNotMatch(String(bare.title), /STL/i);
+  assert.doesNotMatch(String(bare.description), /STL/i);
   const photographed = designMetadata({
     ...hold,
     photos: [{ id: "p1" }],
