@@ -176,6 +176,16 @@ for (const lab of LABS) {
       const metrics = page.getByText(/^[\d,]+ triangles · closed$/);
       await metrics.waitFor();
 
+      // Scale comes first in every lab, above the Grip, Shape and Mounting
+      // tabs (RIL-94).
+      const controls = page.getByRole("complementary", {
+        name: /controls$/,
+      });
+      assert.equal(
+        await controls.getByRole("slider").first().getAttribute("aria-label"),
+        "Scale slider",
+      );
+
       const slider = page
         .getByRole("tabpanel", { name: "Grip" })
         .getByRole("slider")
@@ -246,7 +256,7 @@ browserTest("Custom Shape Lab: preview, slider and STL", async (page) => {
   );
   const edited = await previewAfter(page, endpoint, () =>
     changeSlider(
-      page.getByRole("slider", { name: "Overall scale", exact: true }),
+      page.getByRole("slider", { name: "Scale slider", exact: true }),
     ),
   );
   assert.ok(!edited.equals(initial), "Scale should change the mesh");
@@ -257,7 +267,7 @@ browserTest("Texture Lab: depth slider, preview and STL", async (page) => {
   assert.ok((await page.goto("/make/texture"))?.ok());
   const preview = page.getByLabel("Interactive hold preview").locator("canvas");
   await preview.waitFor();
-  const slider = page.getByRole("slider", { name: /^Depth ·/ });
+  const slider = page.getByRole("slider", { name: /^Relief depth ·/ });
   const depth = await changeSlider(slider);
   await slider.evaluate(
     () =>

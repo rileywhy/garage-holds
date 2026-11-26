@@ -43,7 +43,7 @@ wait_for_http() {
 }
 
 urls=()
-for entry in crimp:8766 sloper:8771 jug:8781 foot:8785 pocket:8795 pinch:8796 roundpinch:8798; do
+for entry in crimp:8766 sloper:8771 jug:8781 foot:8785 pocket:8795 pinch:8796 roundpinch:8798 crack:8797; do
   kind=${entry%:*}
   port=${entry#*:}
   base="http://127.0.0.1:$port"
