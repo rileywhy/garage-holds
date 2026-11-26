@@ -1,9 +1,4 @@
 {
-  "git": {
-    "deploymentEnabled": {
-      "codex/ril-43-one-mounting-fit": false
-    }
-  },
   "crons": [
     {
       "path": "/api/sweep",
