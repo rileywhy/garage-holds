@@ -12,6 +12,17 @@ from tools.hold_mounting import SCREW_HEAD_MARGIN
 # Default screw-only exports, from the default branch before sharing the fit.
 # Ordered pairs are the reported bore centers in millimeters.
 DEFAULT_MOUNTING = {
+    # Crack fits its own rows (crack-generator screw_room) and shares the
+    # drill and bolt fit; it joined main after the fit was shared.
+    "crack": (
+        20,
+        [
+            (-27.716306, -27.0),
+            (-29.724802, 27.0),
+            (27.716306, -27.0),
+            (29.724802, 27.0),
+        ],
+    ),
     "crimp": (11, [(-30, -0.96), (0, -0.96), (30, -0.96)]),
     "foot": (6.5, [(-7.180071, 1.272811), (7.180071, 1.272811)]),
     "jug": (
@@ -91,7 +102,9 @@ class LabMounting(unittest.TestCase):
                     )
 
     def test_bolt_and_screw_seat_and_positions_match_preview_in_every_lab(self):
-        for lab in DEFAULT_MOUNTING:
+        # The default crack is too narrow at its floor for a bolt recess and
+        # refuses one (its own tests cover that), so it is left out here.
+        for lab in DEFAULT_MOUNTING.keys() - {"crack"}:
             with self.subTest(lab=lab):
                 package = f"tools.{lab}-generator"
                 contract = importlib.import_module(f"{package}.parameters")
