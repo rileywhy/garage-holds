@@ -1,3 +1,4 @@
+import { ALL_LABS } from "@/features/labs/labs";
 // Turns an error into the one line the owner's webhook receives, and keeps a
 // storm of the same error from sending more than one line a minute. Plain
 // TypeScript so the tests can run it; `alerts.ts` and `instrumentation.ts`
@@ -107,17 +108,9 @@ export const CLIENT_ROUTES = [
   "/how-to-3d-print-climbing-holds",
   "/jug-force-lab",
   "/make",
-  "/make/crimp",
-  "/make/crack",
-  "/make/custom-shape",
+  ...ALL_LABS.map(({ href }) => href),
   "/make/texture",
   "/orca-textures",
-  "/make/foot",
-  "/make/jug",
-  "/make/pinch",
-  "/make/pocket",
-  "/make/roundpinch",
-  "/make/sloper",
   "/phone/[session]",
   "/privacy",
   "/saved",

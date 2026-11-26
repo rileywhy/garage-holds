@@ -5,38 +5,15 @@
 // localStorage, one list per lab. Either way they appear in the lab's
 // starting-point menu under "My presets".
 
-export type PresetLab =
-  | "crimp"
-  | "sloper"
-  | "jug"
-  | "foot"
-  | "pocket"
-  | "pinch"
-  | "roundpinch"
-  | "crack"
-  | "custom-shape";
-export const PRESET_LABS: PresetLab[] = [
-  "crimp",
-  "sloper",
-  "jug",
-  "foot",
-  "pocket",
-  "pinch",
-  "roundpinch",
-  "crack",
-  "custom-shape",
-];
-export const PRESET_LAB_NAMES: Record<PresetLab, string> = {
-  crimp: "Crimp Lab",
-  sloper: "Sloper Lab",
-  jug: "Jug Lab",
-  foot: "Foot Lab",
-  pocket: "Pocket Lab",
-  pinch: "Classic Pinch Lab",
-  roundpinch: "Round Pinch Lab",
-  crack: "Crack Lab",
-  "custom-shape": "Custom Shape Lab",
-};
+import { ALL_LABS, type LabSlug } from "@/features/labs/labs";
+
+// Every lab keeps presets, on the account (the lab_presets table's lab
+// check lists the same slugs) or in this browser.
+export type PresetLab = LabSlug;
+export const PRESET_LABS: PresetLab[] = ALL_LABS.map(({ slug }) => slug);
+export const PRESET_LAB_NAMES = Object.fromEntries(
+  ALL_LABS.map(({ slug, name }) => [slug, name]),
+) as Record<PresetLab, string>;
 
 export interface LabPreset {
   // The row id on the account; the name itself in this browser.

@@ -1,3 +1,4 @@
+import { GENERATOR_LABS, generatorEnvName } from "./src/features/labs/labs";
 import type { NextConfig } from "next";
 import { SECURITY_HEADERS } from "./src/lib/security-headers";
 
@@ -25,15 +26,11 @@ const config: NextConfig = {
   // at `python tools/crimp-generator/serve_api.py` to get the same route.
   async rewrites() {
     return [
-      ["crimp", process.env.CRIMP_API_URL],
-      ["sloper", process.env.SLOPER_API_URL],
-      ["jug", process.env.JUG_API_URL],
-      ["foot", process.env.FOOT_API_URL],
-      ["pocket", process.env.POCKET_API_URL],
-      ["pinch", process.env.PINCH_API_URL],
-      ["roundpinch", process.env.ROUNDPINCH_API_URL],
+      ...GENERATOR_LABS.map(({ slug }) => [
+        slug,
+        process.env[generatorEnvName(slug)],
+      ]),
       ["jug_force", process.env.JUG_FORCE_API_URL],
-      ["crack", process.env.CRACK_API_URL],
     ].flatMap(([name, api]) =>
       api
         ? [

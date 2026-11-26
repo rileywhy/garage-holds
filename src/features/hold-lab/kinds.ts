@@ -3,6 +3,7 @@
 // viewer and export.
 import { VIEW_ORDER, type ViewName } from "@/features/model-viewer/viewer";
 import { LAB_COPY, withInches } from "@/features/labs/conventions";
+import { GENERATOR_LABS } from "@/features/labs/labs";
 import type { Control, Kind, Parameters, Preview } from "./api";
 import { camalot } from "./cams";
 
@@ -25,53 +26,18 @@ export interface LabKind {
   clampTyped: boolean;
 }
 
-const rounded = {
-  separateBack: true,
-  character: 0.65,
-  seedHint: "Different rounded surfaces. Reset returns to the clean default.",
-  clampTyped: false,
-};
-
-export const LAB_KINDS: Record<Kind, LabKind> = {
-  crimp: {
-    separateBack: false,
-    views: VIEW_ORDER,
-    character: 1.4,
-    seedHint:
-      "Seeds create different body folds. Changing the seed starts with visible character; dial it down for a subtler shape, or reset for the clean default.",
-    clampTyped: true,
-  },
-  sloper: {
-    ...rounded,
-    views: VIEW_ORDER.filter((view) => view !== "angled-side"),
-  },
-  jug: { ...rounded, color: 0xe9b416, views: VIEW_ORDER },
-  foot: { ...rounded, color: 0xe07a1f, views: VIEW_ORDER },
-  pocket: {
-    ...rounded,
-    color: 0x2f6fde,
-    views: VIEW_ORDER,
-    seedHint:
-      "Seeds wobble the rim and drift the crown; the pocket stays put. Reset returns to the clean default.",
-  },
-  pinch: {
-    ...rounded,
-    color: 0xd9412c,
-    views: VIEW_ORDER,
-    seedHint:
-      "Seeds wave the sides in and out along the pinch; the back stays put. Reset returns to the clean default.",
-  },
-  // No seed: the round pinch has no character control.
-  roundpinch: { ...rounded, color: 0xc2410c, views: VIEW_ORDER },
-  // Red sandstone, after the desert splitters crack climbers train for.
-  crack: {
-    ...rounded,
-    color: 0xcf9f8f,
-    views: VIEW_ORDER,
-    seedHint:
-      "Seeds wander the crack from side to side along its length; its width stays as set. Reset returns to the clean default.",
-  },
-};
+export const LAB_KINDS = Object.fromEntries(
+  GENERATOR_LABS.map(({ slug, generator: { viewer } }) => [
+    slug,
+    {
+      ...viewer,
+      views:
+        viewer.angledSide === false
+          ? VIEW_ORDER.filter((view) => view !== "angled-side")
+          : VIEW_ORDER,
+    },
+  ]),
+) as Record<Kind, LabKind>;
 
 // What a preview does to the lab once it lands: the settings the sliders
 // show, whether the starting-point menu drops to Custom, and what the

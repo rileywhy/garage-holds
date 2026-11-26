@@ -10,6 +10,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { ALL_LABS } from "../src/features/labs/labs.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const app = path.join(root, "src", "app");
@@ -80,72 +81,31 @@ await card({
   eyebrow: "garageholds.com",
   title: "Free 3D printable\nclimbing holds",
   text: "A library with print recipes, and labs\nthat shape a hold from a few sliders.",
-  render: "crimp",
+  image: ALL_LABS.find(({ slug }) => slug === "crimp").image,
 });
 await card({
   file: path.join(app, "make", "opengraph-image.png"),
   eyebrow: "Hold Labs · garageholds.com",
   title: "Shape your own\nclimbing hold",
   text: "Crimp, sloper, jug, foot, pocket, pinch, crack,\nor a shape you paint. Live preview, filament estimate, STL export.",
-  render: "jug",
+  image: ALL_LABS.find(({ slug }) => slug === "jug").image,
 });
-const labs = {
-  crimp: [
-    "Crimp Lab",
-    "Edge depth, incut, lip rounding, and\nscrew holes. Export a printable STL.",
-  ],
-  sloper: [
-    "Sloper Lab",
-    "Curve, incut lift, and slope. Preview it\non a 40° board and export an STL.",
-  ],
-  jug: [
-    "Jug Lab",
-    "Board jug, deep jug, or two-handed.\nFind the bite and export an STL.",
-  ],
-  foot: [
-    "Foot Lab",
-    "Edges, chips, smears, balls and dishes\nwith screw holes. Export a printable STL.",
-  ],
-  pocket: [
-    "Pocket Lab",
-    "A mono, two- or three-finger pocket in a\nround body. Export a printable STL.",
-  ],
-  pinch: [
-    "Pinch Lab",
-    "A block between thumb and fingers: span,\nside angles and offset. Export an STL.",
-  ],
-  roundpinch: [
-    "Round Pinch Lab",
-    "A rounder, more incut pinch: a full round\nover a hollow. Export a printable STL.",
-  ],
-  crack: [
-    "Crack Lab",
-    "Fingers, hands or fists: width, depth,\nflare and locks. Export an STL.",
-  ],
-  "custom-shape": [
-    "Custom Shape Lab",
-    "Paint a silhouette, shape the grip, place\nthe screws. Export a printable STL.",
-  ],
-};
-for (const [slug, [title, text]] of Object.entries(labs))
+for (const { slug, name, image, socialCardText } of ALL_LABS)
   await card({
     file: path.join(app, "make", slug, "opengraph-image.png"),
     eyebrow: "Hold Labs · garageholds.com",
-    title,
-    text,
-    // The Round Pinch Lab borrows the Pinch Lab's render while on trial.
-    render: slug === "roundpinch" ? "pinch" : slug,
+    title: name,
+    text: socialCardText,
+    image,
   });
 
-async function card({ file, eyebrow, title, text, render }) {
-  const image = await sharp(
-    path.join(root, "public", "images", "hold-labs", `${render}.webp`),
-  )
+async function card({ file, eyebrow, title, text, image }) {
+  const artwork = await sharp(path.join(root, "public", image))
     .resize({ width: 560, withoutEnlargement: true })
     .png()
     .toBuffer();
   const { width: imageWidth = 0, height: imageHeight = 0 } =
-    await sharp(image).metadata();
+    await sharp(artwork).metadata();
   const mark = await sharp(icon)
     .resize(72, 72)
     .flatten({ background: MARK_BG })
@@ -173,7 +133,7 @@ async function card({ file, eyebrow, title, text, render }) {
     .composite([
       { input: mark, left: 72, top: 514 },
       {
-        input: image,
+        input: artwork,
         left: W - imageWidth - 40,
         top: Math.round((H - 10 - imageHeight) / 2),
       },

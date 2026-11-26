@@ -1,3 +1,4 @@
+import { GENERATORS } from "@/features/labs/labs";
 import type { Kind, Parameters, Preview } from "./api";
 import {
   FINGER,
@@ -103,17 +104,6 @@ function Finger({
   );
 }
 
-const NOUNS: Record<Kind, string> = {
-  crimp: "crimp",
-  sloper: "sloper",
-  jug: "jug",
-  foot: "foothold",
-  pocket: "pocket hold",
-  pinch: "pinch",
-  roundpinch: "round pinch",
-  crack: "crack",
-};
-
 function outline(
   profile: [number, number][],
   px: (z: number) => number,
@@ -160,7 +150,7 @@ function CrimpProfile({
       className="lab-profile"
       viewBox="0 0 480 230"
       role="img"
-      aria-label={`Centre cross-section of the ${NOUNS.crimp}, with the wall on the left`}
+      aria-label={`Centre cross-section of the ${GENERATORS.crimp.profileNoun}, with the wall on the left`}
     >
       {gridlines.map((z) => (
         <line
@@ -271,7 +261,7 @@ function HoldProfile({ data, kind }: { data: Preview; kind: Kind }) {
       className="lab-profile"
       viewBox="0 0 480 230"
       role="img"
-      aria-label={`Centre cross-section of the ${NOUNS[kind]}, with the wall on the left`}
+      aria-label={`Centre cross-section of the ${GENERATORS[kind].profileNoun}, with the wall on the left`}
     >
       <path
         d={parts.map((part) => outline(part, px, py)).join(" ")}

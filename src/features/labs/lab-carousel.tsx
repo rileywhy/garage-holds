@@ -10,7 +10,6 @@ import {
   Play,
 } from "lucide-react";
 import { LABS } from "./labs";
-import { ARTWORK_FRAMING } from "./artwork-framing";
 
 export function LabCarousel() {
   const [active, setActive] = useState(0);
@@ -76,9 +75,9 @@ export function LabCarousel() {
               >
                 <img
                   style={{
-                    width: `${ARTWORK_FRAMING[lab.slug].width}%`,
-                    left: `${ARTWORK_FRAMING[lab.slug].left}%`,
-                    top: `${ARTWORK_FRAMING[lab.slug].top}%`,
+                    width: `${lab.artwork.width}%`,
+                    left: `${lab.artwork.left}%`,
+                    top: `${lab.artwork.top}%`,
                   }}
                   src={lab.image}
                   alt={`Climbing hold made in ${lab.name}`}

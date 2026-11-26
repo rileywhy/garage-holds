@@ -3,30 +3,20 @@
 // and presets, so a lab fetches its schema at load instead of repeating any
 // of it here.
 import {
+  GENERATORS,
+  GENERATOR_LABS,
+  type GeneratorKind,
+} from "@/features/labs/labs";
+import {
   EXPORT_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   labRequest,
 } from "@/features/labs/lab-request";
 
-export type Kind =
-  | "crimp"
-  | "sloper"
-  | "jug"
-  | "foot"
-  | "pocket"
-  | "pinch"
-  | "roundpinch"
-  | "crack";
-export const KIND_LABELS: Record<Kind, string> = {
-  crimp: "Crimp",
-  sloper: "Sloper",
-  jug: "Jug",
-  foot: "Foot",
-  pocket: "Pocket",
-  pinch: "Pinch",
-  roundpinch: "Round Pinch",
-  crack: "Crack",
-};
+export type Kind = GeneratorKind;
+export const KIND_LABELS = Object.fromEntries(
+  GENERATOR_LABS.map(({ slug, label }) => [slug, label]),
+) as Record<Kind, string>;
 
 export interface Control {
   key: string;
@@ -171,37 +161,17 @@ export async function validate(
   return ((await response.json()) as { parameters: Parameters }).parameters;
 }
 
-// The settings-file version each generator writes (design_document).
-const DESIGN_VERSIONS: Record<Kind, number> = {
-  crimp: 1,
-  sloper: 1,
-  jug: 2,
-  foot: 2,
-  pocket: 1,
-  pinch: 1,
-  roundpinch: 1,
-  crack: 1,
-};
-// Settings that older files leave out, with the value that keeps the saved
-// shape as it was: crimps saved before the count control had two screws
-// and chose their seat by hand; slopers saved before the lift control had
-// none.
-const OLDER_FILE_DEFAULTS: Partial<Record<Kind, Parameters>> = {
-  crimp: { screw_count: 2, auto_seat: false },
-  sloper: { incut: 0 },
-};
-
 export function parseDesignFile(text: string, kind: Kind): Parameters {
   const design = JSON.parse(text) as Partial<Design> | null;
   if (
     !design ||
     design.generator !== `garage-holds-${kind}` ||
-    design.version !== DESIGN_VERSIONS[kind] ||
+    design.version !== GENERATORS[kind].version ||
     design.units !== "mm" ||
     !design.parameters ||
     typeof design.parameters !== "object" ||
     Array.isArray(design.parameters)
   )
     throw new Error(`This is not a ${KIND_LABELS[kind]} Lab settings file.`);
-  return { ...OLDER_FILE_DEFAULTS[kind], ...design.parameters };
+  return { ...GENERATORS[kind].olderFileDefaults, ...design.parameters };
 }
