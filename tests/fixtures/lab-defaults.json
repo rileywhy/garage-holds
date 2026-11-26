@@ -30,8 +30,7 @@
       "auto_seat": true,
       "seat_depth": 11
     },
-    "stlBytes": 2560084,
-    "stlSha256": "34a9ebfea4b1a1be91dc2af6ee840746c6e9ec79016c9c2ca8c507b438bf0b0c"
+    "stlBytes": 2560084
   },
   "sloper": {
     "dimensions": [165, 140.16, 70.65],
@@ -63,8 +62,7 @@
       "auto_seat": true,
       "seat_depth": 20
     },
-    "stlBytes": 958184,
-    "stlSha256": "0a2b1ef8a39dddba88f173b7527286b55307b5886526e5e0a185e4677269ba1f"
+    "stlBytes": 958184
   },
   "jug": {
     "dimensions": [126.59, 75.07, 50.91],
@@ -105,8 +103,7 @@
       "bar_clearance": 45,
       "bar_thickness": 32
     },
-    "stlBytes": 1574284,
-    "stlSha256": "bfc6376efa499358f2d60aeed71fe41ee7c95c83ce78fa53f8ea3b05bb12d3a5"
+    "stlBytes": 1574284
   },
   "foot": {
     "dimensions": [44.88, 31.09, 15.83],
@@ -138,8 +135,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1991084,
-    "stlSha256": "ef81328c43545b537f29fe480f51d4f531dc243a56c89522a0346a729ef78c32"
+    "stlBytes": 1991084
   },
   "pocket": {
     "dimensions": [103.98, 103.98, 48.85],
@@ -174,8 +170,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 650484,
-    "stlSha256": "82e00e9c22b4eca5cfad0af3a1b59b256ac550d19d9525e9bcf4c2beb577f142"
+    "stlBytes": 650484
   },
   "pinch": {
     "dimensions": [58.97, 110, 54.97],
@@ -212,8 +207,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1662484,
-    "stlSha256": "f2598e568314d2bdb2a9f7069cf2f8f4ae04bd92bc1eb17944c29f2c3be3cf86"
+    "stlBytes": 1662484
   },
   "roundpinch": {
     "dimensions": [66, 110, 47.89],
@@ -247,8 +241,7 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1112284,
-    "stlSha256": "816cc26ddfd3e92dab43cbb44d7ed153fae98a32d76030e71ce8eed6c16ffecb"
+    "stlBytes": 1112284
   },
   "crack": {
     "dimensions": [89, 80, 60],
@@ -282,7 +275,6 @@
       "bolt_diameter": 10.5,
       "bolt_head_diameter": 20
     },
-    "stlBytes": 1807584,
-    "stlSha256": "769c8d88703b49b6134d6910e623415457c9a8ec368ed31b8b78ee4a88c0ca56"
+    "stlBytes": 1807584
   }
 }
