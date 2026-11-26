@@ -12,13 +12,14 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.hold_mounting import MIN_SEAT, _inside, screw_room
+
 from crimp_engine import geometry as crimp
 from geometry import build, engine_parameters
 from parameters import CONTROLS, PRESETS, Parameters, design_document, parse_parameters
 
 # The jug-shaped presets; the Handlebar has its own tests (test_handlebar.py).
 JUGS = {name: p for name, p in PRESETS.items() if p.shape == "jug"}
-from tools.hold_mounting import MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -194,7 +195,9 @@ class GeometryTests(unittest.TestCase):
                             for z, diameter in ((0.5, shank), (seat / 2, shank), (seat + cone + 0.5, head)):
                                 contours = solid.slice(z).to_polygons()
                                 for center in centers:
-                                    self.assertTrue(crimp._inside_contours(*center, contours))
+                                    self.assertTrue(
+                                        _inside(np.asarray([center]), contours)[0]
+                                    )
                                     self.assertGreaterEqual(boundary_distance(np.array(center), contours) - diameter / 2, 4.9)
 
     def test_deeper_mounting_arc_for_odd_and_even_hole_counts(self):
@@ -357,7 +360,10 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(model.screws, exported.screws)
         self.assertTrue(exported.mesh.is_watertight)
         self.assertGreaterEqual(model.parameters.seat_depth, MIN_SEAT)
-        share = lambda m: (m.screws[-1][0] - m.screws[0][0]) / m.mesh.extents[0]
+
+        def share(m):
+            return (m.screws[-1][0] - m.screws[0][0]) / m.mesh.extents[0]
+
         self.assertLess(share(model), share(full) - 0.05)
         self.assertLess(model.mesh.extents[1], full.mesh.extents[1])
         # A seat set by hand drills the same holes at its own depth.
@@ -390,13 +396,16 @@ class GeometryTests(unittest.TestCase):
                     engine_parameters(parse_parameters(asdict(preset))),
                     body_height=model._model.parameters.body_height,
                 )
-                room = crimp._screw_room(
-                    engine, crimp._solid(blank.mesh),
-                    float(model.parameters.seat_depth), edge_clearance=5.0,
+                room = screw_room(
+                    engine,
+                    crimp._solid(blank.mesh),
+                    float(model.parameters.seat_depth),
+                    edge_clearance=5.0,
+                    shallow_row=True,
                 )
                 screws = np.array(model.screws)
-                self.assertTrue(crimp._inside_mask(screws, room).all())
-                self.assertFalse(crimp._inside_mask(screws + [0, 1.0], room).any())
+                self.assertTrue(_inside(screws, room).all())
+                self.assertFalse(_inside(screws + [0, 1.0], room).any())
 
     def test_inner_screws_lean_toward_the_ends(self):
         # The back face reaches higher toward a jug's ends, so the inner

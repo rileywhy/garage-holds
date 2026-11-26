@@ -1,12 +1,10 @@
-"""Shared bolt + anti-rotation screw fitting for the three hold generators,
-and the closed-solid check every generator finishes with."""
+"""Mounting fit, drilling, and closed-solid checks shared by the hold generators."""
 
 from dataclasses import dataclass
 
 import manifold3d as manifold
 import numpy as np
 import trimesh
-
 
 # An automatic seat (where the countersink starts, above the wall) stands
 # this share of the hold's depth off the wall, up to SEAT_MAX. To fit, it
@@ -103,34 +101,99 @@ class Hole:
     bolt: bool
 
 
-def _inside(points, contours):
+def _inside(points: np.ndarray, contours) -> np.ndarray:
+    """Even/odd containment of many points in Manifold's slice polygons.
+
+    Every edge is tested against a block of points at once; a loop over
+    edges in Python took 85% of a slow build. Points outside the contours'
+    bounding box are outside without a test, which drops most candidate
+    rows below the body."""
     x, y = points[:, 0], points[:, 1]
     inside = np.zeros(len(points), dtype=bool)
-    for contour in contours:
-        a = np.asarray(contour)
-        for (ax, ay), (bx, by) in zip(a, np.roll(a, 1, axis=0)):
-            crosses = (ay > y) != (by > y)
-            inside[crosses] ^= (
-                x[crosses] < (bx - ax) * (y[crosses] - ay) / (by - ay) + ax
-            )
+    edges = [
+        np.hstack((a, np.roll(a, 1, axis=0)))
+        for a in (np.asarray(contour, dtype=float) for contour in contours)
+        if len(a)
+    ]
+    if not edges or not len(points):
+        return inside
+    ax, ay, bx, by = np.concatenate(edges).T[:, :, None]
+    low, high = np.minimum(ax, bx).min(), np.maximum(ax, bx).max()
+    bottom, top = np.minimum(ay, by).min(), np.maximum(ay, by).max()
+    within = np.flatnonzero((x >= low) & (x <= high) & (y >= bottom) & (y <= top))
+    # Blocks keep the edges × points work arrays to a few megabytes.
+    for start in range(0, len(within), 2048):
+        block = within[start : start + 2048]
+        px, py = x[block][None, :], y[block][None, :]
+        crosses = (ay > py) != (by > py)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            crossing = (bx - ax) * (py - ay) / (by - ay) + ax
+        hits = crosses & (px < crossing)
+        inside[block] = (hits.sum(axis=0) & 1).astype(bool)
     return inside
 
 
-def _room(solid, shank, head, seat, bolt, edge_clearance=None):
+SCREW_HEAD_MARGIN = 1.5
+
+
+def _room(
+    solid,
+    shank,
+    head,
+    seat,
+    bolt,
+    edge_clearance=None,
+    *,
+    above_head=2.0,
+    check_mid_shank=True,
+):
     cone = 0 if bolt else (head - shank) / 2
+    shank_inset = shank / 2 + (2 if edge_clearance is None else edge_clearance)
+    head_inset = head / 2 + (
+        SCREW_HEAD_MARGIN if edge_clearance is None else edge_clearance
+    )
+    checks = [(0.5, shank_inset)]
+    if check_mid_shank:
+        checks.append((seat / 2, shank_inset))
+    checks.extend(((seat + 0.5, head_inset), (seat + cone + above_head, head_inset)))
     region = None
-    for z, margin in (
-        (0.5, shank / 2 + (2 if edge_clearance is None else edge_clearance)),
-        (seat / 2, shank / 2 + (2 if edge_clearance is None else edge_clearance)),
-        (seat + 0.5, head / 2 + (1.5 if edge_clearance is None else edge_clearance)),
-        (
-            seat + cone + 2,
-            head / 2 + (1.5 if edge_clearance is None else edge_clearance),
-        ),
-    ):
+    for z, margin in checks:
         section = solid.slice(z).offset(-margin, manifold.JoinType.Round, 2, 32)
         region = section if region is None else region ^ section
     return region.to_polygons()
+
+
+def screw_room(p, solid, seat, *, edge_clearance=None, shallow_row=False):
+    # Crimp and jug rows have historically sampled just above the mouth
+    # of the recess, so shallow rails can still mount at their usable seat.
+    return _room(
+        solid,
+        p.shank_diameter,
+        p.head_diameter,
+        seat,
+        False,
+        edge_clearance,
+        above_head=0.5 if shallow_row else 2.0,
+        check_mid_shank=not shallow_row or edge_clearance is not None,
+    )
+
+
+def first_fitting_row(candidates, polygons):
+    """Return the first candidate row with every center in the fitted room."""
+    if not polygons or not len(candidates):
+        return []
+    low = np.min([np.min(contour, axis=0) for contour in polygons], axis=0)
+    high = np.max([np.max(contour, axis=0) for contour in polygons], axis=0)
+    possible = np.flatnonzero(
+        ((candidates >= low) & (candidates <= high)).all(axis=(1, 2))
+    )
+    if not len(possible):
+        return []
+    fits = _inside(candidates[possible].reshape(-1, 2), polygons)
+    fits = fits.reshape(len(possible), -1).all(axis=1)
+    if not fits.any():
+        return []
+    return [tuple(map(float, point)) for point in candidates[possible[np.argmax(fits)]]]
 
 
 def fit_bolt_and_screw(
@@ -336,19 +399,19 @@ def _highest_enclosed_seat(
     return float(fitted)
 
 
-def drill(solid, holes, top):
+def drill(solid, holes, top, *, segments=64):
     for hole in holes:
         shank = manifold.Manifold.cylinder(
-            hole.seat + 1, hole.shank / 2, circular_segments=64
+            hole.seat + 1, hole.shank / 2, circular_segments=segments
         ).translate((hole.x, hole.y, -1))
         cone_height = 0 if hole.bolt else (hole.head - hole.shank) / 2
         cutter = shank
         if cone_height:
             cutter += manifold.Manifold.cylinder(
-                cone_height, hole.shank / 2, hole.head / 2, 64
+                cone_height, hole.shank / 2, hole.head / 2, segments
             ).translate((hole.x, hole.y, hole.seat))
         cutter += manifold.Manifold.cylinder(
-            top + 1, hole.head / 2, circular_segments=64
+            top + 1, hole.head / 2, circular_segments=segments
         ).translate((hole.x, hole.y, hole.seat + cone_height))
         solid -= cutter
     return solid

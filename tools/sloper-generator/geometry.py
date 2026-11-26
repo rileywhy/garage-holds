@@ -18,11 +18,14 @@ import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.hold_mounting import (
+    Hole,
     assert_closed,
     automatic_seat,
     closed_mesh,
     drill,
+    first_fitting_row,
     fit_bolt_and_screw,
+    screw_room,
     seat_floors,
 )
 from tools.hold_scale import restore_dimensions, scale_body
@@ -78,7 +81,11 @@ class Model:
             if self.seat_depth_limit is not None
             else {},
             control_ranges={
-                "screw_spacing": {"min": (self.parameters.head_diameter + 1.5) * (self.parameters.screw_count - 1), "max": self.screw_spacing_limit}
+                "screw_spacing": {
+                    "min": (self.parameters.head_diameter + 1.5)
+                    * (self.parameters.screw_count - 1),
+                    "max": self.screw_spacing_limit,
+                }
             }
             if self.screw_spacing_limit is not None
             else {},
@@ -168,19 +175,6 @@ def _solid(mesh):
     return result
 
 
-def _inside(points, polygons):
-    x, y = points[:, 0], points[:, 1]
-    inside = np.zeros(len(points), dtype=bool)
-    for polygon in polygons:
-        a = np.asarray(polygon)
-        for (ax, ay), (bx, by) in zip(a, np.roll(a, 1, axis=0)):
-            crosses = (ay > y) != (by > y)
-            if crosses.any():
-                crossing = (bx - ax) * (y[crosses] - ay) / (by - ay) + ax
-                inside[crosses] ^= x[crosses] < crossing
-    return inside
-
-
 def _mounting(p, solid, relaxed=False):
     # Evenly spaced around an oval; two holes stay horizontal.
     angles = np.arange(p.screw_count) * 2 * math.pi / p.screw_count
@@ -190,7 +184,9 @@ def _mounting(p, solid, relaxed=False):
         (np.cos(angles) * p.width / 2, np.sin(angles) * p.height / 2)
     )
     if not p.auto_spacing:
-        unit[:, 0] = np.linspace(-p.screw_spacing / 2, p.screw_spacing / 2, p.screw_count)
+        unit[:, 0] = np.linspace(
+            -p.screw_spacing / 2, p.screw_spacing / 2, p.screw_count
+        )
         # Manual span follows a shallow oval. The outer holes define the
         # requested span and the inner holes sag toward the back of the arc.
         half_span = max(p.screw_spacing / 2, 1)
@@ -215,7 +211,6 @@ def _mounting(p, solid, relaxed=False):
     spaced = gaps.min(axis=(1, 2)) >= p.head_diameter + 1.5
     candidates = candidates[spaced]
     target = round(automatic_seat(p.projection) if p.auto_seat else p.seat_depth, 1)
-    cone = (p.head_diameter - p.shank_diameter) / 2
     # Prefer a larger body to a shallow automatic screw seat: it comes down
     # to its floor, and below that (to its minimum) only once the body has
     # grown as far as it will (relaxed). A manual seat can lower further,
@@ -225,28 +220,9 @@ def _mounting(p, solid, relaxed=False):
     for seat in np.unique(np.append(np.arange(target, floor - 1e-9, -0.5), floor))[
         ::-1
     ]:
-        room = None
-        for height, margin in (
-            (0.5, p.shank_diameter / 2 + 2),
-            (seat / 2, p.shank_diameter / 2 + 2),
-            (seat + 0.5, p.head_diameter / 2 + 0.75),
-            (seat + cone / 2, (p.shank_diameter + p.head_diameter) / 4 + 0.75),
-            (seat + cone + 0.5, p.head_diameter / 2 + 0.75),
-        ):
-            section = solid.slice(height)
-            region = section.offset(-margin, manifold.JoinType.Round, 2, 32)
-            room = region if room is None else room ^ region
-        if room.is_empty() or not len(candidates):
-            continue
-        fits = (
-            _inside(candidates.reshape(-1, 2), room.to_polygons())
-            .reshape(len(candidates), -1)
-            .all(axis=1)
-        )
-        if fits.any():
-            return [
-                (float(x), float(y)) for x, y in candidates[np.argmax(fits)]
-            ], float(round(seat, 1))
+        row = first_fitting_row(candidates, screw_room(p, solid, seat))
+        if row:
+            return row, float(round(seat, 1))
     return [], target
 
 
@@ -299,7 +275,9 @@ def build(requested: Parameters, quality="preview") -> Model:
                 screws = [(h.x, h.y) for h in holes if not h.bolt]
                 seat = holes[0].seat if holes else target
             else:
-                screws, seat = _mounting(p, solid, relaxed) if p.screws else ([], p.seat_depth)
+                screws, seat = (
+                    _mounting(p, solid, relaxed) if p.screws else ([], p.seat_depth)
+                )
                 seat = min(seat, seat_limit)
             if not p.screws or screws:
                 break
@@ -327,18 +305,11 @@ def build(requested: Parameters, quality="preview") -> Model:
     if holes:
         solid = drill(solid, holes, float(mesh.bounds[1, 2]))
     elif screws:
-        cone_height = (p.head_diameter - p.shank_diameter) / 2
-        for x, y in screws:
-            shank = manifold.Manifold.cylinder(
-                seat + 1, p.shank_diameter / 2, circular_segments=48
-            ).translate((x, y, -1))
-            cone = manifold.Manifold.cylinder(
-                cone_height, p.shank_diameter / 2, p.head_diameter / 2, 48
-            ).translate((x, y, seat))
-            bore = manifold.Manifold.cylinder(
-                float(mesh.bounds[1, 2]) + 1, p.head_diameter / 2, circular_segments=48
-            ).translate((x, y, seat + cone_height))
-            solid -= shank + cone + bore
+        screw_holes = [
+            Hole(x, y, p.shank_diameter, p.head_diameter, seat, False)
+            for x, y in screws
+        ]
+        solid = drill(solid, screw_holes, float(mesh.bounds[1, 2]), segments=48)
     # A drilled hold is read back from Manifold as is; an undrilled one
     # keeps the mesh exactly as built (see closed_mesh).
     message = "The mesh did not pass closed-solid checks."

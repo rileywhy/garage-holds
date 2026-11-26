@@ -11,15 +11,14 @@ import numpy as np
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.hold_mounting import MIN_SEAT, SHALLOW_MIN_SEAT, _inside, screw_room
+
 from geometry import (
-    _inside_contours,
-    _inside_mask,
     _solid,
     build,
     cross_section,
     estimate_material,
 )
-from tools.hold_mounting import MIN_SEAT, SHALLOW_MIN_SEAT
 
 # Push CI samples each sweep with fixed seeds. The nightly deep run
 # (.github/workflows/deep-tests.yml) sets HOLD_TESTS_DEEP=1 for the full
@@ -337,7 +336,10 @@ class GeometryTests(unittest.TestCase):
             )
 
     def test_automatic_spacing_does_not_shift_between_preview_and_export(self):
-        p = Parameters(width=50, end_rounding=15, taper=25, edge_depth=12, lip_radius=2)
+        p = Parameters(width=50, end_rounding=15, taper=25, edge_depth=13, lip_radius=2)
+        # The old edge accepted this row only with the thinner screw margin.
+        with self.assertRaisesRegex(ValueError, "does not fit"):
+            build(replace(p, edge_depth=12))
         preview, exported = build(p), build(p, "export")
         self.assertEqual(preview.screws, exported.screws)
         self.assertLess(preview.screws[-1][0] - preview.screws[0][0], p.width * 0.6)
@@ -469,7 +471,7 @@ class GeometryTests(unittest.TestCase):
                 self.assertGreaterEqual(model.seat_depth, least)
 
     def test_a_manual_seat_below_the_automatic_one_is_drilled_where_asked(self):
-        shape = dict(edge_depth=10, lip_radius=12, width=78, taper=-46)
+        shape = dict(edge_depth=11, lip_radius=12, width=78, taper=-46)
         automatic = build(Parameters(**shape))
         low = build(Parameters(**shape, auto_seat=False, seat_depth=2))
         self.assertEqual(low.seat_depth, 2)
@@ -504,7 +506,7 @@ class GeometryTests(unittest.TestCase):
             return inside
 
         expected = np.array([plain(x, y) for x, y in points])
-        self.assertTrue((_inside_mask(points, [outer, hole]) == expected).all())
+        self.assertTrue((_inside(points, [outer, hole]) == expected).all())
         self.assertTrue(expected.any() and not expected.all())
 
     def test_wide_six_screw_rows_fit_inside_the_budget(self):
@@ -513,13 +515,22 @@ class GeometryTests(unittest.TestCase):
         # budget of 12 s turns a regression into a failure here.
         p = parse_parameters(
             dict(
-                width=260, edge_depth=60, incut=0, lip_radius=20, body_height=20,
-                body_rounding=30, end_rounding=60, bow=-60, screw_count=6,
-                head_diameter=15, shank_diameter=4,
+                width=260,
+                edge_depth=60,
+                incut=0,
+                lip_radius=20,
+                body_height=20,
+                body_rounding=30,
+                end_rounding=60,
+                bow=-60,
+                screw_count=6,
+                head_diameter=14,
+                shank_diameter=4,
                 # The row only fits on about 1 mm of seat, which an
                 # automatic seat no longer accepts; asked for by hand, it
                 # is still the slow fit this test is about.
-                auto_seat=False, seat_depth=1,
+                auto_seat=False,
+                seat_depth=1,
             )
         )
         model = build(p, budget_s=12)
@@ -534,7 +545,7 @@ class GeometryTests(unittest.TestCase):
         # preset). Now the seat comes down to the highest height at which every
         # recess is enclosed, the screws stay where the automatic fit put
         # them, and the change is reported.
-        from geometry import _loft, _screw_room
+        from geometry import _loft
 
         rail = replace(PRESETS["Sloping rail"], auto_seat=False, seat_depth=30)
         automatic = build(replace(rail, auto_seat=True))
@@ -545,12 +556,11 @@ class GeometryTests(unittest.TestCase):
         self.assertAlmostEqual(model.parameters.seat_depth, model.seat_depth)
         p = model.parameters
         undrilled = _solid(_loft(p, "preview")[0])
-        room = _screw_room(p, undrilled, model.seat_depth)
-        for x, y in model.screws:
-            self.assertTrue(_inside_contours(x, y, room))
+        room = screw_room(p, undrilled, model.seat_depth, shallow_row=True)
+        self.assertTrue(_inside(np.asarray(model.screws), room).all())
         # Half a millimetre higher no longer fits: the seat is the highest safe one.
-        higher = _screw_room(p, undrilled, model.seat_depth + 0.5)
-        self.assertFalse(all(_inside_contours(x, y, higher) for x, y in model.screws))
+        higher = screw_room(p, undrilled, model.seat_depth + 0.5, shallow_row=True)
+        self.assertFalse(_inside(np.asarray(model.screws), higher).all())
         # A manual seat that does fit is used exactly, with nothing reported.
         low = build(replace(rail, seat_depth=6))
         self.assertEqual(low.seat_depth, 6)
@@ -577,7 +587,8 @@ class GeometryTests(unittest.TestCase):
         manual = build(Parameters(auto_spacing=False, screw_spacing=40))
         self.assertEqual(manual.screws[-1][0] - manual.screws[0][0], 40)
         high = build(Parameters(auto_seat=False, seat_depth=30))
-        self.assertEqual(high.parameters.seat_depth, high.preview()["seat_depth_limit"])
+        self.assertLess(high.parameters.seat_depth, high.preview()["seat_depth_limit"])
+        self.assertEqual(high.parameters.seat_depth, high.adjusted["seat_depth"])
         with self.assertRaisesRegex(ValueError, "screws closer"):
             build(Parameters(width=50, auto_spacing=False))
 
@@ -748,7 +759,7 @@ class GeometryTests(unittest.TestCase):
         x, y = deep.screws[0]
         contours = _solid(deep.mesh).slice(102).to_polygons()
         self.assertGreater(len(contours), 0)
-        self.assertFalse(_inside_contours(x, y, contours))
+        self.assertFalse(_inside(np.array([[x, y]]), contours)[0])
 
     def test_requested_hole_counts_are_present_in_preview_and_export(self):
         for count in range(2, 7):
