@@ -42,17 +42,16 @@ wait_for_http() {
   return 1
 }
 
+# Every generator lab in src/features/labs/labs.ts, unlisted ones included.
+generators=$(npx tsx -e 'import { GENERATOR_LABS as labs, generatorEnvName as env } from "./src/features/labs/labs"; for (const { slug, generator } of labs) console.log(slug, generator.port, generator.tool, env(slug));')
+[[ -n $generators ]] || { echo "No generator labs found" >&2; exit 1; }
 urls=()
-for entry in crimp:8766 sloper:8771 jug:8781 foot:8785 pocket:8795 pinch:8796 roundpinch:8798 crack:8797; do
-  kind=${entry%:*}
-  port=${entry#*:}
+while read -r kind port tool env; do
   base="http://127.0.0.1:$port"
-  export "${kind^^}_API_URL=$base"
-  tool=$kind
-  if [[ $kind == roundpinch ]]; then tool=round-pinch; fi
-  start "$kind" "$PYTHON" "tools/$tool-generator/serve_api.py" --port "$port"
+  export "$env=$base"
+  start "$kind" "$PYTHON" "tools/$tool/serve_api.py" --port "$port"
   urls+=("$base/api/$kind")
-done
+done <<<"$generators"
 export CUSTOM_SHAPE_API_URL=http://127.0.0.1:8791
 start custom-shape "$PYTHON" api/custom_shape.py
 urls+=("$CUSTOM_SHAPE_API_URL/api/custom_shape")

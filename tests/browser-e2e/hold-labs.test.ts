@@ -5,7 +5,7 @@ import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { chromium, type Browser, type Locator, type Page } from "playwright";
-import { LABS } from "../../src/features/labs/labs";
+import { GENERATOR_LABS, LABS } from "../../src/features/labs/labs";
 
 const baseURL = process.env.LAB_E2E_URL;
 assert.ok(
@@ -163,8 +163,10 @@ browserTest("Hold Labs hub and printing guide render", async (page) => {
     .waitFor();
 });
 
-for (const lab of LABS) {
-  if (lab.slug === "custom-shape") continue;
+// Every listed generator lab. Pinch is unlisted: its page only opens a
+// saved Pinch Lab design, and lab-defaults.test.ts covers its generator.
+for (const lab of GENERATOR_LABS) {
+  if (lab.listed === false) continue;
 
   browserTest(
     `${lab.name}: preview, slider, settings, STL, link and preset`,
