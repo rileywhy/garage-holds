@@ -5,8 +5,7 @@ import { createServer } from "node:net";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
-import { KIND_LABELS } from "../../src/features/hold-lab/api";
-import { LABS } from "../../src/features/labs/labs";
+import { GENERATOR_LABS, LABS } from "../../src/features/labs/labs";
 
 // Every route of the production build answers without a server error. The
 // home page and most others render per request (cookies, Supabase), so
@@ -144,19 +143,23 @@ test("the home page shows a card for every lab", async () => {
     );
 });
 
-test("the sitemap lists every lab", async () => {
-  const xml = await (await get("/sitemap.xml")).text();
-  for (const lab of LABS)
-    assert.ok(
-      xml.includes(`${lab.href}</loc>`),
-      `the sitemap leaves out ${lab.href}`,
-    );
+test("the sitemap lists exactly the lab routes", async () => {
+  const response = await get("/sitemap.xml");
+  assert.equal(response.status, 200, serverLog());
+  const xml = await response.text();
+  const labRoutes = [...xml.matchAll(/<loc>[^<]+(\/make\/[^<]+)<\/loc>/g)]
+    .map(([, route]) => route)
+    .filter((route) => route !== "/make/texture");
+  assert.deepEqual(
+    labRoutes,
+    LABS.map(({ href }) => href),
+  );
 });
 
 // The generators are Python functions that only Vercel runs (api/*.py), so
 // next start has nothing behind these addresses; a deployed site must answer
 // each with its control schema, or every lab page loads to an error.
-for (const kind of Object.keys(KIND_LABELS))
+for (const { slug: kind } of GENERATOR_LABS)
   test(
     `/api/${kind} serves its generator schema`,
     { skip: !DEPLOYED && "the generators only run on a deployed site" },

@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Browsing, the guide and the lab pages need no credentials; the labs' generators run from their Python servers (`scripts/start-sandbox.ps1` starts the six of them with the app, see [docs/sandbox.md](sandbox.md)). Accounts, uploads, reviews and saved holds need Supabase and R2: copy `.env.example` to `.env.local` and fill in the values it describes, or run the local stack in [docs/local-stack.md](local-stack.md); [docs/hosted-setup.md](hosted-setup.md) lists every dashboard setting involved.
+Open http://127.0.0.1:3000. Browsing, the guide and the lab pages need no credentials; the labs' generators run from their Python servers (`scripts/start-sandbox.ps1` starts them with the app, see [docs/sandbox.md](sandbox.md)). Accounts, uploads, reviews and saved holds need Supabase and R2: copy `.env.example` to `.env.local` and fill in the values it describes, or run the local stack in [docs/local-stack.md](local-stack.md); [docs/hosted-setup.md](hosted-setup.md) lists every dashboard setting involved.
 
 ```sh
 npm run format:check
@@ -28,7 +28,7 @@ GitHub Actions runs the same six commands on every pull request and on pushes to
 
 `npm run test:browser` draws the 3D previews (a card's thumbnail and the design page's viewer) in Chromium, WebKit and Firefox, the last also with fingerprinting resistance on and with WebGL off, and checks what reached the screen; CI runs it on every pull request. `npm run test:browser:install` downloads the three browsers once. On Linux without a screen, Firefox has no WebGL unless a display exists: `xvfb-run -a npm run test:browser`.
 
-With the six lab generators running (see [docs/sandbox.md](sandbox.md)), `npm run test:e2e` checks each parametric lab's default output end to end: the first preview, the settings the sliders hold, the link and the exported STL, against `tests/fixtures/lab-defaults.json`.
+With the lab generators running (see [docs/sandbox.md](sandbox.md)), `npm run test:e2e` checks each parametric lab's default output end to end: the first preview, the settings the sliders hold, the link and the exported STL, against `tests/fixtures/lab-defaults.json`.
 
 ## What works
 
@@ -53,6 +53,24 @@ With the six lab generators running (see [docs/sandbox.md](sandbox.md)), `npm ru
 [Crimp Lab](../tools/crimp-generator/README.md) is a parametric crimp generator: edge depth, incut, lip rounding, body shape, seeded variation, and screw holes, with a live 3D preview, a centre profile, and STL plus editable JSON export. The geometry is Python (`tools/crimp-generator`); on the site it runs as a Vercel Python function (`api/crimp.py`) behind `/make/crimp`, and locally the same engine has its own browser GUI (`server.py`) or serves the hosted route for `next dev` (`serve_api.py`). Generated holds reach the library only when someone uploads them.
 
 The [Sloper](../tools/sloper-generator/README.md), [Jug](../tools/jug-generator/README.md), [Foot](../tools/foot-generator/README.md), [Pocket](../tools/pocket-generator/README.md), [Pinch](../tools/pinch-generator/README.md) and [Round Pinch](../tools/round-pinch-generator/README.md) Labs (`/make/sloper`, `/make/jug`, `/make/foot`, `/make/pocket`, `/make/pinch`) share the crimp engine underneath, and all six parametric labs share one React shell (`src/features/hold-lab`); the Foot, Pocket and Pinch Labs are labelled experimental. The [Custom Shape Lab](../tools/custom-shape-generator/README.md) (`/make/custom-shape`) turns a painted silhouette into a hold. Every lab keeps the settings on screen in the address bar (`/make/crimp?edge_depth=22&incut=35`, or `?preset=rock+tooth`) and has a Copy link button, so a shape can be sent to a friend or linked from a Printables listing; the Custom Shape Lab packs its drawing into the link too (`src/features/lab-link`).
+
+## Adding a hold lab
+
+1. Add the lab to [`LABS`](../src/features/labs/labs.ts) in the order it
+   should appear on the cards and in the switcher. Supply its artwork and
+   framing, and decide whether it supports account presets. If it does,
+   add a migration updating the `lab_presets_lab` check constraint.
+2. Add `src/app/make/<slug>/page.tsx` and the Open Graph image and alt text
+   alongside it. Put the artwork referenced by `LABS` under `public/`.
+   Update the lab table in the README.
+3. For a parametric generator, set its tool directory, local port, design
+   version and viewer options in `LABS`. Add its `api/<slug>.py` handler,
+   matching function in `vercel.json`, local URL in `.env.example`, and tool
+   entries in the CI and deep geometry matrices. The rewrite and sandbox
+   pick up the generator from `LABS`.
+4. Run `npm test` for the conventions checks, then run the local generators
+   and update the end-to-end defaults fixture for the new lab with
+   `UPDATE_LAB_DEFAULTS=1 npm run test:e2e`. Review the fixture diff.
 
 ## Shared library
 

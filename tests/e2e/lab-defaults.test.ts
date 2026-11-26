@@ -10,6 +10,11 @@ import {
   type Parameters,
   type Preview,
 } from "../../src/features/hold-lab/api";
+import {
+  GENERATORS,
+  GENERATOR_LABS,
+  generatorEnvName,
+} from "../../src/features/labs/labs";
 import { followPreview } from "../../src/features/hold-lab/kinds";
 import { linkSearch } from "../../src/features/lab-link/lab-link";
 
@@ -19,29 +24,9 @@ import { linkSearch } from "../../src/features/lab-link/lab-link";
 // expected values live in tests/fixtures/lab-defaults.json; the test fails
 // when any of them moves, whether the lab or the generator changed.
 //
-// Needs the eight generators from docs/sandbox.md (npm run test:e2e). After an
+// Needs the generators from docs/sandbox.md (npm run test:e2e). After an
 // intended generator change, UPDATE_LAB_DEFAULTS=1 rewrites the fixture.
 
-const KINDS: Kind[] = [
-  "crimp",
-  "sloper",
-  "jug",
-  "foot",
-  "pocket",
-  "pinch",
-  "roundpinch",
-  "crack",
-];
-const PORTS: Record<Kind, number> = {
-  crimp: 8766,
-  sloper: 8771,
-  jug: 8781,
-  foot: 8785,
-  pocket: 8795,
-  pinch: 8796,
-  roundpinch: 8798,
-  crack: 8797,
-};
 const FIXTURE = fileURLToPath(
   new URL("../fixtures/lab-defaults.json", import.meta.url),
 );
@@ -52,10 +37,10 @@ const siteFetch = globalThis.fetch;
 globalThis.fetch = (input, init) => {
   const path = String(input);
   const kind = path.match(/^\/api\/(\w+)$/)?.[1] as Kind | undefined;
-  if (!kind || !(kind in PORTS)) return siteFetch(input, init);
+  if (!kind || !Object.hasOwn(GENERATORS, kind)) return siteFetch(input, init);
   const base =
-    process.env[`${kind.toUpperCase()}_API_URL`] ??
-    `http://127.0.0.1:${PORTS[kind]}`;
+    process.env[generatorEnvName(kind)] ??
+    `http://127.0.0.1:${GENERATORS[kind].port}`;
   return siteFetch(base.replace(/\/$/, "") + path, init);
 };
 
@@ -105,7 +90,7 @@ const expected: Partial<Record<Kind, DefaultOutput>> =
     : {};
 const seen: Partial<Record<Kind, DefaultOutput>> = {};
 
-for (const kind of KINDS)
+for (const { slug: kind } of GENERATOR_LABS)
   test(`${kind}: the default shape, its settings and its STL are what they were`, async () => {
     const actual = await defaultOutput(kind);
     seen[kind] = actual;

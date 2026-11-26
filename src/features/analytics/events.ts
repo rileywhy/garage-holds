@@ -1,29 +1,19 @@
 "use client";
 
 import { track } from "@vercel/analytics";
+import type { LabSlug } from "@/features/labs/labs";
 import type { LabErrorReason } from "@/features/labs/lab-request";
 
 // The few clicks worth counting. Vercel records the page each one happened
 // on by itself; the properties say which thing was clicked. Names and
 // properties are listed here so the Analytics tab stays readable.
-type Lab =
-  | "crimp"
-  | "sloper"
-  | "jug"
-  | "foot"
-  | "pocket"
-  | "pinch"
-  | "roundpinch"
-  | "crack"
-  | "custom-shape";
-
 type Event =
   // The labs: an export is the conversion, an error says a generator call
   // failed (cold start, timeout, or a shape it refused) and at which step.
-  | { name: "export_stl"; lab: Lab }
+  | { name: "export_stl"; lab: LabSlug }
   | {
       name: "lab_error";
-      lab: Lab;
+      lab: LabSlug;
       stage: "start" | "preview" | "export";
       // Why: a cold start that ran out of time, no connection, a failure in
       // the generator, settings it refused, no generator at this address,
@@ -34,7 +24,7 @@ type Event =
   // from a link someone shared.
   | {
       name: "lab_settings";
-      lab: Lab;
+      lab: LabSlug;
       action: "save" | "load" | "link" | "open" | "preset";
     }
   // The library.
